@@ -1,4 +1,14 @@
 "use strict";
 
-// Placeholder — controllers serão adicionados em fases futuras.
-module.exports = {};
+const { asyncHandler } = require("../../shared/utils/async-handler");
+const { success } = require("../../shared/http/response");
+const { validateListOrdersQuery } = require("./operations.validator");
+const service = require("./operations.service");
+
+const listOrders = asyncHandler(async (req, res) => {
+  const { date, empresas } = validateListOrdersQuery(req.query);
+  const data = await service.listOrdersForDelivery({ date, empresas });
+  return success(res, data);
+});
+
+module.exports = { listOrders };
