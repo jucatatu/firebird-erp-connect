@@ -156,3 +156,52 @@ test("mapper aceita linhas em lower-case (variações do driver)", () => {
   assert.equal(dto.clientName, "Nome Lower");
   assert.equal(dto.address.city, "Cidade Y");
 });
+
+test("resolveCompanyId: ORDENS_VENDA.ID_EMPRESA tem prioridade sobre CLIENTES.ID_EMPRESA", () => {
+  assert.equal(mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 1, CLIENTE_ID_EMPRESA: 3 }), 1);
+  assert.equal(mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 3, CLIENTE_ID_EMPRESA: 1 }), 3);
+});
+
+test("resolveCompanyId: usa CLIENTES.ID_EMPRESA quando pedido é null", () => {
+  assert.equal(
+    mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: null, CLIENTE_ID_EMPRESA: 3 }),
+    3,
+  );
+});
+
+test("resolveCompanyId: fallback grupo GROTT → 3 (case-insensitive)", () => {
+  assert.equal(
+    mapper.resolveCompanyId({ GRUPO_CLIENTE_DESCRICAO: "PONTO DE VENDA - GROTT" }),
+    3,
+  );
+  assert.equal(
+    mapper.resolveCompanyId({ GRUPO_CLIENTE_DESCRICAO: "revenda grott centro" }),
+    3,
+  );
+});
+
+test("resolveCompanyId: grupo sem GROTT → null (nunca assume empresa 1)", () => {
+  assert.equal(
+    mapper.resolveCompanyId({ GRUPO_CLIENTE_DESCRICAO: "CLIENTES GERAIS" }),
+    null,
+  );
+  assert.equal(mapper.resolveCompanyId({}), null);
+  assert.equal(
+    mapper.resolveCompanyId({
+      ORDEM_ID_EMPRESA: null,
+      CLIENTE_ID_EMPRESA: null,
+      GRUPO_CLIENTE_DESCRICAO: null,
+    }),
+    null,
+  );
+});
+
+test("buildOrder usa companyId resolvido pela regra oficial", () => {
+  const dto = mapper.buildOrder(
+    { ID_ORDENS_VENDA: 1, ORDEM_ID_EMPRESA: 3 },
+    null,
+    [],
+    [],
+  );
+  assert.equal(dto.companyId, 3);
+});

@@ -11,8 +11,11 @@
  *   - itens e equipamentos NÃO são deduplicados;
  *   - camelCase no contrato final.
  *
- * TODO Sprint futura:
- * confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
+ * Resolução de empresa (Sprint 1.2.0):
+ *   1. ORDENS_VENDA.ID_EMPRESA
+ *   2. CLIENTES.ID_EMPRESA
+ *   3. Grupo do cliente contém "GROTT" (case-insensitive) → 3
+ *   4. Caso contrário → null
  */
 
 /**
@@ -105,6 +108,20 @@ function mapClientName(row) {
   return nome || apelido || "";
 }
 
+/**
+ * Resolve a empresa oficial do pedido conforme a regra do ERP.
+ * NUNCA assume empresa 1 automaticamente — empresa desconhecida = null.
+ */
+function resolveCompanyId(row) {
+  const ordem = toNullableInt(pick(row, "ORDEM_ID_EMPRESA"));
+  if (ordem !== null) return ordem;
+  const cliente = toNullableInt(pick(row, "CLIENTE_ID_EMPRESA"));
+  if (cliente !== null) return cliente;
+  const grupo = toNullableString(pick(row, "GRUPO_CLIENTE_DESCRICAO"));
+  if (grupo && /grott/i.test(grupo)) return 3;
+  return null;
+}
+
 function mapItemRow(row) {
   return {
     productId: toNullableInt(pick(row, "ID_PRODUTO")),
@@ -169,9 +186,7 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
     expectedReturn: toDateOnly(pick(orderRow, "DATA_PREV_RETORNO")),
     observations: toNullableString(pick(orderRow, "OBS")),
     erpStatus: toNullableString(pick(orderRow, "STATUS_DESCRICAO")),
-    // Legado do contrato v1.1.0: mantido como null até que a origem real
-    // de ID_EMPRESA seja confirmada (ver TODO no topo do arquivo).
-    companyId: null,
+    companyId: resolveCompanyId(orderRow),
     address: mapAddress(orderRow),
     items: (itemRows || []).map(mapItemRow),
     equipments: (equipRows || []).map(mapEquipmentRow),
@@ -180,6 +195,7 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
 
 module.exports = {
   buildOrder,
+  resolveCompanyId,
   pick,
   toNullableString,
   toNullableNumber,

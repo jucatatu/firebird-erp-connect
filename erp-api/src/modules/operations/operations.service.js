@@ -38,14 +38,15 @@ function readId(row, key) {
  *   4. Agrupa em memória e monta o contrato final SEM deduplicar
  *      itens ou equipamentos.
  *
- * O parâmetro `companies` é validado no contrato mas NÃO é aplicado
- * como filtro nesta Sprint — a origem real de ID_EMPRESA ainda não
- * foi confirmada no ERP e nenhum pedido pode ser silenciosamente
- * classificado ou excluído por regra inventada.
+ * Quando o cliente informa explicitamente `companies`, o filtro é
+ * aplicado sobre o `companyId` resolvido pelo mapper (regra oficial:
+ * ORDENS_VENDA.ID_EMPRESA → CLIENTES.ID_EMPRESA → grupo GROTT → null).
+ * Pedidos com `companyId = null` NÃO aparecem quando há filtro.
+ * Sem filtro, todos os pedidos do dia são retornados.
  *
- * @param {{ date: string, companies: number[] }} input
+ * @param {{ date: string, companies: number[], companiesProvided?: boolean }} input
  */
-async function listOrdersForDelivery({ date, companies }) {
+async function listOrdersForDelivery({ date, companies, companiesProvided }) {
   const firebirdDate = toFirebirdDate(date);
   const orderRows = (await repository.findOrdersByDeliveryDate(firebirdDate)) || [];
 
@@ -100,7 +101,7 @@ async function listOrdersForDelivery({ date, companies }) {
     equipByOrder.get(oid).push(row);
   }
 
-  const orders = [];
+  const allOrders = [];
   const emittedOrders = new Set();
   for (const orderRow of orderRows) {
     const oid = readId(orderRow, "ID_ORDENS_VENDA");
@@ -116,8 +117,12 @@ async function listOrdersForDelivery({ date, companies }) {
       oid !== null ? itemsByOrder.get(oid) || [] : [],
       oid !== null ? equipByOrder.get(oid) || [] : [],
     );
-    orders.push(dto);
+    allOrders.push(dto);
   }
+
+  const orders = companiesProvided
+    ? allOrders.filter((o) => o.companyId !== null && companies.includes(o.companyId))
+    : allOrders;
 
   return {
     date,

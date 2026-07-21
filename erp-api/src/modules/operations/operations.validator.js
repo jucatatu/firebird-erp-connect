@@ -140,7 +140,8 @@ function validateListOrdersQuery(query) {
     });
   }
 
-  return { date: rawDate, companies };
+  const companiesProvided = rawCompanies !== undefined && rawCompanies !== null;
+  return { date: rawDate, companies, companiesProvided };
 }
 
 module.exports = {

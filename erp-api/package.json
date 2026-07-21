@@ -1,6 +1,6 @@
 {
   "name": "erp-api",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "ERP API v1.0.0 - Backend oficial de integração com ERP Firebird",
   "main": "server.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^7.4.0",
     "helmet": "^7.1.0",
+    "iconv-lite": "^0.6.3",
     "node-firebird": "^1.1.9",
     "pino": "^9.3.2",
     "pino-http": "^10.2.0",
