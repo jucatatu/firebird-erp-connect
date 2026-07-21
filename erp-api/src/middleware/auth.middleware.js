@@ -33,6 +33,17 @@ function nonceSeen(nonce) {
   return true;
 }
 
+function logAuthRejected(req, reason, extra = {}) {
+  logger.warn(
+    {
+      requestId: req.requestId,
+      reason,
+      ...extra,
+    },
+    "Authentication rejected",
+  );
+}
+
 function unauthorized(res) {
   return res.status(401).json({
     success: false,
@@ -83,30 +94,51 @@ function authMiddleware(req, res, next) {
   const signature = req.header("x-signature");
 
   if (!apiKey || !timestamp || !nonce || !signature) {
+    logAuthRejected(req, "missing_api_key", {
+      hasApiKey: !!apiKey,
+      hasTimestamp: !!timestamp,
+      hasNonce: !!nonce,
+      hasSignature: !!signature,
+    });
     return unauthorized(res);
   }
   if (!env.API_KEY || !env.HMAC_SECRET) {
     // Config incompleta em produção já é bloqueada na env; aqui é defesa em profundidade.
+    logAuthRejected(req, "unauthorized", {
+      hasConfiguredApiKey: !!env.API_KEY,
+      hasConfiguredHmacSecret: !!env.HMAC_SECRET,
+    });
     return unauthorized(res);
   }
 
   // API key check (constant-time)
   if (!timingSafeEqualStr(apiKey, env.API_KEY)) {
+    logAuthRejected(req, "invalid_api_key");
     return unauthorized(res);
   }
 
   // Timestamp (ms since epoch)
   const ts = Number(timestamp);
-  if (!Number.isFinite(ts)) return unauthorized(res);
+  if (!Number.isFinite(ts)) {
+    logAuthRejected(req, "invalid_timestamp");
+    return unauthorized(res);
+  }
   if (Math.abs(Date.now() - ts) > TIMESTAMP_TOLERANCE_MS) {
+    logAuthRejected(req, "timestamp_out_of_range");
     return unauthorized(res);
   }
 
   // Nonce anti-replay
   if (typeof nonce !== "string" || nonce.length < 8 || nonce.length > 128) {
+    logAuthRejected(req, "invalid_request", {
+      invalidField: "nonce",
+    });
     return unauthorized(res);
   }
-  if (nonceSeen(nonce)) return unauthorized(res);
+  if (nonceSeen(nonce)) {
+    logAuthRejected(req, "nonce_replay");
+    return unauthorized(res);
+  }
 
   // Body hash
   const rawBody =
@@ -128,6 +160,7 @@ function authMiddleware(req, res, next) {
   });
 
   if (!timingSafeEqualStr(signature, expected)) {
+    logAuthRejected(req, "invalid_signature");
     return unauthorized(res);
   }
 
