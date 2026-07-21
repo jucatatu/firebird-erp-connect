@@ -2,12 +2,7 @@
 
 const { AppError } = require("../../shared/errors/app-error");
 
-// Empresas atualmente permitidas pela regra de negócio.
-// Mantido no contrato para compatibilidade; nesta Sprint o valor é
-// validado mas NÃO é usado como filtro (ver operations.service).
-//
-// TODO Sprint futura:
-// confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
+// Empresas permitidas pela regra oficial: 1 = Graal, 3 = Grott.
 const ALLOWED_COMPANIES = Object.freeze([1, 3]);
 // Alias retrocompatível.
 const ALLOWED_EMPRESAS = ALLOWED_COMPANIES;
