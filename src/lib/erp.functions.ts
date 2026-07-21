@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { JsonValue } from "./erp.server";
 
 // Client-safe: só exporta wrappers de createServerFn. NÃO importa erp.server
 // no topo — o import ocorre dentro do handler para manter o client bundle limpo.
@@ -9,6 +10,14 @@ export interface ErpHealthPayload {
   version: string;
   environment: string;
   timestamp: string;
+  [key: string]: JsonValue;
+}
+
+export interface ErpDbHealthPayload {
+  status: string;
+  database: string;
+  timestamp: string;
+  [key: string]: JsonValue;
 }
 
 export const pingErpHealth = createServerFn({ method: "GET" }).handler(async () => {
@@ -22,7 +31,7 @@ export const pingErpHealth = createServerFn({ method: "GET" }).handler(async () 
 
 export const pingErpDatabase = createServerFn({ method: "GET" }).handler(async () => {
   const { callErp } = await import("./erp.server");
-  const res = await callErp<{ status: string; database: string; timestamp: string }>({
+  const res = await callErp<ErpDbHealthPayload>({
     method: "GET",
     path: "/api/v1/health/erp",
   });
@@ -30,35 +39,21 @@ export const pingErpDatabase = createServerFn({ method: "GET" }).handler(async (
 });
 
 export interface OrderItem {
-  id?: number | string;
-  descricao?: string;
-  quantidade?: number;
-  precoUnit?: number;
-  valorItem?: number;
-  [key: string]: unknown;
+  [key: string]: JsonValue;
 }
 
 export interface OrderEquipment {
-  id?: number | string;
-  descricao?: string;
-  tipoEquipamentoId?: number | string;
-  [key: string]: unknown;
+  [key: string]: JsonValue;
 }
 
 export interface Order {
-  orderId: number | string;
-  numeroPedido: number | string;
-  dataPrevEntrega: string | null;
-  observacao: string | null;
-  numero: string | null;
-  complemento: string | null;
-  companyId: 1 | 3;
-  clienteId?: number | string | null;
-  clienteNome?: string | null;
-  telefone?: string | null;
-  itens: OrderItem[];
-  equipamentos: OrderEquipment[];
-  [key: string]: unknown;
+  [key: string]: JsonValue;
+}
+
+export interface OrdersPayload {
+  orders: Order[];
+  count: number;
+  [key: string]: JsonValue;
 }
 
 export interface ListOrdersInput {
@@ -102,7 +97,7 @@ export const listOrders = createServerFn({ method: "POST" })
     if (data.companies && data.companies.length > 0) {
       query.companies = data.companies.join(",");
     }
-    return callErp<{ orders: Order[]; count: number }>({
+    return callErp<OrdersPayload>({
       method: "GET",
       path: "/api/v1/operations/orders",
       query,
