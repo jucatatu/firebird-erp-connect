@@ -56,7 +56,7 @@ test("buildOrder mapeia contrato completo com nome, endereço, datas e status", 
   assert.equal(dto.expectedReturn, "2026-07-25");
   assert.equal(dto.observations, "Entregar após 14h");
   assert.equal(dto.erpStatus, "Confirmado");
-  assert.equal(dto.companyId, null);
+  assert.equal(dto.companyId, 1);
   assert.deepEqual(dto.address, {
     street: "Rua Exemplo",
     number: "100",
@@ -157,21 +157,29 @@ test("mapper aceita linhas em lower-case (variações do driver)", () => {
   assert.equal(dto.address.city, "Cidade Y");
 });
 
-test("resolveCompanyId: ORDENS_VENDA.ID_EMPRESA tem prioridade sobre CLIENTES.ID_EMPRESA", () => {
-  assert.equal(mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 1, CLIENTE_ID_EMPRESA: 3 }), 1);
+test("resolveCompanyId: prioridade ORDENS_VENDA sobre CLIENTES", () => {
   assert.equal(mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 3, CLIENTE_ID_EMPRESA: 1 }), 3);
+  assert.equal(mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 1, CLIENTE_ID_EMPRESA: 3 }), 1);
 });
 
-test("resolveCompanyId: usa CLIENTES.ID_EMPRESA quando pedido é null", () => {
+test("resolveCompanyId: fallback para CLIENTES quando ordem é null", () => {
   assert.equal(
     mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: null, CLIENTE_ID_EMPRESA: 3 }),
     3,
+  );
+  assert.equal(
+    mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: null, CLIENTE_ID_EMPRESA: 1 }),
+    1,
   );
 });
 
 test("resolveCompanyId: fallback grupo GROTT → 3 (case-insensitive)", () => {
   assert.equal(
-    mapper.resolveCompanyId({ GRUPO_CLIENTE_DESCRICAO: "PONTO DE VENDA - GROTT" }),
+    mapper.resolveCompanyId({
+      ORDEM_ID_EMPRESA: null,
+      CLIENTE_ID_EMPRESA: null,
+      GRUPO_CLIENTE_DESCRICAO: "PONTO DE VENDA - GROTT",
+    }),
     3,
   );
   assert.equal(
@@ -180,20 +188,70 @@ test("resolveCompanyId: fallback grupo GROTT → 3 (case-insensitive)", () => {
   );
 });
 
-test("resolveCompanyId: grupo sem GROTT → null (nunca assume empresa 1)", () => {
+test("resolveCompanyId: default Graal quando não há evidência de GROTT", () => {
   assert.equal(
     mapper.resolveCompanyId({ GRUPO_CLIENTE_DESCRICAO: "CLIENTES GERAIS" }),
-    null,
+    1,
   );
-  assert.equal(mapper.resolveCompanyId({}), null);
+  assert.equal(mapper.resolveCompanyId({}), 1);
   assert.equal(
     mapper.resolveCompanyId({
       ORDEM_ID_EMPRESA: null,
       CLIENTE_ID_EMPRESA: null,
       GRUPO_CLIENTE_DESCRICAO: null,
     }),
-    null,
+    1,
   );
+});
+
+test("resolveCompanyId: CLIENTES e ORDEM prevalecem sobre grupo GROTT", () => {
+  assert.equal(
+    mapper.resolveCompanyId({
+      ORDEM_ID_EMPRESA: null,
+      CLIENTE_ID_EMPRESA: 1,
+      GRUPO_CLIENTE_DESCRICAO: "GROTT VAREJO",
+    }),
+    1,
+  );
+  assert.equal(
+    mapper.resolveCompanyId({
+      ORDEM_ID_EMPRESA: 1,
+      CLIENTE_ID_EMPRESA: 3,
+      GRUPO_CLIENTE_DESCRICAO: "GROTT VAREJO",
+    }),
+    1,
+  );
+});
+
+test("resolveCompanyId: valores fora de {1,3} são ignorados", () => {
+  // ORDEM=99 inválido, cliente null, grupo comum → default 1
+  assert.equal(
+    mapper.resolveCompanyId({
+      ORDEM_ID_EMPRESA: 99,
+      CLIENTE_ID_EMPRESA: null,
+      GRUPO_CLIENTE_DESCRICAO: "COMUM",
+    }),
+    1,
+  );
+  // ORDEM=99 inválido, cliente=3 → 3 (avança para próximo nível)
+  assert.equal(
+    mapper.resolveCompanyId({ ORDEM_ID_EMPRESA: 99, CLIENTE_ID_EMPRESA: 3 }),
+    3,
+  );
+});
+
+test("resolveCompanyId: nunca retorna null", () => {
+  const cases = [
+    {},
+    { ORDEM_ID_EMPRESA: null, CLIENTE_ID_EMPRESA: null, GRUPO_CLIENTE_DESCRICAO: null },
+    { ORDEM_ID_EMPRESA: "", CLIENTE_ID_EMPRESA: "" },
+    { GRUPO_CLIENTE_DESCRICAO: "" },
+    { ORDEM_ID_EMPRESA: 42 },
+  ];
+  for (const row of cases) {
+    const r = mapper.resolveCompanyId(row);
+    assert.ok(r === 1 || r === 3, `expected 1 or 3, got ${r}`);
+  }
 });
 
 test("buildOrder usa companyId resolvido pela regra oficial", () => {
@@ -204,4 +262,6 @@ test("buildOrder usa companyId resolvido pela regra oficial", () => {
     [],
   );
   assert.equal(dto.companyId, 3);
+  const dto2 = mapper.buildOrder({ ID_ORDENS_VENDA: 2 }, null, [], []);
+  assert.equal(dto2.companyId, 1);
 });
