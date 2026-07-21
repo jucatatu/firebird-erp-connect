@@ -8,30 +8,44 @@
  *   - conversão numérica explícita;
  *   - datas → "YYYY-MM-DD" (sem horário);
  *   - ausência de valor → null (nunca undefined);
- *   - deduplicação de itens/equipamentos por ID;
+ *   - itens e equipamentos NÃO são deduplicados;
  *   - camelCase no contrato final.
+ *
+ * TODO Sprint futura:
+ * confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
  */
 
-// GROTT — ID do grupo de cliente historicamente vinculado à empresa 3.
-// TODO(regra): o valor exato do ID do grupo GROTT precisa ser CONFIRMADO
-// no servidor Windows contra a base do ERP. Enquanto não confirmado,
-// null / grupos desconhecidos caem no fallback (empresa 1).
-const GROTT_GROUP_ID = null; // ← preencher após confirmação no ERP real.
-
+/**
+ * Lê um valor de uma linha do Firebird tolerando 3 variantes de chave:
+ * exata, upper-case e lower-case. node-firebird tipicamente devolve
+ * chaves em maiúsculas, mas mocks/testes podem usar outras variantes.
+ */
 function pick(row, key) {
   if (!row) return undefined;
-  // node-firebird retorna chaves em MAIÚSCULO quando lowercase_keys=false.
-  if (key in row) return row[key];
+  if (row[key] !== undefined) return row[key];
   const upper = key.toUpperCase();
-  if (upper in row) return row[upper];
+  if (row[upper] !== undefined) return row[upper];
+  const lower = key.toLowerCase();
+  if (row[lower] !== undefined) return row[lower];
   return undefined;
 }
 
 function toNullableString(v) {
   if (v === undefined || v === null) return null;
-  if (Buffer.isBuffer(v)) v = v.toString("utf8");
+  // Se o driver já entregou string, não fazemos dupla conversão. Buffers
+  // com WIN1252 são decodificados pelo próprio driver (charset: WIN1252)
+  // — aqui apenas normalizamos strings preservando acentos já decodificados.
+  if (Buffer.isBuffer(v)) {
+    try {
+      // eslint-disable-next-line global-require
+      const iconv = require("iconv-lite");
+      v = iconv.decode(v, "win1252");
+    } catch (_e) {
+      v = v.toString("binary");
+    }
+  }
   if (typeof v !== "string") v = String(v);
-  const trimmed = v.replace(/\s+$/u, "");
+  const trimmed = v.trim();
   return trimmed.length === 0 ? null : trimmed;
 }
 
@@ -69,75 +83,49 @@ function toDateOnly(v) {
   return null;
 }
 
-/**
- * Inferência de empresa quando ORDEM_VENDA.ID_EMPRESA está ausente.
- *
- * Regra histórica documentada:
- *   - cliente pertencente ao grupo GROTT → empresa 3;
- *   - demais casos → empresa 1.
- *
- * ATENÇÃO: o ID exato do grupo GROTT ainda não está confirmado no
- * servidor real. Enquanto GROTT_GROUP_ID for null, TODOS os clientes
- * sem empresa explícita caem em empresa 1. Confirmar no ERP e ajustar
- * a constante GROTT_GROUP_ID acima antes de considerar a regra completa.
- */
-function inferCompanyId(orderRow) {
-  const explicit = toNullableInt(pick(orderRow, "ORDER_ID_EMPRESA"));
-  if (explicit !== null) return explicit;
-  const grupoId = toNullableInt(pick(orderRow, "CLIENTE_ID_GRUPO"));
-  if (grupoId !== null && GROTT_GROUP_ID !== null && grupoId === GROTT_GROUP_ID) {
-    return 3;
-  }
-  return 1;
-}
-
-function mapCustomer(row) {
-  return {
-    id: toNullableInt(pick(row, "CLIENTE_ID")),
-    name: toNullableString(pick(row, "PESSOA_NOME")),
-    tradeName: toNullableString(pick(row, "CLIENTE_NOME_FANTASIA")),
-    phone: toNullableString(pick(row, "CLI_TELEFONE")),
-  };
+function orEmpty(v) {
+  const s = toNullableString(v);
+  return s === null ? "" : s;
 }
 
 function mapAddress(row) {
   return {
-    street: toNullableString(pick(row, "CLI_ENDERECO")),
-    number: toNullableString(pick(row, "CLI_NUMERO_END")),
-    complement: toNullableString(pick(row, "CLI_COMPLEMENTO")),
-    district: toNullableString(pick(row, "BAIRRO_NOME")),
-    city: toNullableString(pick(row, "CIDADE_NOME")),
-    state: toNullableString(pick(row, "ESTADO_UF")),
-    postalCode: toNullableString(pick(row, "CLI_CEP")),
-    reference: toNullableString(pick(row, "CLI_REFERENCIA")),
+    street: orEmpty(pick(row, "RUA")),
+    number: orEmpty(pick(row, "NUMERO")),
+    complement: orEmpty(pick(row, "COMPLEMENTO")),
+    neighborhood: orEmpty(pick(row, "BAIRRO")),
+    city: orEmpty(pick(row, "CIDADE")),
+    state: orEmpty(pick(row, "UF")),
   };
 }
 
-function mapStatus(row) {
-  const id = toNullableInt(pick(row, "ORDER_ID_STATUS"));
-  const name = toNullableString(pick(row, "STATUS_NOME"));
-  return { id, name };
+function mapClientName(row) {
+  const nome = toNullableString(pick(row, "CLIENTE_NOME"));
+  const apelido = toNullableString(pick(row, "CLIENTE_APELIDO"));
+  return nome || apelido || "";
 }
 
 function mapItemRow(row) {
   return {
-    productId: toNullableInt(pick(row, "PRODUTO_ID")),
-    name: toNullableString(pick(row, "PRODUTO_NOME")),
+    productId: toNullableInt(pick(row, "ID_PRODUTO")),
+    product: toNullableString(pick(row, "PRODUTO")),
     quantity: toNullableNumber(pick(row, "QUANTIDADE")),
-    unit: toNullableString(pick(row, "UNIDADE")),
+    unitPrice: toNullableNumber(pick(row, "VALOR_UNITARIO")),
+    total: toNullableNumber(pick(row, "VALOR_TOTAL")),
   };
 }
 
 function mapEquipmentRow(row) {
   return {
-    typeId: toNullableInt(pick(row, "TIPO_ID")),
-    name: toNullableString(pick(row, "TIPO_NOME")),
+    typeId: toNullableInt(pick(row, "ID_TIPO_EQUIPAMENTO")),
+    type: toNullableString(pick(row, "TIPO")),
     quantity: toNullableNumber(pick(row, "QUANTIDADE")),
   };
 }
 
 /**
  * Deduplica linhas por chave. Preserva ordem original de primeira ocorrência.
+ * Mantido como utilitário: NÃO é usado para itens/equipamentos.
  */
 function dedupeBy(rows, keyFn) {
   const seen = new Set();
@@ -156,37 +144,43 @@ function dedupeBy(rows, keyFn) {
 }
 
 /**
- * Constrói um pedido completo a partir da linha-base e das linhas de itens/equipamentos.
+ * Constrói um pedido completo a partir da linha-base, telefone escolhido
+ * e das linhas de itens/equipamentos (sem deduplicação).
+ *
+ * @param {object} orderRow — linha bruta de ORDENS_VENDA + joins.
+ * @param {string|null} phone — telefone já escolhido pelo service.
+ * @param {Array<object>} itemRows
+ * @param {Array<object>} equipRows
  */
-function buildOrder(orderRow, itemRows, equipRows) {
-  const items = dedupeBy(
-    (itemRows || []).map(mapItemRow),
-    (i) => (i.productId !== null ? `p:${i.productId}` : null),
-  );
-  const equipment = dedupeBy(
-    (equipRows || []).map(mapEquipmentRow),
-    (e) => (e.typeId !== null ? `t:${e.typeId}` : null),
-  );
+function buildOrder(orderRow, phone, itemRows, equipRows) {
+  const orderNumberRaw = pick(orderRow, "N_PEDIDO");
+  const orderNumberStr =
+    orderNumberRaw === null || orderNumberRaw === undefined
+      ? ""
+      : String(orderNumberRaw).trim();
 
   return {
-    id: toNullableInt(pick(orderRow, "ORDER_ID")),
-    number: toNullableInt(pick(orderRow, "ORDER_NUMERO")),
-    companyId: inferCompanyId(orderRow),
-    status: mapStatus(orderRow),
-    customer: mapCustomer(orderRow),
-    delivery: {
-      date: toDateOnly(pick(orderRow, "ORDER_DT_ENTREGA")),
-      address: mapAddress(orderRow),
-    },
-    notes: toNullableString(pick(orderRow, "ORDER_OBSERVACAO")),
-    items,
-    equipment,
+    orderId: toNullableInt(pick(orderRow, "ID_ORDENS_VENDA")),
+    orderNumber: orderNumberStr,
+    clientId: toNullableInt(pick(orderRow, "ID_CLIENTE")),
+    clientName: mapClientName(orderRow),
+    phone: phone === undefined ? null : phone,
+    expectedDelivery: toDateOnly(pick(orderRow, "DATA_PREV_ENTREGA")),
+    expectedReturn: toDateOnly(pick(orderRow, "DATA_PREV_RETORNO")),
+    observations: toNullableString(pick(orderRow, "OBS")),
+    erpStatus: toNullableString(pick(orderRow, "STATUS_DESCRICAO")),
+    // Legado do contrato v1.1.0: mantido como null até que a origem real
+    // de ID_EMPRESA seja confirmada (ver TODO no topo do arquivo).
+    companyId: null,
+    address: mapAddress(orderRow),
+    items: (itemRows || []).map(mapItemRow),
+    equipments: (equipRows || []).map(mapEquipmentRow),
   };
 }
 
 module.exports = {
   buildOrder,
-  inferCompanyId,
+  pick,
   toNullableString,
   toNullableNumber,
   toNullableInt,
@@ -194,5 +188,6 @@ module.exports = {
   dedupeBy,
   mapItemRow,
   mapEquipmentRow,
-  GROTT_GROUP_ID,
+  mapAddress,
+  mapClientName,
 };
