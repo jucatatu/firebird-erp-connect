@@ -352,16 +352,31 @@ function ErpDiagnosticsPage() {
                     {ordersList.map((o, idx) => {
                       const num = pick(o, "orderNumber", "numero", "N_PEDIDO");
                       const customer =
-                        pick(o, "customerName", "cliente", "nome") ?? "—";
+                        pick(o, "clientName", "customerName", "cliente", "nome") ?? "—";
                       const cid = Number(pick(o, "companyId"));
                       const empresa =
                         cid === 1 ? "Graal" : cid === 3 ? "Grott" : "—";
+                      // Total do pedido = soma de items[].total (payload não expõe total top-level).
+                      const items = (pick<unknown[]>(o, "items") ?? []) as Array<
+                        Record<string, unknown>
+                      >;
                       const total =
                         pick(o, "total", "valorTotal", "VALOR_TOTAL") ??
-                        pick(o, "valor");
+                        pick(o, "valor") ??
+                        (Array.isArray(items)
+                          ? items.reduce(
+                              (acc, it) => acc + (Number(pick(it, "total", "valorItem")) || 0),
+                              0,
+                            )
+                          : undefined);
                       const dt =
-                        pick(o, "deliveryDate", "dataEntrega", "DATA_PREV_ENTREGA") ??
-                        pick(o, "date", "data");
+                        pick(
+                          o,
+                          "expectedDelivery",
+                          "deliveryDate",
+                          "dataEntrega",
+                          "DATA_PREV_ENTREGA",
+                        ) ?? pick(o, "date", "data");
                       return (
                         <tr
                           key={String(pick(o, "id", "orderId") ?? idx)}
