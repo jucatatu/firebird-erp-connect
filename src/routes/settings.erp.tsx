@@ -164,6 +164,9 @@ function ErpDiagnosticsPage() {
             Validação da integração entre o Lovable e a API Node do Firebird.
             Uso interno.
           </p>
+          <div className="mt-2 rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-mono text-muted-foreground">
+            Build: 3a45e8f · Commit: 3a45e8fe220c1368a2380d4804225584efdd0d92 · Timestamp: 2026-07-21T23:51Z
+          </div>
         </header>
 
         {/* Status */}
