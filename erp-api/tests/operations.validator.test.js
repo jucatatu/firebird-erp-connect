@@ -71,10 +71,21 @@ test("validateListOrdersQuery lança VALIDATION_ERROR com details quando date au
 
 test("validateListOrdersQuery retorna estrutura normalizada com companies", () => {
   const r = validateListOrdersQuery({ date: "2026-07-21", companies: "3,1" });
-  assert.deepEqual(r, { date: "2026-07-21", companies: [1, 3] });
+  assert.deepEqual(r, {
+    date: "2026-07-21",
+    companies: [1, 3],
+    companiesProvided: true,
+  });
 });
 
 test("validateListOrdersQuery aceita alias legado empresas", () => {
   const r = validateListOrdersQuery({ date: "2026-07-21", empresas: "1" });
   assert.deepEqual(r.companies, [1]);
+  assert.equal(r.companiesProvided, true);
+});
+
+test("validateListOrdersQuery sem companies marca companiesProvided=false", () => {
+  const r = validateListOrdersQuery({ date: "2026-07-21" });
+  assert.equal(r.companiesProvided, false);
+  assert.deepEqual(r.companies, [1, 3]);
 });
