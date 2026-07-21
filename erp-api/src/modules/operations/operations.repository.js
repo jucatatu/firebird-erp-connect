@@ -41,6 +41,10 @@ async function findOrdersByDeliveryDate(firebirdDate) {
       ov.NUMERO,
       ov.COMPLEMENTO,
 
+      ov.ID_EMPRESA AS ORDEM_ID_EMPRESA,
+      cl.ID_EMPRESA AS CLIENTE_ID_EMPRESA,
+      gc.DESCRICAO  AS GRUPO_CLIENTE_DESCRICAO,
+
       p.NOME AS CLIENTE_NOME,
       p.APELIDO AS CLIENTE_APELIDO,
 
@@ -54,6 +58,7 @@ async function findOrdersByDeliveryDate(firebirdDate) {
     FROM ORDENS_VENDA ov
     LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
     LEFT JOIN PESSOAS  p  ON cl.ID_PESSOA = p.ID_PESSOA
+    LEFT JOIN GRUPO_CLIENTE gc ON cl.ID_GRUPO_CLIENTE = gc.ID_GRUPO_CLIENTE
     LEFT JOIN ESTADO   e  ON ov.ID_ESTADO = e.ID_ESTADO
     LEFT JOIN CIDADE   ci ON ov.ID_CIDADE = ci.ID_CIDADE
     LEFT JOIN BAIRRO   b  ON ov.ID_BAIRRO = b.ID_BAIRRO
