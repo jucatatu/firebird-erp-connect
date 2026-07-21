@@ -1,12 +1,19 @@
 "use strict";
 
-const Firebird = require("node-firebird");
+let Firebird;
+try {
+  // eslint-disable-next-line global-require
+  Firebird = require("node-firebird");
+} catch (_e) {
+  Firebird = null;
+}
 const { firebirdOptions } = require("../../config/firebird");
 const { logger } = require("../../config/logger");
 const { AppError } = require("../errors/app-error");
 
 function attach() {
   return new Promise((resolve, reject) => {
+    if (!Firebird) return reject(new Error("driver_unavailable"));
     Firebird.attach(firebirdOptions, (err, db) => {
       if (err) return reject(err);
       resolve(db);
@@ -44,15 +51,16 @@ async function executeQuery(sql, params = []) {
     const rows = await query(db, sql, params);
     return rows;
   } catch (err) {
-    logger.error(
-      { err: { message: err && err.message, code: err && err.code } },
-      "Erro no Firebird",
-    );
+    // Log interno mínimo. Nunca logamos SQL, parâmetros, host, path do banco
+    // ou credenciais. Apenas o code do driver para diagnóstico.
+    logger.error({ code: err && err.code }, "erro no acesso ao ERP");
     throw new AppError({
       message: "ERP temporariamente indisponível.",
       statusCode: 503,
       code: "ERP_UNAVAILABLE",
       retryable: true,
+      // 'cause' fica apenas em memória para debug local; nunca é serializado ao cliente
+      details: { cause: err && err.message },
     });
   } finally {
     if (db) await detach(db);
