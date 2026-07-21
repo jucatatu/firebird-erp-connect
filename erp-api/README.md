@@ -1,10 +1,17 @@
-# ERP API v1.1.0
+# ERP API v1.1.1
 
 Backend oficial de integração com o ERP Firebird.
 
 - **v1.0.0** — fundação técnica (health, autenticação HMAC, estrutura modular).
 - **v1.1.0** — primeiro endpoint operacional: `GET /api/v1/operations/orders`
   (listagem de pedidos para entrega, somente leitura).
+- **v1.1.1** — correção do endpoint `/operations/orders`: schema real do
+  Firebird (`N_PEDIDO`, `ID_ORDENS_VENDA`, `DATA_PREV_ENTREGA`, `OBS`),
+  telefones via `CONTATO`/`TIPO_CONTATO` em lote (CELULAR > FONE), itens
+  e equipamentos preservados sem deduplicação, conversão automática de
+  `YYYY-MM-DD` para `MM/DD/YYYY`, parâmetro `companies` no lugar de
+  `empresas` (alias legado ainda aceito), sem filtro/classificação
+  inventada por empresa.
 
 > ⚠️ Este projeto é uma aplicação **Node.js tradicional** (Express + `node-firebird`).
 > Ele **não roda** em ambientes serverless/edge — precisa de um Node com acesso
