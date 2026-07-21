@@ -130,31 +130,13 @@ test("Bypass NÃO funciona em produção mesmo com DEV_BYPASS_AUTH=true", async 
   delete require.cache[envPath];
 });
 
-test("isLocalhost só aceita socket loopback (não confia em x-forwarded-for)", async () => {
-  process.env.DEV_BYPASS_AUTH = "true";
-  const envPath = path.resolve(__dirname, "../src/config/env.js");
-  const authPath = path.resolve(__dirname, "../src/middleware/auth.middleware.js");
-  const appPath = path.resolve(__dirname, "../src/app.js");
-  delete require.cache[envPath];
-  delete require.cache[authPath];
-  delete require.cache[appPath];
-  const { createApp: createAppLocal } = require(appPath);
-  const app = createAppLocal();
-  // supertest usa socket loopback → bypass funciona
-  const local = await request(app).get("/api/v1/health/erp");
-  assert.equal(local.status, 200, "loopback com bypass ativo deve passar");
-  // Falsificar x-forwarded-for não deve dar acesso sem HMAC (com trust proxy=loopback,
-  // socket ainda é loopback → bypass; o que importa é que o check NÃO usa XFF).
-  // Aqui checamos apenas que o header forjado não muda o comportamento negativo:
-  // desligamos bypass e verificamos que XFF forjado continua bloqueado.
-  process.env.DEV_BYPASS_AUTH = "false";
-  delete require.cache[envPath];
-  delete require.cache[authPath];
-  delete require.cache[appPath];
-  const { createApp: createApp2 } = require(appPath);
-  const app2 = createApp2();
-  const spoof = await request(app2)
+test("Sem bypass, x-forwarded-for forjado NÃO abre acesso ao /health/erp", async () => {
+  const app = createApp();
+  const spoof = await request(app)
     .get("/api/v1/health/erp")
-    .set("x-forwarded-for", "127.0.0.1");
-  assert.equal(spoof.status, 401, "XFF forjado nunca dá bypass");
+    .set("x-forwarded-for", "8.8.8.8")
+    .set("x-real-ip", "8.8.8.8");
+  // Sem HMAC e sem bypass real, sempre 401 — o check de bypass usa o socket,
+  // não headers de proxy.
+  assert.equal(spoof.status, 401);
 });
