@@ -12,14 +12,21 @@ function errorMiddleware(err, req, res, _next) {
       { requestId, code: err.code, statusCode: err.statusCode, details: err.details },
       err.message,
     );
+    const errorBody = {
+      code: err.code,
+      message: err.message,
+      retryable: err.retryable,
+      requestId,
+    };
+    // Só expõe details ao cliente se o AppError explicitamente marcar como público.
+    // Isso é usado por erros de validação (VALIDATION_ERROR) para retornar a lista
+    // de campos inválidos, sem vazar detalhes internos de outros erros.
+    if (err.exposeDetails === true && err.details !== undefined) {
+      errorBody.details = err.details;
+    }
     return res.status(err.statusCode).json({
       success: false,
-      error: {
-        code: err.code,
-        message: err.message,
-        retryable: err.retryable,
-        requestId,
-      },
+      error: errorBody,
     });
   }
 
