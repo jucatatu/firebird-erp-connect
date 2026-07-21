@@ -2,7 +2,7 @@
 
 // Env mínimo para testes. Aplicado ANTES de qualquer require de src/.
 process.env.NODE_ENV = process.env.NODE_ENV || "development";
-process.env.PORT = "0";
+process.env.PORT = "3052";
 process.env.FIREBIRD_HOST = "127.0.0.1";
 process.env.FIREBIRD_PORT = "3050";
 process.env.FIREBIRD_DATABASE = "/tmp/fake.fdb";
