@@ -3,18 +3,14 @@
 const firebird = require("../../shared/database/firebird-client");
 
 /**
- * Camada de acesso a dados do módulo Operations.
+ * Camada de acesso a dados do módulo Operations (schema real do ERP).
  *
- * IMPORTANTE — SCHEMA PENDENTE DE CONFIRMAÇÃO NO SERVIDOR WINDOWS:
- * Os nomes de colunas abaixo refletem o padrão observado nas consultas
- * conhecidas do ERP, mas ainda NÃO foram validados contra o dicionário
- * real do Firebird em produção. Qualquer campo cuja existência não seja
- * confirmada está marcado com "TODO(schema)" abaixo.
+ * Todas as consultas são SOMENTE LEITURA e 100% parametrizadas.
+ * Placeholders `?` para cláusulas IN são gerados a partir do comprimento
+ * de arrays internos — nenhuma entrada do cliente é interpolada em SQL.
  *
- * Todas as consultas são SOMENTE LEITURA e 100% parametrizadas. Nenhum
- * valor recebido do cliente é concatenado em SQL. A quantidade de
- * placeholders para listas (IN (?, ?, ...)) é gerada a partir do
- * comprimento de arrays já validados internamente.
+ * TODO Sprint futura:
+ * confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
  */
 
 const MAX_PARAMS_PER_QUERY = 500;
@@ -29,43 +25,46 @@ function chunk(arr, size) {
   return out;
 }
 
-async function findOrdersByDeliveryDate(date) {
+/**
+ * Busca pedidos com previsão de entrega na data informada.
+ * @param {string} firebirdDate — já convertida para MM/DD/YYYY pelo service.
+ */
+async function findOrdersByDeliveryDate(firebirdDate) {
   const sql = `
     SELECT
-      OV.ID              AS ORDER_ID,
-      OV.NUMERO          AS ORDER_NUMERO,
-      OV.ID_EMPRESA      AS ORDER_ID_EMPRESA,
-      OV.ID_STATUS       AS ORDER_ID_STATUS,
-      OV.DT_ENTREGA      AS ORDER_DT_ENTREGA,
-      OV.OBSERVACAO      AS ORDER_OBSERVACAO,
-      OV.ID_CLIENTE      AS ORDER_ID_CLIENTE,
-      S.NOME             AS STATUS_NOME,
-      C.ID               AS CLIENTE_ID,
-      C.NOME_FANTASIA    AS CLIENTE_NOME_FANTASIA,
-      C.ID_GRUPO_CLIENTE AS CLIENTE_ID_GRUPO,
-      C.ID_PESSOA        AS CLIENTE_ID_PESSOA,
-      P.NOME             AS PESSOA_NOME,
-      C.ENDERECO         AS CLI_ENDERECO,
-      C.NUMERO           AS CLI_NUMERO_END,
-      C.COMPLEMENTO      AS CLI_COMPLEMENTO,
-      B.NOME             AS BAIRRO_NOME,
-      CID.NOME           AS CIDADE_NOME,
-      EST.UF             AS ESTADO_UF,
-      C.CEP              AS CLI_CEP,
-      C.REFERENCIA       AS CLI_REFERENCIA,
-      C.TELEFONE         AS CLI_TELEFONE
-    FROM ORDENS_VENDA OV
-    LEFT JOIN STATUS   S   ON S.ID   = OV.ID_STATUS
-    LEFT JOIN CLIENTES C   ON C.ID   = OV.ID_CLIENTE
-    LEFT JOIN PESSOAS  P   ON P.ID   = C.ID_PESSOA
-    LEFT JOIN BAIRRO   B   ON B.ID   = C.ID_BAIRRO
-    LEFT JOIN CIDADE   CID ON CID.ID = C.ID_CIDADE
-    LEFT JOIN ESTADO   EST ON EST.ID = C.ID_ESTADO
-    WHERE OV.ENTREGAR = 1
-      AND OV.DT_ENTREGA = ?
-    ORDER BY OV.DT_ENTREGA, OV.NUMERO
+      ov.N_PEDIDO,
+      ov.ID_ORDENS_VENDA,
+      ov.ID_CLIENTE,
+      ov.DATA_PREV_RETORNO,
+      ov.DATA_PREV_ENTREGA,
+      ov.OBS,
+      ov.NUMERO,
+      ov.COMPLEMENTO,
+
+      p.NOME AS CLIENTE_NOME,
+      p.APELIDO AS CLIENTE_APELIDO,
+
+      e.SIGLA AS UF,
+      ci.NOME AS CIDADE,
+      b.NOME AS BAIRRO,
+      r.NOME AS RUA,
+
+      s.DESCRICAO AS STATUS_DESCRICAO
+
+    FROM ORDENS_VENDA ov
+    LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
+    LEFT JOIN PESSOAS  p  ON cl.ID_PESSOA = p.ID_PESSOA
+    LEFT JOIN ESTADO   e  ON ov.ID_ESTADO = e.ID_ESTADO
+    LEFT JOIN CIDADE   ci ON ov.ID_CIDADE = ci.ID_CIDADE
+    LEFT JOIN BAIRRO   b  ON ov.ID_BAIRRO = b.ID_BAIRRO
+    LEFT JOIN RUA      r  ON ov.ID_RUA = r.ID_RUA
+    LEFT JOIN STATUS   s  ON ov.ID_STATUS = s.ID_STATUS
+    WHERE CAST(ov.DATA_PREV_ENTREGA AS DATE) = ?
+      AND ov.ENTREGAR = 1
+      AND (ov.DELETED IS NULL OR ov.DELETED = 0)
+    ORDER BY ov.N_PEDIDO DESC
   `;
-  return firebird.executeQuery(sql, [date]);
+  return firebird.executeQuery(sql, [firebirdDate]);
 }
 
 async function findItemsByOrderIds(orderIds) {
@@ -76,16 +75,16 @@ async function findItemsByOrderIds(orderIds) {
     const placeholders = buildInPlaceholders(ids.length);
     const sql = `
       SELECT
-        IOV.ID_ORDEM_VENDA AS ORDER_ID,
-        IOV.ID             AS ITEM_ID,
-        IOV.ID_PRODUTO     AS PRODUTO_ID,
-        IOV.QUANTIDADE     AS QUANTIDADE,
-        IOV.UNIDADE        AS UNIDADE,
-        PR.NOME            AS PRODUTO_NOME
-      FROM ITENS_ORDENS_VENDA IOV
-      LEFT JOIN PRODUTOS PR ON PR.ID = IOV.ID_PRODUTO
-      WHERE IOV.ID_ORDEM_VENDA IN (${placeholders})
-      ORDER BY IOV.ID_ORDEM_VENDA, IOV.ID
+        iov.ID_ORDENS_VENDA,
+        iov.ID_PRODUTO,
+        pr.DESCRICAO AS PRODUTO,
+        iov.QTDE_PEDIDA AS QUANTIDADE,
+        iov.PRECO_UNIT AS VALOR_UNITARIO,
+        iov.VALOR_ITEM AS VALOR_TOTAL
+      FROM ITENS_ORDENS_VENDA iov
+      JOIN PRODUTOS pr ON iov.ID_PRODUTO = pr.ID_PRODUTOS
+      WHERE iov.ID_ORDENS_VENDA IN (${placeholders})
+        AND (iov.DELETED IS NULL OR iov.DELETED = 0)
     `;
     const rows = await firebird.executeQuery(sql, ids);
     results.push(...rows);
@@ -101,15 +100,51 @@ async function findEquipmentByOrderIds(orderIds) {
     const placeholders = buildInPlaceholders(ids.length);
     const sql = `
       SELECT
-        EOV.ID_ORDEM_VENDA   AS ORDER_ID,
-        EOV.ID               AS EQUIP_ID,
-        EOV.ID_TIPO_EQUIP    AS TIPO_ID,
-        EOV.QUANTIDADE       AS QUANTIDADE,
-        TE.NOME              AS TIPO_NOME
-      FROM EQUIP_ORDENS_VENDA EOV
-      LEFT JOIN TIPO_EQUIPAMENTO TE ON TE.ID = EOV.ID_TIPO_EQUIP
-      WHERE EOV.ID_ORDEM_VENDA IN (${placeholders})
-      ORDER BY EOV.ID_ORDEM_VENDA, EOV.ID
+        eov.ID_ORDENS_VENDA,
+        eov.ID_TIPO_EQUIPAMENTO,
+        te.DESCRICAO AS TIPO,
+        eov.QTDE AS QUANTIDADE
+      FROM EQUIP_ORDENS_VENDA eov
+      JOIN TIPO_EQUIPAMENTO te ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
+      WHERE eov.ID_ORDENS_VENDA IN (${placeholders})
+        AND (eov.DELETED IS NULL OR eov.DELETED = 0)
+    `;
+    const rows = await firebird.executeQuery(sql, ids);
+    results.push(...rows);
+  }
+  return results;
+}
+
+/**
+ * Busca telefones dos clientes em lote via tabela CONTATO,
+ * filtrando pelos tipos CELULAR e FONE.
+ * A ordenação garante que CELULAR venha antes de FONE — o service
+ * escolhe apenas o primeiro telefone de cada cliente.
+ */
+async function findPhonesByClientIds(clientIds) {
+  if (!clientIds || clientIds.length === 0) return [];
+  const batches = chunk(clientIds, MAX_PARAMS_PER_QUERY);
+  const results = [];
+  for (const ids of batches) {
+    const placeholders = buildInPlaceholders(ids.length);
+    const sql = `
+      SELECT
+        cl.ID_CLIENTE,
+        c.DESCRICAO AS TELEFONE,
+        tc.DESCRICAO AS TIPO_CONTATO
+      FROM CONTATO c
+      JOIN TIPO_CONTATO tc ON c.ID_TIPO_CONTATO = tc.ID_TIPO_CONTATO
+      JOIN CLIENTES cl ON c.ID_PESSOA = cl.ID_PESSOA
+      WHERE cl.ID_CLIENTE IN (${placeholders})
+        AND (c.DELETED IS NULL OR c.DELETED = 0)
+        AND UPPER(tc.DESCRICAO) IN ('CELULAR', 'FONE')
+      ORDER BY
+        cl.ID_CLIENTE,
+        CASE UPPER(tc.DESCRICAO)
+          WHEN 'CELULAR' THEN 1
+          WHEN 'FONE' THEN 2
+          ELSE 3
+        END
     `;
     const rows = await firebird.executeQuery(sql, ids);
     results.push(...rows);
@@ -121,5 +156,6 @@ module.exports = {
   findOrdersByDeliveryDate,
   findItemsByOrderIds,
   findEquipmentByOrderIds,
+  findPhonesByClientIds,
   _internal: { buildInPlaceholders, chunk, MAX_PARAMS_PER_QUERY },
 };
