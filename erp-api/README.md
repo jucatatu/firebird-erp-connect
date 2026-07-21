@@ -1,7 +1,10 @@
-# ERP API v1.0.0
+# ERP API v1.1.0
 
 Backend oficial de integração com o ERP Firebird.
-Esta é a **primeira fase (v1.0.0)**: apenas a fundação técnica e endpoints de health.
+
+- **v1.0.0** — fundação técnica (health, autenticação HMAC, estrutura modular).
+- **v1.1.0** — primeiro endpoint operacional: `GET /api/v1/operations/orders`
+  (listagem de pedidos para entrega, somente leitura).
 
 > ⚠️ Este projeto é uma aplicação **Node.js tradicional** (Express + `node-firebird`).
 > Ele **não roda** em ambientes serverless/edge — precisa de um Node com acesso
@@ -102,6 +105,7 @@ Prefixo: `/api/v1`
 |--------|----------------------|------------|----------------------------------------|
 | GET    | `/api/v1/health`     | Público    | Status da API                          |
 | GET    | `/api/v1/health/erp` | HMAC*      | Verifica conectividade real com o ERP  |
+| GET    | `/api/v1/operations/orders` | HMAC* | Lista pedidos para entrega em uma data |
 
 `*` Sujeito ao bypass local descrito acima.
 
@@ -165,6 +169,175 @@ Resposta quando o ERP está indisponível (`HTTP 503`):
   }
 }
 ```
+
+---
+
+## Endpoint `GET /api/v1/operations/orders`
+
+Lista pedidos programados para **entrega** em uma data específica,
+restringindo o resultado às empresas autorizadas informadas. **Somente
+leitura** — não altera nada no Firebird.
+
+### Query parameters
+
+| Param     | Obrigatório | Formato          | Descrição                                                  |
+|-----------|-------------|------------------|------------------------------------------------------------|
+| `date`    | sim         | `YYYY-MM-DD`     | Data operacional de entrega. Validação estrita.            |
+| `empresas`| não         | `1`, `3`, `1,3`  | Allowlist. Ausente ⇒ `[1, 3]`. Rejeita empresas não permitidas. |
+
+Regras de validação (estritas):
+
+- `date` deve ser exatamente `YYYY-MM-DD`. Rejeita `21/07/2026`, `2026-7-21`,
+  `2026-07-21T00:00:00`, valores vazios, múltiplos, e datas impossíveis
+  (ex.: `2026-02-30`, `2026-13-01`).
+- `empresas` só aceita inteiros positivos separados por vírgula. Empresas
+  permitidas atualmente: **1** e **3**. Duplicados são removidos e o array
+  final é ordenado (`3,1` → `[1, 3]`). Rejeita: vazio, letras, decimais,
+  negativos, vírgulas soltas.
+
+### Regra de negócio
+
+- Filtra pela **data operacional de entrega** do pedido.
+- Considera apenas pedidos marcados como `ENTREGAR = 1`.
+- Filtra pelas empresas solicitadas — pedidos fora da allowlist nunca
+  aparecem na resposta.
+- Preserva a regra de empresa do ERP: usa `ID_EMPRESA` quando definido; caso
+  contrário aplica a inferência histórica (grupo GROTT ⇒ empresa 3, demais ⇒
+  empresa 1). Ver seção *Pendências de validação real*.
+- Deduplica itens e equipamentos que possam vir multiplicados por joins.
+
+### Exemplo — bypass local (desenvolvimento)
+
+```bash
+# Requer DEV_BYPASS_AUTH=true e chamada a partir de 127.0.0.1
+curl "http://localhost:3052/api/v1/operations/orders?date=2026-07-21&empresas=1,3"
+```
+
+### Exemplo — com HMAC (produção)
+
+```bash
+API_KEY="sua-api-key"
+HMAC_SECRET="seu-hmac-secret"
+METHOD="GET"
+PATH="/api/v1/operations/orders?date=2026-07-21&empresas=1,3"
+TS=$(node -e "process.stdout.write(String(Date.now()))")
+NONCE=$(node -e "process.stdout.write(require('crypto').randomBytes(16).toString('hex'))")
+BODY_HASH=$(printf "" | openssl dgst -sha256 -hex | awk '{print $2}')
+CANONICAL=$(printf "%s\n%s\n%s\n%s\n%s" "$METHOD" "$PATH" "$TS" "$NONCE" "$BODY_HASH")
+SIG=$(printf "%s" "$CANONICAL" | openssl dgst -sha256 -hmac "$HMAC_SECRET" -hex | awk '{print $2}')
+
+curl -s "http://localhost:3052$PATH" \
+  -H "x-api-key: $API_KEY" \
+  -H "x-timestamp: $TS" \
+  -H "x-nonce: $NONCE" \
+  -H "x-signature: $SIG"
+```
+
+> Lembre-se: a **querystring faz parte** do path assinado. Assinar
+> `/api/v1/operations/orders?date=2026-07-21` e chamar `date=2026-07-22`
+> resulta em `401`.
+
+### Contrato de resposta — com pedidos
+
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2026-07-21",
+    "empresas": [1, 3],
+    "count": 1,
+    "orders": [
+      {
+        "id": 123,
+        "number": 4567,
+        "companyId": 1,
+        "status": { "id": 2, "name": "Confirmado" },
+        "customer": {
+          "id": 100,
+          "name": "Cliente Exemplo",
+          "tradeName": null,
+          "phone": "47999999999"
+        },
+        "delivery": {
+          "date": "2026-07-21",
+          "address": {
+            "street": "Rua Exemplo",
+            "number": "100",
+            "complement": null,
+            "district": "Centro",
+            "city": "Jaraguá do Sul",
+            "state": "SC",
+            "postalCode": null,
+            "reference": null
+          }
+        },
+        "notes": null,
+        "items": [
+          { "productId": 10, "name": "Produto", "quantity": 2, "unit": "UN" }
+        ],
+        "equipment": [
+          { "typeId": 5, "name": "Chopeira elétrica", "quantity": 1 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Contrato de resposta — lista vazia
+
+Lista vazia retorna **HTTP 200**, não 404:
+
+```json
+{
+  "success": true,
+  "data": { "date": "2026-07-21", "empresas": [1, 3], "count": 0, "orders": [] }
+}
+```
+
+### Erros possíveis
+
+| HTTP | code               | Quando                                                    |
+|------|--------------------|-----------------------------------------------------------|
+| 400  | `VALIDATION_ERROR` | `date`/`empresas` inválidos (com `details[]` por campo)   |
+| 401  | `UNAUTHORIZED`     | Falha de autenticação HMAC                                |
+| 429  | `RATE_LIMITED`     | Rate limit global                                         |
+| 503  | `ERP_UNAVAILABLE`  | Firebird indisponível (retryable)                         |
+| 500  | `INTERNAL_ERROR`   | Erro inesperado (nenhum detalhe interno é vazado)         |
+
+Exemplo de `VALIDATION_ERROR`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Parâmetros inválidos.",
+    "retryable": false,
+    "details": [
+      { "field": "date", "message": "Informe uma data válida no formato YYYY-MM-DD." }
+    ]
+  }
+}
+```
+
+---
+
+## Pendências de validação real
+
+O ambiente Lovable não tem acesso ao Firebird de produção. Estes pontos
+precisam ser confirmados no **servidor Windows** antes da homologação final:
+
+- Nomes exatos de colunas em `CLIENTES`, `PESSOAS`, endereço (`RUA`,
+  `BAIRRO`, `CIDADE`, `ESTADO`) e contato. Todos os campos incertos estão
+  marcados com `TODO(schema)` em `src/modules/operations/operations.repository.js`.
+- ID exato do grupo de clientes **GROTT** para completar a regra de
+  inferência de empresa. Enquanto `GROTT_GROUP_ID` estiver `null` em
+  `src/modules/operations/operations.mapper.js`, todo cliente sem
+  `ID_EMPRESA` explícito cai em empresa 1.
+
+A allowlist de empresas (`[1, 3]`) já garante que nenhum pedido fora da
+empresas solicitadas apareça na resposta, independentemente da inferência.
 
 ---
 
@@ -316,7 +489,9 @@ erp-api/
 - `equipments/` — equipamentos
 - `financial/` — financeiro
 
-**Nesta v1.0.0 não existe endpoint de pedidos, clientes, equipamentos ou financeiro.**
+**Nesta v1.1.0** existe apenas o endpoint de **listagem** de pedidos para
+entrega. Nenhum endpoint de escrita, detalhes, cliente individual,
+equipamento, confirmação de entrega ou recolhimento foi implementado.
 
 ---
 
