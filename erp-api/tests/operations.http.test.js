@@ -253,7 +253,7 @@ test("resposta completa: contrato novo, telefone priorizado, sem dedup, companyI
   assert.deepEqual(o2.equipments, []);
 });
 
-test("companies=1 filtra pelo companyId resolvido; pedidos null são excluídos", async () => {
+test("companies filtra pelo companyId resolvido (default Graal quando NULL sem GROTT)", async () => {
   reset();
   state.orders = [
     {
@@ -292,8 +292,12 @@ test("companies=1 filtra pelo companyId resolvido; pedidos null são excluídos"
   );
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.data.companies, [1]);
-  assert.equal(res.body.data.count, 1);
-  assert.equal(res.body.data.orders[0].orderId, 1);
+  // Pedidos 1 (ORDEM=1) e 4 (default Graal por NULL sem GROTT) → empresa 1.
+  assert.equal(res.body.data.count, 2);
+  assert.deepEqual(
+    res.body.data.orders.map((o) => o.orderId).sort((a, b) => a - b),
+    [1, 4],
+  );
 
   const res2 = await signedGet(
     app,
@@ -306,11 +310,44 @@ test("companies=1 filtra pelo companyId resolvido; pedidos null são excluídos"
     app,
     "/api/v1/operations/orders?date=2026-07-21&companies=1,3",
   );
-  assert.equal(res3.body.data.count, 3);
+  // Todos os 4 pedidos: 1 e 4 → Graal, 2 e 3 → Grott.
+  assert.equal(res3.body.data.count, 4);
 
-  // Sem filtro: retorna todos, inclusive o companyId=null.
+  // Sem filtro: retorna todos. Nenhum pedido pode ter companyId null.
   const res4 = await signedGet(app, "/api/v1/operations/orders?date=2026-07-21");
   assert.equal(res4.body.data.count, 4);
+  for (const o of res4.body.data.orders) {
+    assert.ok(o.companyId === 1 || o.companyId === 3, `companyId inválido: ${o.companyId}`);
+  }
+});
+
+test("alias legado `empresas` continua funcionando como `companies`", async () => {
+  reset();
+  state.orders = [
+    {
+      ID_ORDENS_VENDA: 10,
+      N_PEDIDO: 10,
+      ID_CLIENTE: 10,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      ORDEM_ID_EMPRESA: 1,
+    },
+    {
+      ID_ORDENS_VENDA: 11,
+      N_PEDIDO: 11,
+      ID_CLIENTE: 11,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      ORDEM_ID_EMPRESA: 3,
+    },
+  ];
+  const app = createApp();
+  const res = await signedGet(
+    app,
+    "/api/v1/operations/orders?date=2026-07-21&empresas=3",
+  );
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.companies, [3]);
+  assert.equal(res.body.data.count, 1);
+  assert.equal(res.body.data.orders[0].orderId, 11);
 });
 
 test("query usa data convertida para MM/DD/YYYY e schema real (N_PEDIDO / DATA_PREV_ENTREGA)", async () => {

@@ -11,11 +11,13 @@
  *   - itens e equipamentos NÃO são deduplicados;
  *   - camelCase no contrato final.
  *
- * Resolução de empresa (Sprint 1.2.0):
- *   1. ORDENS_VENDA.ID_EMPRESA
- *   2. CLIENTES.ID_EMPRESA
- *   3. Grupo do cliente contém "GROTT" (case-insensitive) → 3
- *   4. Caso contrário → null
+ * Resolução de empresa (regra operacional oficial):
+ *   Domínio válido: {1 (Graal), 3 (Grott)}.
+ *   1. ORDENS_VENDA.ID_EMPRESA se for 1 ou 3
+ *   2. CLIENTES.ID_EMPRESA se for 1 ou 3
+ *   3. GRUPO_CLIENTE.DESCRICAO contém "GROTT" (case-insensitive) → 3
+ *   4. Caso contrário → 1 (Graal é o default; NULL representa Graal)
+ *   Nunca retorna null. Valores fora de {1, 3} não são propagados.
  */
 
 /**
@@ -110,16 +112,17 @@ function mapClientName(row) {
 
 /**
  * Resolve a empresa oficial do pedido conforme a regra do ERP.
- * NUNCA assume empresa 1 automaticamente — empresa desconhecida = null.
+ * Retorna sempre 1 ou 3 — nunca null. Valores fora de {1, 3} são ignorados
+ * e o próximo nível de fallback é avaliado.
  */
 function resolveCompanyId(row) {
   const ordem = toNullableInt(pick(row, "ORDEM_ID_EMPRESA"));
-  if (ordem !== null) return ordem;
+  if (ordem === 1 || ordem === 3) return ordem;
   const cliente = toNullableInt(pick(row, "CLIENTE_ID_EMPRESA"));
-  if (cliente !== null) return cliente;
+  if (cliente === 1 || cliente === 3) return cliente;
   const grupo = toNullableString(pick(row, "GRUPO_CLIENTE_DESCRICAO"));
   if (grupo && /grott/i.test(grupo)) return 3;
-  return null;
+  return 1;
 }
 
 function mapItemRow(row) {
