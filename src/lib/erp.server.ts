@@ -110,6 +110,18 @@ export async function callErp<T extends JsonValue = JsonValue>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    console.log("[ERP] ANTES DO FETCH");
+    console.log("[ERP] URL", url);
+    console.log("[ERP] METHOD", method);
+    console.log("[ERP] HEADERS", {
+      "x-api-key": apiKey ? `${apiKey.slice(0, 6)}…(${apiKey.length})` : "MISSING",
+      "x-timestamp": timestamp,
+      "x-nonce": nonce,
+      "x-signature": signature ? `${signature.slice(0, 12)}…(${signature.length})` : "MISSING",
+    });
+    console.log("[ERP] CANONICAL", JSON.stringify({
+      method, path: pathWithQuery, timestamp, nonce, bodyHash,
+    }));
     const res = await fetch(url, {
       method,
       headers: {
@@ -124,6 +136,9 @@ export async function callErp<T extends JsonValue = JsonValue>(
     });
 
     const text = await res.text();
+    console.log("[ERP] STATUS", res.status);
+    console.log("[ERP] RES-HEADERS", Object.fromEntries(res.headers.entries()));
+    console.log("[ERP] BODY-PREVIEW", text.slice(0, 500));
     let parsed: any = null;
     if (text) {
       try {
@@ -150,6 +165,10 @@ export async function callErp<T extends JsonValue = JsonValue>(
       },
     };
   } catch (err) {
+    console.log("[ERP] EXCEPTION");
+    console.log((err as Error)?.message);
+    console.log((err as Error)?.stack);
+    console.log("[ERP] CAUSE", (err as { cause?: unknown })?.cause);
     const aborted = (err as { name?: string }).name === "AbortError";
     return {
       ok: false,
