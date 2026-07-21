@@ -1,0 +1,32 @@
+{
+  "name": "erp-api",
+  "version": "1.0.0",
+  "description": "ERP API v1.0.0 - Backend oficial de integração com ERP Firebird",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": ["erp", "firebird", "api"],
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "node-firebird": "^1.1.9",
+    "pino": "^9.3.2",
+    "pino-http": "^10.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "pino-pretty": "^11.2.2"
+  }
+}
