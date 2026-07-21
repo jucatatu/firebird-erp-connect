@@ -45,13 +45,16 @@ function unauthorized(res) {
 }
 
 function isLocalhost(req) {
-  const ip = req.ip || "";
+  // Usa SEMPRE o socket remoto real; nunca confia em x-forwarded-for.
+  const raw =
+    (req.socket && req.socket.remoteAddress) ||
+    (req.connection && req.connection.remoteAddress) ||
+    "";
   return (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip === "::ffff:127.0.0.1" ||
-    ip.startsWith("127.") ||
-    ip === "localhost"
+    raw === "127.0.0.1" ||
+    raw === "::1" ||
+    raw === "::ffff:127.0.0.1" ||
+    raw.startsWith("127.")
   );
 }
 
@@ -116,7 +119,8 @@ function authMiddleware(req, res, next) {
 
   const expected = computeSignature({
     method: req.method,
-    path: req.originalUrl.split("?")[0],
+    // Path INCLUI querystring, exatamente como recebido (originalUrl).
+    path: req.originalUrl,
     timestamp,
     nonce,
     bodyHash,
