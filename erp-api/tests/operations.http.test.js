@@ -148,7 +148,7 @@ test("query string faz parte da assinatura HMAC", async () => {
   assert.equal(res.status, 401);
 });
 
-test("resposta completa: contrato novo, telefone priorizado, sem dedup, sem filtro por empresa", async () => {
+test("resposta completa: contrato novo, telefone priorizado, sem dedup, companyId resolvido", async () => {
   reset();
   state.orders = [
     {
@@ -167,6 +167,8 @@ test("resposta completa: contrato novo, telefone priorizado, sem dedup, sem filt
       BAIRRO: "Centro",
       RUA: "Rua Exemplo",
       STATUS_DESCRICAO: "Confirmado",
+      ORDEM_ID_EMPRESA: 1,
+      CLIENTE_ID_EMPRESA: 3,
     },
     {
       ID_ORDENS_VENDA: 501,
@@ -231,7 +233,7 @@ test("resposta completa: contrato novo, telefone priorizado, sem dedup, sem filt
   assert.equal(o1.expectedReturn, "2026-07-25");
   assert.equal(o1.observations, "Entregar após 14h");
   assert.equal(o1.erpStatus, "Confirmado");
-  assert.equal(o1.companyId, null);
+  assert.equal(o1.companyId, 1);
   assert.deepEqual(o1.address, {
     street: "Rua Exemplo",
     number: "100",
@@ -251,11 +253,37 @@ test("resposta completa: contrato novo, telefone priorizado, sem dedup, sem filt
   assert.deepEqual(o2.equipments, []);
 });
 
-test("companies filtrado no contrato mas não elimina pedidos (sem regra inventada)", async () => {
+test("companies=1 filtra pelo companyId resolvido; pedidos null são excluídos", async () => {
   reset();
   state.orders = [
-    { ID_ORDENS_VENDA: 1, N_PEDIDO: 1, ID_CLIENTE: 1, DATA_PREV_ENTREGA: "2026-07-21" },
-    { ID_ORDENS_VENDA: 2, N_PEDIDO: 2, ID_CLIENTE: 2, DATA_PREV_ENTREGA: "2026-07-21" },
+    {
+      ID_ORDENS_VENDA: 1,
+      N_PEDIDO: 1,
+      ID_CLIENTE: 1,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      ORDEM_ID_EMPRESA: 1,
+    },
+    {
+      ID_ORDENS_VENDA: 2,
+      N_PEDIDO: 2,
+      ID_CLIENTE: 2,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      CLIENTE_ID_EMPRESA: 3,
+    },
+    {
+      ID_ORDENS_VENDA: 3,
+      N_PEDIDO: 3,
+      ID_CLIENTE: 3,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      GRUPO_CLIENTE_DESCRICAO: "PONTO DE VENDA - GROTT",
+    },
+    {
+      ID_ORDENS_VENDA: 4,
+      N_PEDIDO: 4,
+      ID_CLIENTE: 4,
+      DATA_PREV_ENTREGA: "2026-07-21",
+      GRUPO_CLIENTE_DESCRICAO: "CLIENTES GERAIS",
+    },
   ];
   const app = createApp();
   const res = await signedGet(
@@ -264,12 +292,25 @@ test("companies filtrado no contrato mas não elimina pedidos (sem regra inventa
   );
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.data.companies, [1]);
-  // Nenhum pedido excluído por classificação inventada.
-  assert.equal(res.body.data.count, 2);
-  // Nenhum pedido classificado silenciosamente como empresa 1.
-  for (const o of res.body.data.orders) {
-    assert.equal(o.companyId, null);
-  }
+  assert.equal(res.body.data.count, 1);
+  assert.equal(res.body.data.orders[0].orderId, 1);
+
+  const res2 = await signedGet(
+    app,
+    "/api/v1/operations/orders?date=2026-07-21&companies=3",
+  );
+  const ids3 = res2.body.data.orders.map((o) => o.orderId).sort();
+  assert.deepEqual(ids3, [2, 3]);
+
+  const res3 = await signedGet(
+    app,
+    "/api/v1/operations/orders?date=2026-07-21&companies=1,3",
+  );
+  assert.equal(res3.body.data.count, 3);
+
+  // Sem filtro: retorna todos, inclusive o companyId=null.
+  const res4 = await signedGet(app, "/api/v1/operations/orders?date=2026-07-21");
+  assert.equal(res4.body.data.count, 4);
 });
 
 test("query usa data convertida para MM/DD/YYYY e schema real (N_PEDIDO / DATA_PREV_ENTREGA)", async () => {
@@ -348,12 +389,12 @@ test("erro do repository → 503 ERP_UNAVAILABLE sem vazar detalhes", async () =
   assert.ok(!/SELECT/i.test(res.body.error.message));
 });
 
-test("health continua retornando a versão do package.json (1.1.1)", async () => {
+test("health retorna a versão do package.json (1.2.0)", async () => {
   reset();
   const app = createApp();
   const res = await request(app).get("/api/v1/health");
   assert.equal(res.status, 200);
-  assert.equal(res.body.data.version, "1.1.1");
+  assert.equal(res.body.data.version, "1.2.0");
 });
 
 test("contrato final contém date, companies, count e orders", async () => {
