@@ -9,6 +9,18 @@ const { createApp } = require("./src/app");
 function start() {
   const app = createApp();
 
+  if (env.FIREBIRD_USER && env.FIREBIRD_USER.toLowerCase() === "sysdba") {
+    logger.warn(
+      "AVISO DE SEGURANÇA: FIREBIRD_USER configurado como SYSDBA. " +
+        "Recomenda-se criar um usuário Firebird dedicado com permissões mínimas.",
+    );
+  }
+  if (env.NODE_ENV !== "production" && env.DEV_BYPASS_AUTH) {
+    logger.warn(
+      "AVISO DE SEGURANÇA: DEV_BYPASS_AUTH está ATIVO (apenas localhost, apenas dev).",
+    );
+  }
+
   const server = app.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, env: env.NODE_ENV, version: require("./package.json").version },
