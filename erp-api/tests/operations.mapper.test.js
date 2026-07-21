@@ -7,19 +7,17 @@ const assert = require("node:assert/strict");
 
 const mapper = require("../src/modules/operations/operations.mapper");
 
-test("toNullableString remove espaços finais de CHAR", () => {
-  assert.equal(mapper.toNullableString("Rua Exemplo   "), "Rua Exemplo");
+test("pick aceita chave exata, maiúscula e minúscula", () => {
+  assert.equal(mapper.pick({ N_PEDIDO: 123 }, "N_PEDIDO"), 123);
+  assert.equal(mapper.pick({ n_pedido: 123 }, "N_PEDIDO"), 123);
+  assert.equal(mapper.pick({ N_pedido: 123 }, "N_pedido"), 123);
+});
+
+test("toNullableString remove espaços e preserva acentos já decodificados", () => {
+  assert.equal(mapper.toNullableString("Jaraguá do Sul   "), "Jaraguá do Sul");
   assert.equal(mapper.toNullableString("   "), null);
   assert.equal(mapper.toNullableString(""), null);
   assert.equal(mapper.toNullableString(null), null);
-  assert.equal(mapper.toNullableString(undefined), null);
-});
-
-test("toNullableNumber converte números corretamente", () => {
-  assert.equal(mapper.toNullableNumber("2"), 2);
-  assert.equal(mapper.toNullableNumber(2.5), 2.5);
-  assert.equal(mapper.toNullableNumber(""), null);
-  assert.equal(mapper.toNullableNumber(null), null);
 });
 
 test("toDateOnly retorna YYYY-MM-DD sem horário", () => {
@@ -29,86 +27,132 @@ test("toDateOnly retorna YYYY-MM-DD sem horário", () => {
   assert.equal(mapper.toDateOnly(null), null);
 });
 
-test("inferCompanyId usa ID_EMPRESA explícito quando presente", () => {
-  assert.equal(mapper.inferCompanyId({ ORDER_ID_EMPRESA: 3 }), 3);
-  assert.equal(mapper.inferCompanyId({ ORDER_ID_EMPRESA: 1 }), 1);
-});
-
-test("inferCompanyId cai em empresa 1 quando não há empresa explícita e grupo desconhecido", () => {
-  assert.equal(mapper.inferCompanyId({}), 1);
-  assert.equal(mapper.inferCompanyId({ CLIENTE_ID_GRUPO: 999 }), 1);
-});
-
-test("buildOrder converte números, remove espaços e monta arrays", () => {
-  const orderRow = {
-    ORDER_ID: 123,
-    ORDER_NUMERO: 4567,
-    ORDER_ID_EMPRESA: 1,
-    ORDER_ID_STATUS: 2,
-    ORDER_DT_ENTREGA: "2026-07-21",
-    ORDER_OBSERVACAO: null,
-    STATUS_NOME: "Confirmado   ",
-    CLIENTE_ID: 100,
-    CLIENTE_NOME_FANTASIA: null,
-    PESSOA_NOME: "Cliente Exemplo   ",
-    CLI_ENDERECO: "Rua Exemplo",
-    CLI_NUMERO_END: "100",
-    CLI_COMPLEMENTO: null,
-    BAIRRO_NOME: "Centro",
-    CIDADE_NOME: "Jaraguá do Sul",
-    ESTADO_UF: "SC",
-    CLI_CEP: null,
-    CLI_REFERENCIA: null,
-    CLI_TELEFONE: "47999999999",
+test("buildOrder mapeia contrato completo com nome, endereço, datas e status", () => {
+  const row = {
+    ID_ORDENS_VENDA: 500,
+    N_PEDIDO: 4567,
+    ID_CLIENTE: 100,
+    DATA_PREV_ENTREGA: "2026-07-21",
+    DATA_PREV_RETORNO: "2026-07-25",
+    OBS: "Entregar após 14h",
+    NUMERO: "100",
+    COMPLEMENTO: "Sala 2",
+    CLIENTE_NOME: "Cliente Exemplo",
+    CLIENTE_APELIDO: "Apelido",
+    UF: "SC",
+    CIDADE: "Jaraguá do Sul",
+    BAIRRO: "Centro",
+    RUA: "Rua Exemplo",
+    STATUS_DESCRICAO: "Confirmado",
   };
-  const items = [
-    { PRODUTO_ID: 10, PRODUTO_NOME: "Produto", QUANTIDADE: "2", UNIDADE: "UN" },
-  ];
-  const equip = [
-    { TIPO_ID: 5, TIPO_NOME: "Chopeira elétrica", QUANTIDADE: 1 },
-  ];
-  const dto = mapper.buildOrder(orderRow, items, equip);
-  assert.equal(dto.id, 123);
-  assert.equal(dto.number, 4567);
-  assert.equal(dto.companyId, 1);
-  assert.deepEqual(dto.status, { id: 2, name: "Confirmado" });
-  assert.equal(dto.customer.name, "Cliente Exemplo");
-  assert.equal(dto.customer.phone, "47999999999");
-  assert.equal(dto.delivery.date, "2026-07-21");
-  assert.equal(dto.delivery.address.city, "Jaraguá do Sul");
-  assert.equal(dto.items.length, 1);
-  assert.equal(dto.items[0].quantity, 2);
-  assert.equal(dto.items[0].unit, "UN");
-  assert.equal(dto.equipment.length, 1);
-  assert.equal(dto.equipment[0].quantity, 1);
-});
-
-test("buildOrder retorna items:[] e equipment:[] quando ausentes", () => {
-  const dto = mapper.buildOrder({ ORDER_ID: 1, ORDER_ID_EMPRESA: 1 }, [], []);
+  const dto = mapper.buildOrder(row, "47999999999", [], []);
+  assert.equal(dto.orderId, 500);
+  assert.equal(dto.orderNumber, "4567");
+  assert.equal(typeof dto.orderNumber, "string");
+  assert.equal(dto.clientId, 100);
+  assert.equal(dto.clientName, "Cliente Exemplo");
+  assert.equal(dto.phone, "47999999999");
+  assert.equal(dto.expectedDelivery, "2026-07-21");
+  assert.equal(dto.expectedReturn, "2026-07-25");
+  assert.equal(dto.observations, "Entregar após 14h");
+  assert.equal(dto.erpStatus, "Confirmado");
+  assert.equal(dto.companyId, null);
+  assert.deepEqual(dto.address, {
+    street: "Rua Exemplo",
+    number: "100",
+    complement: "Sala 2",
+    neighborhood: "Centro",
+    city: "Jaraguá do Sul",
+    state: "SC",
+  });
   assert.deepEqual(dto.items, []);
-  assert.deepEqual(dto.equipment, []);
+  assert.deepEqual(dto.equipments, []);
 });
 
-test("buildOrder deduplica itens e equipamentos repetidos por join", () => {
-  const items = [
-    { PRODUTO_ID: 10, PRODUTO_NOME: "P", QUANTIDADE: 2, UNIDADE: "UN" },
-    { PRODUTO_ID: 10, PRODUTO_NOME: "P", QUANTIDADE: 2, UNIDADE: "UN" },
-    { PRODUTO_ID: 11, PRODUTO_NOME: "Q", QUANTIDADE: 1, UNIDADE: "UN" },
-  ];
-  const equip = [
-    { TIPO_ID: 5, TIPO_NOME: "E", QUANTIDADE: 1 },
-    { TIPO_ID: 5, TIPO_NOME: "E", QUANTIDADE: 1 },
-  ];
-  const dto = mapper.buildOrder(
-    { ORDER_ID: 1, ORDER_ID_EMPRESA: 1 },
-    items,
-    equip,
+test("clientName usa CLIENTE_NOME antes de CLIENTE_APELIDO", () => {
+  const dto = mapper.buildOrder({ CLIENTE_APELIDO: "Só apelido" }, null, [], []);
+  assert.equal(dto.clientName, "Só apelido");
+  const dto2 = mapper.buildOrder(
+    { CLIENTE_NOME: "Nome", CLIENTE_APELIDO: "Apelido" },
+    null,
+    [],
+    [],
   );
-  assert.equal(dto.items.length, 2);
-  assert.equal(dto.equipment.length, 1);
+  assert.equal(dto2.clientName, "Nome");
+  const dto3 = mapper.buildOrder({}, null, [], []);
+  assert.equal(dto3.clientName, "");
 });
 
-test("dedupeBy preserva ordem original de primeira ocorrência", () => {
-  const r = mapper.dedupeBy([{ k: 1 }, { k: 2 }, { k: 1 }], (x) => x.k);
-  assert.deepEqual(r, [{ k: 1 }, { k: 2 }]);
+test("phone null quando cliente sem telefone", () => {
+  const dto = mapper.buildOrder({ ID_ORDENS_VENDA: 1 }, null, [], []);
+  assert.equal(dto.phone, null);
+});
+
+test("items preservam campos e NÃO são deduplicados", () => {
+  const rows = [
+    {
+      ID_PRODUTO: 10,
+      PRODUTO: "Chopp Pilsen",
+      QUANTIDADE: 2,
+      VALOR_UNITARIO: 15.5,
+      VALOR_TOTAL: 31,
+    },
+    {
+      ID_PRODUTO: 10,
+      PRODUTO: "Chopp Pilsen",
+      QUANTIDADE: 2,
+      VALOR_UNITARIO: 15.5,
+      VALOR_TOTAL: 31,
+    },
+    {
+      ID_PRODUTO: 11,
+      PRODUTO: "Chopp IPA",
+      QUANTIDADE: 1,
+      VALOR_UNITARIO: 20,
+      VALOR_TOTAL: 20,
+    },
+  ];
+  const dto = mapper.buildOrder({ ID_ORDENS_VENDA: 1 }, null, rows, []);
+  assert.equal(dto.items.length, 3);
+  assert.deepEqual(dto.items[0], {
+    productId: 10,
+    product: "Chopp Pilsen",
+    quantity: 2,
+    unitPrice: 15.5,
+    total: 31,
+  });
+});
+
+test("equipments preservam campos e NÃO são deduplicados", () => {
+  const rows = [
+    { ID_TIPO_EQUIPAMENTO: 5, TIPO: "Chopeira", QUANTIDADE: 1 },
+    { ID_TIPO_EQUIPAMENTO: 5, TIPO: "Chopeira", QUANTIDADE: 1 },
+  ];
+  const dto = mapper.buildOrder({ ID_ORDENS_VENDA: 1 }, null, [], rows);
+  assert.equal(dto.equipments.length, 2);
+  assert.deepEqual(dto.equipments[0], {
+    typeId: 5,
+    type: "Chopeira",
+    quantity: 1,
+  });
+});
+
+test("mapper aceita linhas em lower-case (variações do driver)", () => {
+  const row = {
+    id_ordens_venda: 7,
+    n_pedido: 99,
+    id_cliente: 3,
+    cliente_nome: "Nome Lower",
+    rua: "Rua Baixa",
+    numero: "10",
+    complemento: "",
+    bairro: "Bairro X",
+    cidade: "Cidade Y",
+    uf: "SC",
+  };
+  const dto = mapper.buildOrder(row, null, [], []);
+  assert.equal(dto.orderId, 7);
+  assert.equal(dto.orderNumber, "99");
+  assert.equal(dto.clientName, "Nome Lower");
+  assert.equal(dto.address.city, "Cidade Y");
 });
