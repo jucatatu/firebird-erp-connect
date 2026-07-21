@@ -33,24 +33,10 @@ const schema = z
     DEV_BYPASS_AUTH: boolFromString.default(false),
   })
   .superRefine((val, ctx) => {
-    // Bloqueia credenciais padrão inseguras
-    const forbiddenUsers = ["sysdba"];
-    const forbiddenPasswords = ["masterkey", "masterke"];
-    if (forbiddenUsers.includes(val.FIREBIRD_USER.toLowerCase())) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "FIREBIRD_USER não pode ser SYSDBA (credencial padrão insegura).",
-        path: ["FIREBIRD_USER"],
-      });
-    }
-    if (forbiddenPasswords.includes(val.FIREBIRD_PASSWORD.toLowerCase())) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "FIREBIRD_PASSWORD não pode ser 'masterkey' (credencial padrão insegura).",
-        path: ["FIREBIRD_PASSWORD"],
-      });
-    }
-
+    // Nota: SYSDBA/masterkey NÃO são bloqueados aqui — o administrador pode
+    // legitimamente precisar usar SYSDBA em ambientes internos. Um aviso de
+    // segurança é emitido no boot (ver server.js) quando SYSDBA é usado.
+    // Nunca comparamos a senha com valores específicos, e a senha nunca é logada.
     if (val.NODE_ENV === "production") {
       if (!val.API_KEY || val.API_KEY.length < 16) {
         ctx.addIssue({
