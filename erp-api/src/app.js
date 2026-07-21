@@ -18,7 +18,10 @@ function createApp() {
   const app = express();
 
   app.disable("x-powered-by");
-  app.set("trust proxy", 1);
+  // Só confia em proxies loopback. NUNCA confie cegamente em x-forwarded-for:
+  // isso permitiria bypass remoto do auth via header forjado.
+  // Se um proxy reverso real for adicionado, ajustar aqui conforme o proxy.
+  app.set("trust proxy", "loopback");
 
   app.use(helmet());
   app.use(corsMiddleware());
