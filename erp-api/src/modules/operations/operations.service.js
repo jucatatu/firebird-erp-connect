@@ -7,9 +7,6 @@ const mapper = require("./operations.mapper");
  * Converte "YYYY-MM-DD" (contrato externo) para "MM/DD/YYYY" — o formato
  * literal esperado pela query CAST(... AS DATE) neste banco Firebird.
  * Assume que a data já passou pela validação estrita do validator.
- *
- * TODO Sprint futura:
- * confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
  */
 function toFirebirdDate(date) {
   const [year, month, day] = date.split("-");
@@ -40,8 +37,8 @@ function readId(row, key) {
  *
  * Quando o cliente informa explicitamente `companies`, o filtro é
  * aplicado sobre o `companyId` resolvido pelo mapper (regra oficial:
- * ORDENS_VENDA.ID_EMPRESA → CLIENTES.ID_EMPRESA → grupo GROTT → null).
- * Pedidos com `companyId = null` NÃO aparecem quando há filtro.
+ * ORDENS_VENDA.ID_EMPRESA → CLIENTES.ID_EMPRESA → grupo GROTT → 1).
+ * `companyId` é garantidamente 1 ou 3; nunca null.
  * Sem filtro, todos os pedidos do dia são retornados.
  *
  * @param {{ date: string, companies: number[], companiesProvided?: boolean }} input
@@ -121,7 +118,7 @@ async function listOrdersForDelivery({ date, companies, companiesProvided }) {
   }
 
   const orders = companiesProvided
-    ? allOrders.filter((o) => o.companyId !== null && companies.includes(o.companyId))
+    ? allOrders.filter((o) => companies.includes(o.companyId))
     : allOrders;
 
   return {
