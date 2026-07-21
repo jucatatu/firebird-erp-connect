@@ -3,7 +3,13 @@
 // impede o bundler de client de puxá-lo.
 import crypto from "node:crypto";
 
-type Json = unknown;
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -39,12 +45,12 @@ export interface ErpCallOptions {
   /** Objeto de query string opcional. */
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Corpo JSON opcional (para POST/PUT/PATCH). */
-  body?: Json;
+  body?: JsonValue;
   /** Timeout em ms (default 15000). */
   timeoutMs?: number;
 }
 
-export interface ErpResponse<T = unknown> {
+export interface ErpResponse<T extends JsonValue = JsonValue> {
   ok: boolean;
   status: number;
   data: T | null;
@@ -52,7 +58,7 @@ export interface ErpResponse<T = unknown> {
     code: string;
     message: string;
     retryable: boolean;
-    details?: unknown;
+    details?: JsonValue;
   } | null;
 }
 
@@ -72,7 +78,7 @@ function buildQueryString(
  * Chama a API ERP Node assinando cada requisição com HMAC-SHA256.
  * Roda apenas no servidor (dentro de createServerFn ou server route).
  */
-export async function callErp<T = unknown>(
+export async function callErp<T extends JsonValue = JsonValue>(
   opts: ErpCallOptions,
 ): Promise<ErpResponse<T>> {
   const method = (opts.method ?? "GET").toUpperCase();
