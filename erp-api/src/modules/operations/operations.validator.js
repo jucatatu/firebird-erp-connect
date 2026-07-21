@@ -3,7 +3,14 @@
 const { AppError } = require("../../shared/errors/app-error");
 
 // Empresas atualmente permitidas pela regra de negócio.
-const ALLOWED_EMPRESAS = Object.freeze([1, 3]);
+// Mantido no contrato para compatibilidade; nesta Sprint o valor é
+// validado mas NÃO é usado como filtro (ver operations.service).
+//
+// TODO Sprint futura:
+// confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
+const ALLOWED_COMPANIES = Object.freeze([1, 3]);
+// Alias retrocompatível.
+const ALLOWED_EMPRESAS = ALLOWED_COMPANIES;
 
 /**
  * Validação estrita de string YYYY-MM-DD.
@@ -50,19 +57,19 @@ function parseStrictDate(raw) {
  * Rejeita: vazio, letras, decimais, negativos, vírgulas soltas, empresas fora
  * da allowlist, valores repetidos em array (Express dupe param).
  */
-function parseEmpresas(raw) {
+function parseCompanies(raw) {
   if (raw === undefined || raw === null) {
-    return { valid: true, value: [...ALLOWED_EMPRESAS] };
+    return { valid: true, value: [...ALLOWED_COMPANIES] };
   }
   if (typeof raw !== "string") {
-    return { valid: false, message: "Informe empresas como lista separada por vírgula." };
+    return { valid: false, message: "Informe companies como lista separada por vírgula." };
   }
   if (raw.trim() === "") {
-    return { valid: false, message: "Informe empresas como lista separada por vírgula." };
+    return { valid: false, message: "Informe companies como lista separada por vírgula." };
   }
   const parts = raw.split(",").map((s) => s.trim());
   if (parts.some((p) => p === "")) {
-    return { valid: false, message: "Informe empresas como lista separada por vírgula." };
+    return { valid: false, message: "Informe companies como lista separada por vírgula." };
   }
   const nums = [];
   for (const p of parts) {
@@ -73,10 +80,10 @@ function parseEmpresas(raw) {
     if (!Number.isInteger(n) || n <= 0) {
       return { valid: false, message: "Empresas devem ser inteiros positivos." };
     }
-    if (!ALLOWED_EMPRESAS.includes(n)) {
+    if (!ALLOWED_COMPANIES.includes(n)) {
       return {
         valid: false,
-        message: `Empresa não permitida. Valores aceitos: ${ALLOWED_EMPRESAS.join(", ")}.`,
+        message: `Empresa não permitida. Valores aceitos: ${ALLOWED_COMPANIES.join(", ")}.`,
       };
     }
     nums.push(n);
@@ -84,6 +91,8 @@ function parseEmpresas(raw) {
   const unique = Array.from(new Set(nums)).sort((a, b) => a - b);
   return { valid: true, value: unique };
 }
+// Alias retrocompatível para uso interno/testes antigos.
+const parseEmpresas = parseCompanies;
 
 /**
  * Valida a query completa do endpoint GET /operations/orders.
@@ -95,7 +104,8 @@ function validateListOrdersQuery(query) {
 
   // Rejeita valores múltiplos (?date=a&date=b) → Express entrega array.
   const rawDate = query.date;
-  const rawEmpresas = query.empresas;
+  // Aceita `companies` (nome oficial) e mantém `empresas` como alias legado.
+  const rawCompanies = query.companies !== undefined ? query.companies : query.empresas;
 
   if (rawDate === undefined || rawDate === null || rawDate === "") {
     errors.push({ field: "date", message: "O parâmetro date é obrigatório." });
@@ -103,16 +113,20 @@ function validateListOrdersQuery(query) {
     errors.push({ field: "date", message: "Informe apenas um valor para date." });
   } else {
     const r = parseStrictDate(rawDate);
-    if (!r.valid) errors.push({ field: "date", message: r.message });
+    if (!r.valid)
+      errors.push({
+        field: "date",
+        message: "O parâmetro date deve estar no formato YYYY-MM-DD.",
+      });
   }
 
-  let empresas;
-  if (Array.isArray(rawEmpresas)) {
-    errors.push({ field: "empresas", message: "Informe apenas um valor para empresas." });
+  let companies;
+  if (Array.isArray(rawCompanies)) {
+    errors.push({ field: "companies", message: "Informe apenas um valor para companies." });
   } else {
-    const r = parseEmpresas(rawEmpresas);
-    if (!r.valid) errors.push({ field: "empresas", message: r.message });
-    else empresas = r.value;
+    const r = parseCompanies(rawCompanies);
+    if (!r.valid) errors.push({ field: "companies", message: r.message });
+    else companies = r.value;
   }
 
   if (errors.length > 0) {
@@ -126,12 +140,14 @@ function validateListOrdersQuery(query) {
     });
   }
 
-  return { date: rawDate, empresas };
+  return { date: rawDate, companies };
 }
 
 module.exports = {
+  ALLOWED_COMPANIES,
   ALLOWED_EMPRESAS,
   parseStrictDate,
+  parseCompanies,
   parseEmpresas,
   validateListOrdersQuery,
 };
