@@ -8,9 +8,6 @@ const firebird = require("../../shared/database/firebird-client");
  * Todas as consultas são SOMENTE LEITURA e 100% parametrizadas.
  * Placeholders `?` para cláusulas IN são gerados a partir do comprimento
  * de arrays internos — nenhuma entrada do cliente é interpolada em SQL.
- *
- * TODO Sprint futura:
- * confirmar a origem real de ID_EMPRESA e a regra de clientes do grupo GROTT.
  */
 
 const MAX_PARAMS_PER_QUERY = 500;
