@@ -6,8 +6,8 @@ const { validateListOrdersQuery } = require("./operations.validator");
 const service = require("./operations.service");
 
 const listOrders = asyncHandler(async (req, res) => {
-  const { date, companies } = validateListOrdersQuery(req.query);
-  const data = await service.listOrdersForDelivery({ date, companies });
+  const { date, companies, companiesProvided } = validateListOrdersQuery(req.query);
+  const data = await service.listOrdersForDelivery({ date, companies, companiesProvided });
   return success(res, data);
 });
 
