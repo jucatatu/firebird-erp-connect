@@ -243,8 +243,8 @@ test("mesma Idempotency-Key + payload diferente 409", async () => {
     "/api/v1/orders",
     payload({
       freight: 10,
-      total: 41,
-      items: [{ productId: 10, unitPrice: 15.5, quantity: 2, discount: 0 }],
+      total: 62,
+      items: [{ productId: 10, unitPrice: 31, quantity: 2, discount: 0 }],
     }),
     { "idempotency-key": "conflict-1" },
   );
