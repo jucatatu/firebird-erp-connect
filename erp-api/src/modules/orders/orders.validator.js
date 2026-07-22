@@ -85,8 +85,10 @@ const bodySchema = z
     freight: nonNegative,
     address: addressSchema,
     notes: z.string().max(LIMITS.OBS).nullable().optional(),
-    stockOutput: z.boolean(),
-    userId: positiveInt,
+    // stockOutput e userId são aceitos por compatibilidade mas IGNORADOS.
+    // SAIDA_ESTOQUE é fixado em 0 e ID_USER vem de ERP_INTEGRATION_USER_ID.
+    stockOutput: z.boolean().optional(),
+    userId: positiveInt.optional(),
     carrierId: nullableInt.optional(),
     carrierVehicleId: nullableInt.optional(),
     commercialDiscountPercent: nonNegative,

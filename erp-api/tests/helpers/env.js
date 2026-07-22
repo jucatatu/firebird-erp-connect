@@ -13,3 +13,5 @@ process.env.HMAC_SECRET = "test-hmac-secret-with-more-than-32-chars-xxxxxx";
 process.env.CORS_ORIGINS = "";
 process.env.LOG_LEVEL = "silent";
 process.env.DEV_BYPASS_AUTH = "false";
+process.env.ERP_INTEGRATION_USER_ID =
+  process.env.ERP_INTEGRATION_USER_ID || "42";

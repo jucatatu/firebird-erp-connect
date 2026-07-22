@@ -49,7 +49,7 @@ function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
  * SEMPRE fixado em 1 aqui — jamais lido do payload. CHAVE fixada em NULL.
  */
 function buildCompleteProcParams(input) {
-  const { payload, companyId } = input;
+  const { payload, companyId, integrationUserId } = input;
   const addr = payload.address;
   return [
     /*  0 ID_EMPRESA               */ companyId,
@@ -75,8 +75,8 @@ function buildCompleteProcParams(input) {
     /* 20 CEP                      */ truncate(addr.postalCode, LIMITS.CEP),
     /* 21 OBS                      */ truncate(orNull(payload.notes), LIMITS.OBS),
     /* 22 GERA_COBRANCA (FIXO=1)   */ 1,
-    /* 23 SAIDA_ESTOQUE            */ payload.stockOutput ? 1 : 0,
-    /* 24 ID_USER                  */ payload.userId,
+    /* 23 SAIDA_ESTOQUE (FIXO=0)   */ 0,
+    /* 24 ID_USER (do servidor)    */ integrationUserId,
     /* 25 CHAVE (NULL para criar)  */ null,
     /* 26 ID_TRANSPORTADOR         */ orNull(payload.carrierId),
     /* 27 ID_TRANSPORTADOR_VEICULO */ orNull(payload.carrierVehicleId),
