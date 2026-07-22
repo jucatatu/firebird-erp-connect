@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedRecolhasRouteImport } from './routes/_authenticated.recolhas'
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
+import { Route as AuthenticatedEntregasRouteImport } from './routes/_authenticated.entregas'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
 import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
 import { Route as ApiPublicTmpResetAdminRouteImport } from './routes/api/public/tmp-reset-admin'
@@ -36,9 +38,19 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedRecolhasRoute = AuthenticatedRecolhasRouteImport.update({
+  id: '/recolhas',
+  path: '/recolhas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
   id: '/operations',
   path: '/operations',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedEntregasRoute = AuthenticatedEntregasRouteImport.update({
+  id: '/entregas',
+  path: '/entregas',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
@@ -92,7 +104,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
+  '/recolhas': typeof AuthenticatedRecolhasRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -104,7 +118,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
+  '/recolhas': typeof AuthenticatedRecolhasRoute
   '/': typeof AuthenticatedIndexRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
@@ -119,7 +135,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/entregas': typeof AuthenticatedEntregasRoute
   '/_authenticated/operations': typeof AuthenticatedOperationsRoute
+  '/_authenticated/recolhas': typeof AuthenticatedRecolhasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
@@ -135,7 +153,9 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/approvals'
+    | '/entregas'
     | '/operations'
+    | '/recolhas'
     | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
@@ -147,7 +167,9 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/approvals'
+    | '/entregas'
     | '/operations'
+    | '/recolhas'
     | '/'
     | '/orders/$'
     | '/pedidos-venda/$draftId'
@@ -161,7 +183,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/approvals'
+    | '/_authenticated/entregas'
     | '/_authenticated/operations'
+    | '/_authenticated/recolhas'
     | '/_authenticated/'
     | '/_authenticated/orders/$'
     | '/_authenticated/pedidos-venda/$draftId'
@@ -201,11 +225,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/recolhas': {
+      id: '/_authenticated/recolhas'
+      path: '/recolhas'
+      fullPath: '/recolhas'
+      preLoaderRoute: typeof AuthenticatedRecolhasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/operations': {
       id: '/_authenticated/operations'
       path: '/operations'
       fullPath: '/operations'
       preLoaderRoute: typeof AuthenticatedOperationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/entregas': {
+      id: '/_authenticated/entregas'
+      path: '/entregas'
+      fullPath: '/entregas'
+      preLoaderRoute: typeof AuthenticatedEntregasRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/approvals': {
@@ -269,7 +307,9 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedEntregasRoute: typeof AuthenticatedEntregasRoute
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
+  AuthenticatedRecolhasRoute: typeof AuthenticatedRecolhasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
   AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
@@ -281,7 +321,9 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedEntregasRoute: AuthenticatedEntregasRoute,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
+  AuthenticatedRecolhasRoute: AuthenticatedRecolhasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedOrdersSplatRoute: AuthenticatedOrdersSplatRoute,
   AuthenticatedPedidosVendaDraftIdRoute: AuthenticatedPedidosVendaDraftIdRoute,
