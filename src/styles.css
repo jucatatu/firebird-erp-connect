@@ -59,12 +59,30 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-status-draft-bg: var(--status-draft-bg);
+  --color-status-draft-fg: var(--status-draft-fg);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-pending-fg: var(--status-pending-fg);
+  --color-status-approved-bg: var(--status-approved-bg);
+  --color-status-approved-fg: var(--status-approved-fg);
+  --color-status-rejected-bg: var(--status-rejected-bg);
+  --color-status-rejected-fg: var(--status-rejected-fg);
+  --color-status-sent-bg: var(--status-sent-bg);
+  --color-status-sent-fg: var(--status-sent-fg);
+  --color-status-failed-bg: var(--status-failed-bg);
+  --color-status-failed-fg: var(--status-failed-fg);
+  --color-status-cancelled-bg: var(--status-cancelled-bg);
+  --color-status-cancelled-fg: var(--status-cancelled-fg);
 }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0.003 250);
   --foreground: oklch(0.129 0.042 264.695);
+  --surface: oklch(1 0 0);
+  --surface-muted: oklch(0.972 0.006 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
@@ -87,14 +105,28 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --sidebar: oklch(0.205 0.035 260);
+  --sidebar-foreground: oklch(0.94 0.01 250);
+  --sidebar-primary: oklch(0.68 0.16 250);
+  --sidebar-primary-foreground: oklch(0.99 0.003 250);
+  --sidebar-accent: oklch(0.27 0.04 260);
+  --sidebar-accent-foreground: oklch(0.98 0.003 250);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.68 0.16 250);
+  --status-draft-bg: oklch(0.955 0.008 250);
+  --status-draft-fg: oklch(0.38 0.03 260);
+  --status-pending-bg: oklch(0.96 0.06 85);
+  --status-pending-fg: oklch(0.42 0.12 70);
+  --status-approved-bg: oklch(0.95 0.05 160);
+  --status-approved-fg: oklch(0.38 0.11 155);
+  --status-rejected-bg: oklch(0.955 0.04 25);
+  --status-rejected-fg: oklch(0.48 0.19 27);
+  --status-sent-bg: oklch(0.955 0.04 235);
+  --status-sent-fg: oklch(0.42 0.15 250);
+  --status-failed-bg: oklch(0.95 0.05 20);
+  --status-failed-fg: oklch(0.48 0.19 15);
+  --status-cancelled-bg: oklch(0.955 0.008 250);
+  --status-cancelled-fg: oklch(0.52 0.02 260);
 }
 
 .dark {
