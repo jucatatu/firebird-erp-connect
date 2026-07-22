@@ -197,3 +197,95 @@ test("cacheKey do GET e do POST são idênticos para a mesma row", () => {
   const postSide = normalizeAddress({ ...fields, complement: "Sala 999" });
   assert.equal(getSide.cacheKey, postSide.cacheKey);
 });
+
+// ── Concorrência / single-flight ──────────────────────────────────────
+// Simula duas requisições POST /api/v1/map/geocode concorrentes para o
+// mesmo endereço. Cache inicialmente vazio.
+//
+// Requisitos validados aqui:
+//   1) provider chamado exatamente 1 vez;
+//   2) as duas respostas retornam com sucesso;
+//   3) as duas apontam para o MESMO resultado (mesma cacheKey/lat/lng);
+//   4) o cache termina como resolved;
+//   5) uma chamada posterior retorna source="cache";
+//   6) o mapa in-flight é liberado ao final (nada preso).
+test("single-flight: duas chamadas concorrentes = 1 chamada ao provider", async () => {
+  geocoding._resetInflightForTests();
+  const cache = createMemoryCache();
+
+  // Provider com latência para garantir sobreposição temporal.
+  const provider = createFakeProvider({ latency: 25 });
+
+  const [a, b] = await Promise.all([
+    geocoding.resolveOne(addr(), provider, { cache }),
+    geocoding.resolveOne(addr(), provider, { cache }),
+  ]);
+
+  assert.equal(provider._calls.length, 1, "provider chamado exatamente 1 vez");
+  assert.equal(a.status, "resolved");
+  assert.equal(b.status, "resolved");
+  assert.equal(a.cacheKey, b.cacheKey, "mesma cacheKey");
+  assert.equal(a.latitude, b.latitude, "mesma latitude");
+  assert.equal(a.longitude, b.longitude, "mesma longitude");
+
+  // Cache final = resolved.
+  const stored = await cache.get(a.cacheKey);
+  assert.equal(stored.status, "resolved");
+
+  // Chamada posterior = source="cache".
+  const later = await geocoding.resolveOne(addr(), provider, { cache });
+  assert.equal(later.source, "cache");
+  assert.equal(provider._calls.length, 1, "posterior não rechama provider");
+});
+
+// Falha durante concorrência: as duas requisições concorrentes recebem o
+// mesmo status=error, o lock in-flight é removido, e uma tentativa
+// posterior consegue chamar o provider novamente (nada de promise
+// rejeitada presa no mapa).
+test("single-flight: erro em chamada concorrente libera o lock", async () => {
+  geocoding._resetInflightForTests();
+  const cache = createMemoryCache();
+
+  // Provider controlado: 1ª chamada throw, 2ª chamada sucesso.
+  const calls = [];
+  let call = 0;
+  const provider = {
+    name: "fake-controlled",
+    _calls: calls,
+    async geocode(input) {
+      calls.push(input);
+      call += 1;
+      await new Promise((r) => setTimeout(r, 20));
+      if (call === 1) throw new Error("boom");
+      return {
+        status: "OK",
+        placeId: "p1",
+        latitude: -23.5,
+        longitude: -46.6,
+        locationType: "ROOFTOP",
+        matchedCountry: "BR",
+        matchedState: input.fields.state,
+        matchedCity: input.fields.city,
+        matchedPostalCode: "",
+      };
+    },
+  };
+
+  const [a, b] = await Promise.all([
+    geocoding.resolveOne(addr(), provider, { cache }),
+    geocoding.resolveOne(addr(), provider, { cache }),
+  ]);
+
+  // Ambas resolvidas (não travadas) com o mesmo status=error.
+  assert.equal(provider._calls.length, 1, "apenas 1 chamada apesar da falha");
+  assert.equal(a.status, "error");
+  assert.equal(b.status, "error");
+  assert.equal(a.cacheKey, b.cacheKey);
+
+  // Uma nova tentativa consegue chamar o provider novamente (nenhuma
+  // promise rejeitada ficou presa no mapa in-flight).
+  const retry = await geocoding.resolveOne(addr(), provider, { cache });
+  assert.equal(provider._calls.length, 2, "retry chamou provider de novo");
+  assert.equal(retry.status, "resolved");
+  assert.equal(retry.source, "provider");
+});
