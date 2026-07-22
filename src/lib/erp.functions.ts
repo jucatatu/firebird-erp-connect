@@ -443,3 +443,32 @@ export const getMapOrders = createServerFn({ method: "GET" })
       } | null;
     };
   });
+
+export const geocodeOrders = createServerFn({ method: "POST" })
+  .inputValidator((input: GeocodeOrdersInput) => {
+    if (!input || !Array.isArray(input.orderIds)) {
+      throw new Error("orderIds obrigatório (array de inteiros).");
+    }
+    // Sanitiza: apenas inteiros positivos, remove nulos/duplicados.
+    const seen = new Set<number>();
+    const clean: number[] = [];
+    for (const raw of input.orderIds) {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) continue;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      clean.push(n);
+    }
+    if (clean.length === 0) {
+      throw new Error("orderIds vazio após sanitização.");
+    }
+    return { orderIds: clean };
+  })
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    return callErp<JsonValue>({
+      method: "POST",
+      path: "/api/v1/map/geocode",
+      body: { orderIds: data.orderIds } as unknown as JsonValue,
+    });
+  });
