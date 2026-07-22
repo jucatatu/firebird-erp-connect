@@ -9,7 +9,7 @@ import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
 import { useOperationStates } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
-import { deliveryTimeLabel } from "@/lib/delivery-time";
+import { resolveDeliveryTime } from "@/lib/delivery-time";
 import {
   OPERATIONAL_STATUS_COLOR,
   OPERATIONAL_STATUS_LABEL,
@@ -211,10 +211,10 @@ function MapHome() {
         color: OPERATIONAL_STATUS_COLOR[e.status],
         label: e.order.customerName,
         orderNumber: e.order.orderNumber,
-        deliveryTimeLabel: deliveryTimeLabel(
-          e.order.deliveryDate,
-          e.order.period,
-        ),
+        // Prioriza o novo campo `deliveryTime` (backend v1.4.2+); cai
+        // para a parte de hora de expectedDelivery/deliveryDate. Nunca
+        // usa `period`, nunca inventa "Sem horário" no mapa.
+        deliveryTime: resolveDeliveryTime(e.order),
       }));
   }, [orders]);
 
