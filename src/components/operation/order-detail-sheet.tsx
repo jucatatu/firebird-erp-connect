@@ -1,15 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -19,20 +9,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   ExternalLink,
   Phone,
   X,
   Play,
   CheckCircle2,
-  PackageX,
   Bell,
   MapPinOff,
   CalendarClock,
@@ -41,6 +34,10 @@ import {
   MapPin,
   UserPlus,
   Truck,
+  PackageX,
+  ChevronDown,
+  Package,
+  MoreHorizontal,
 } from "lucide-react";
 import type {
   NormalizedEquipment,
@@ -56,7 +53,6 @@ import {
 import {
   ACTION_LABEL,
   getAllowedOperationalActions,
-  operationContext,
   type OperationAction,
 } from "@/lib/operations/state-machine";
 import { hasReturnableEquipment } from "@/lib/operations/equipment";
@@ -85,19 +81,25 @@ const ACTION_ICON: Partial<Record<OperationAction, typeof Play>> = {
   pickup_not_found: MapPinOff,
 };
 
-const ACTION_TONE: Partial<Record<OperationAction, ButtonTone>> = {
-  start_delivery: undefined,
-  confirm_delivery: "success",
-  delivery_not_found: "muted",
-  reschedule_delivery: "sky",
-  customer_will_contact: "warning",
-  schedule_pickup: "sky",
-  start_pickup: undefined,
-  confirm_pickup: "violet",
-  pickup_not_found: "muted",
-};
+// Ações que precisam de modal antes de aplicar
+const ACTIONS_WITH_DIALOG = new Set<OperationAction>([
+  "reschedule_delivery",
+  "schedule_pickup",
+  "confirm_pickup",
+]);
 
-type ButtonTone = "success" | "warning" | "muted" | "sky" | "violet" | undefined;
+/** Primary CTA — a "próxima ação natural" do fluxo. */
+function primaryOf(actions: OperationAction[]): OperationAction | null {
+  const priority: OperationAction[] = [
+    "start_delivery",
+    "confirm_delivery",
+    "start_pickup",
+    "confirm_pickup",
+    "schedule_pickup",
+  ];
+  for (const p of priority) if (actions.includes(p)) return p;
+  return actions[0] ?? null;
+}
 
 export function OrderDetailSheet({
   order,
@@ -143,12 +145,13 @@ export function OrderDetailSheet({
   const currentStatus: OperationalStatus = state?.operational_status ?? "pending";
   const hasReturnable =
     state?.has_returnable_equipment ?? hasReturnableEquipment(order);
-  const ctx = operationContext(currentStatus);
 
   const allowedActions = useMemo(
     () => getAllowedOperationalActions({ status: currentStatus, hasReturnableEquipment: hasReturnable }),
     [currentStatus, hasReturnable],
   );
+  const primary = primaryOf(allowedActions);
+  const secondary = allowedActions.filter((a) => a !== primary);
 
   const profileById = useMemo(() => {
     const map = new Map<string, string>();
@@ -156,7 +159,7 @@ export function OrderDetailSheet({
     return map;
   }, [profilesQ.data]);
   const nameOf = (id: string | null | undefined) =>
-    id ? profileById.get(id) ?? "Usuário" : "Não atribuído";
+    id ? profileById.get(id) ?? "Usuário" : null;
 
   const locSource = order.location?.source;
   const hasCoords =
@@ -187,7 +190,6 @@ export function OrderDetailSheet({
   }
 
   // Diálogos
-  const [confirmAction, setConfirmAction] = useState<OperationAction | null>(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newDate, setNewDate] = useState(operationDate);
   const [reason, setReason] = useState("");
@@ -195,6 +197,19 @@ export function OrderDetailSheet({
   const [pickupDate, setPickupDate] = useState(operationDate);
   const [pickupTime, setPickupTime] = useState("");
   const [pickupNote, setPickupNote] = useState("");
+  const [pickupAssignee, setPickupAssignee] = useState<string>("");
+  // Modal de definição pós-entrega para chopeira
+  const [defineOpen, setDefineOpen] = useState(false);
+  // Modal de confirmação de recolhimento com equipamentos
+  const [confirmPickupOpen, setConfirmPickupOpen] = useState(false);
+  const [returnedIdx, setReturnedIdx] = useState<Set<number>>(
+    () => new Set(order.equipments.map((_, i) => i)),
+  );
+  // Colapsáveis
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [equipsOpen, setEquipsOpen] = useState(true);
+  const [itemsOpen, setItemsOpen] = useState(false);
   const [note, setNote] = useState("");
 
   async function ensureStateId(): Promise<string> {
@@ -231,13 +246,41 @@ export function OrderDetailSheet({
         payload,
       });
       onAfterAction?.(res);
+      return res;
     } catch (err) {
       if (!(err instanceof OperationConflictError)) {
         toast.error("Não foi possível aplicar a ação", {
           description: (err as Error)?.message ?? String(err),
         });
       }
+      return null;
     }
+  }
+
+  // Após confirmar entrega em pedido com equipamento retornável, o
+  // banco leva ao status `awaiting_pickup_definition`. Nesse instante
+  // abrimos automaticamente o modal de definição (avisar ou agendar).
+  useEffect(() => {
+    if (currentStatus === "awaiting_pickup_definition") {
+      setDefineOpen(true);
+    }
+  }, [currentStatus]);
+
+  async function handleAction(action: OperationAction) {
+    if (action === "reschedule_delivery") {
+      setRescheduleOpen(true);
+      return;
+    }
+    if (action === "schedule_pickup") {
+      setPickupOpen(true);
+      return;
+    }
+    if (action === "confirm_pickup") {
+      setReturnedIdx(new Set(order.equipments.map((_, i) => i)));
+      setConfirmPickupOpen(true);
+      return;
+    }
+    await performTransition(action);
   }
 
   async function performReschedule() {
@@ -252,14 +295,45 @@ export function OrderDetailSheet({
 
   async function performSchedulePickup() {
     if (!pickupDate) return;
-    await performTransition("schedule_pickup", {
+    const res = await performTransition("schedule_pickup", {
       scheduledDate: pickupDate,
       scheduledTime: pickupTime || undefined,
       note: pickupNote || undefined,
     });
     setPickupOpen(false);
+    setDefineOpen(false);
     setPickupNote("");
     setPickupTime("");
+    // Atribuir responsável opcional pelo mesmo fluxo
+    if (res && pickupAssignee) {
+      try {
+        await assignOperator.mutateAsync({
+          stateId: res.id,
+          role: "pickup",
+          userId: pickupAssignee,
+          expectedVersion: res.version,
+        });
+      } catch (err) {
+        if (!(err instanceof OperationConflictError)) {
+          toast.error("Não foi possível atribuir responsável", {
+            description: (err as Error)?.message ?? String(err),
+          });
+        }
+      }
+      setPickupAssignee("");
+    }
+  }
+
+  async function performConfirmPickup() {
+    const returned = order.equipments
+      .map((e, i) => ({ e, i }))
+      .filter(({ i }) => returnedIdx.has(i))
+      .map(({ e }) => ({ type: e.type, quantity: e.quantity, typeId: e.typeId }));
+    await performTransition("confirm_pickup", {
+      returnedEquipments: returned,
+      partial: returned.length !== order.equipments.length,
+    });
+    setConfirmPickupOpen(false);
   }
 
   async function submitNote() {
@@ -269,7 +343,27 @@ export function OrderDetailSheet({
     setNote("");
   }
 
-  async function assign(role: "delivery" | "pickup", userId: string) {
+  async function assignMe(role: "delivery" | "pickup") {
+    if (!user) return;
+    try {
+      const id = await ensureStateId();
+      const res = await assignOperator.mutateAsync({
+        stateId: id,
+        role,
+        userId: user.id,
+        expectedVersion: state?.version ?? 1,
+      });
+      onAfterAction?.(res);
+    } catch (err) {
+      if (!(err instanceof OperationConflictError)) {
+        toast.error("Não foi possível atribuir", {
+          description: (err as Error)?.message ?? String(err),
+        });
+      }
+    }
+  }
+
+  async function assignTo(role: "delivery" | "pickup", userId: string) {
     if (!userId) return;
     try {
       const id = await ensureStateId();
@@ -289,281 +383,236 @@ export function OrderDetailSheet({
     }
   }
 
-  function handleActionClick(action: OperationAction) {
-    if (action === "reschedule_delivery") {
-      setRescheduleOpen(true);
-      return;
-    }
-    if (action === "schedule_pickup") {
-      setPickupOpen(true);
-      return;
-    }
-    setConfirmAction(action);
-  }
-
   const deliveryAssigneeId = state?.delivery_assignee_id ?? null;
   const pickupAssigneeId = state?.pickup_assignee_id ?? null;
 
-  const nextActionLabel =
-    allowedActions.length > 0 ? ACTION_LABEL[allowedActions[0]] : "Operação concluída";
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            Pedido #{orderNumber}
-          </div>
-          <h2 className="truncate text-lg font-semibold">{name}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground">
+    <div className="space-y-4 pb-4">
+      {/* Header enxuto: cliente + ações rápidas */}
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span>Pedido #{orderNumber}</span>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
               {OPERATIONAL_STATUS_LABEL[currentStatus]}
             </span>
             {hasReturnable && (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-800">
-                Requer recolhimento
-              </span>
-            )}
-            {state?.operational_date && state.operational_date !== operationDate && (
-              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-800">
-                Reagendado → {state.operational_date}
+              <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">
+                Chopeira
               </span>
             )}
           </div>
+          <h2 className="truncate text-lg font-semibold leading-snug">{name}</h2>
+          {order.deliveryTime && (
+            <div className="text-xs text-muted-foreground">Horário previsto: {order.deliveryTime}</div>
+          )}
         </div>
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Resumo operacional */}
-      <div className="rounded-lg border bg-surface p-3 text-xs">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <SummaryLine label="Status" value={OPERATIONAL_STATUS_LABEL[currentStatus]} />
-          <SummaryLine label="Próxima ação" value={nextActionLabel} />
-          <SummaryLine label="Entregador" value={nameOf(deliveryAssigneeId)} />
-          {hasReturnable && (
-            <SummaryLine label="Recolhimento" value={nameOf(pickupAssigneeId)} />
-          )}
-          {state?.pickup_scheduled_date && (
-            <SummaryLine
-              label="Recolh. agendado"
-              value={
-                state.pickup_scheduled_time
-                  ? `${state.pickup_scheduled_date} às ${state.pickup_scheduled_time}`
-                  : state.pickup_scheduled_date
-              }
-            />
-          )}
-        </div>
-      </div>
-
+      {/* Endereço + botões rápidos */}
       {addressText && (
-        <div className="rounded-md border p-3 text-sm">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Endereço</div>
-          <div>{addressText}</div>
+        <div className="rounded-lg border bg-surface p-3 text-sm">
+          <div className="mb-2">{addressText}</div>
+          <div className="flex flex-wrap gap-2">
+            {mapsUrl && (
+              <Button asChild size="sm" variant="outline">
+                <a href={mapsUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Rota
+                </a>
+              </Button>
+            )}
+            {order.phone && (
+              <Button asChild size="sm" variant="outline">
+                <a href={`tel:${order.phone}`}>
+                  <Phone className="mr-1.5 h-3.5 w-3.5" /> {order.phone}
+                </a>
+              </Button>
+            )}
+            {canRetryGeocode && (
+              <Button size="sm" variant="outline" onClick={retryGeocode} disabled={geocodeM.isPending}>
+                {geocodeM.isPending ? (
+                  <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Localizando…</>
+                ) : (
+                  <><MapPin className="mr-1.5 h-3.5 w-3.5" /> Localizar</>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        {order.phone && <Field label="Telefone" value={order.phone} />}
-        {order.period && <Field label="Período" value={order.period} />}
-        {order.deliveryDate && <Field label="Entrega (ERP)" value={order.deliveryDate} />}
-        {order.returnDate && <Field label="Retorno (ERP)" value={order.returnDate} />}
-        {order.companyId != null && (
-          <Field
-            label="Empresa"
-            value={order.companyId === 3 ? "Grott" : order.companyId === 1 ? "Graal" : String(order.companyId)}
+      {/* Atribuição compacta */}
+      <div className="space-y-1.5 rounded-lg border bg-surface p-3 text-sm">
+        <AssignRow
+          label="Entrega"
+          currentName={nameOf(deliveryAssigneeId)}
+          profiles={profilesQ.data ?? []}
+          disabled={busy}
+          isMe={!!user && deliveryAssigneeId === user.id}
+          onPick={(uid) => assignTo("delivery", uid)}
+          onAssignMe={user ? () => assignMe("delivery") : undefined}
+        />
+        {hasReturnable && (
+          <AssignRow
+            label="Recolha"
+            currentName={nameOf(pickupAssigneeId)}
+            profiles={profilesQ.data ?? []}
+            disabled={busy}
+            isMe={!!user && pickupAssigneeId === user.id}
+            onPick={(uid) => assignTo("pickup", uid)}
+            onAssignMe={user ? () => assignMe("pickup") : undefined}
           />
         )}
-        {order.erpStatus && <Field label="Status ERP" value={order.erpStatus} />}
+        {state?.pickup_scheduled_date && (
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-sky-700">
+            <CalendarClock className="h-3.5 w-3.5" />
+            Recolha agendada:{" "}
+            {state.pickup_scheduled_time
+              ? `${state.pickup_scheduled_date} às ${state.pickup_scheduled_time}`
+              : state.pickup_scheduled_date}
+          </div>
+        )}
       </div>
 
-      {order.equipments.length > 0 && <EquipmentList items={order.equipments} />}
-      {order.items.length > 0 && <ItemList items={order.items} />}
+      {/* Equipamentos (aberto por padrão quando há) e itens */}
+      {order.equipments.length > 0 && (
+        <SectionCollapsible
+          open={equipsOpen}
+          onOpenChange={setEquipsOpen}
+          icon={Package}
+          title={`Equipamentos (${order.equipments.length})`}
+        >
+          <EquipmentList items={order.equipments} />
+        </SectionCollapsible>
+      )}
+      {order.items.length > 0 && (
+        <SectionCollapsible
+          open={itemsOpen}
+          onOpenChange={setItemsOpen}
+          icon={Package}
+          title={`Itens (${order.items.length})`}
+        >
+          <ItemList items={order.items} />
+        </SectionCollapsible>
+      )}
+
+      {/* Ação principal — 1 toque */}
+      {primary && (
+        <PrimaryCTA
+          action={primary}
+          onClick={() => handleAction(primary)}
+          disabled={busy}
+        />
+      )}
+
+      {/* Ações secundárias — colapsadas */}
+      {secondary.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-center text-muted-foreground">
+              <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" /> Mais ações
+              <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {secondary.map((action) => {
+                const Icon = ACTION_ICON[action] ?? Play;
+                return (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => handleAction(action)}
+                    disabled={busy}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-md border bg-surface px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/40 disabled:opacity-50"
+                  >
+                    <Icon className="h-3.5 w-3.5" /> {ACTION_LABEL[action]}
+                  </button>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {allowedActions.length === 0 && (
+        <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
+          Operação finalizada.
+        </div>
+      )}
 
       {order.observations && (
         <div>
-          <div className="mb-1 text-xs font-medium">Observação do ERP</div>
-          <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Observação do ERP</div>
+          <div className="whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
             {order.observations}
           </div>
         </div>
       )}
 
-      {/* Atribuição */}
-      <div className="rounded-lg border bg-surface p-3">
-        <div className="mb-2 text-xs font-medium">Atribuição</div>
-        <AssigneePicker
-          label="Entrega"
-          currentId={deliveryAssigneeId}
-          profiles={profilesQ.data ?? []}
-          disabled={busy}
-          onAssign={(uid) => assign("delivery", uid)}
-          onAssignMe={user ? () => assign("delivery", user.id) : undefined}
-        />
-        {hasReturnable && (
-          <div className="mt-2">
-            <AssigneePicker
-              label="Recolhimento"
-              currentId={pickupAssigneeId}
-              profiles={profilesQ.data ?? []}
-              disabled={busy}
-              onAssign={(uid) => assign("pickup", uid)}
-              onAssignMe={user ? () => assign("pickup", user.id) : undefined}
+      {/* Observações operacionais — colapsado */}
+      <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-between px-2 text-xs">
+            <span className="flex items-center gap-1.5">
+              <StickyNote className="h-3.5 w-3.5" /> Observações
+              {(notes.data?.length ?? 0) > 0 && (
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{notes.data?.length}</span>
+              )}
+            </span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", notesOpen && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 pt-2">
+          <ul className="space-y-1">
+            {(notes.data ?? []).map((n) => (
+              <li key={n.id} className="rounded-md border bg-surface p-2 text-xs">
+                <div className="text-muted-foreground">{new Date(n.created_at).toLocaleString()}</div>
+                <div>{n.body}</div>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Adicionar observação…"
+              rows={2}
+              className="text-sm"
             />
+            <Button size="sm" onClick={submitNote} disabled={!note.trim() || addNote.isPending}>
+              Salvar
+            </Button>
           </div>
-        )}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      {/* Ações contextuais */}
-      <div className="rounded-lg border bg-surface p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="text-xs font-medium">
-            Ações — {ctx === "pickup" ? "Recolhimento" : "Entrega"}
-          </div>
-          {allowedActions.length === 0 && (
-            <span className="text-[10px] text-muted-foreground">Operação finalizada</span>
+      {/* Histórico — colapsado */}
+      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-between px-2 text-xs">
+            <span>Ver histórico</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", historyOpen && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2">
+          {events.isLoading ? (
+            <div className="text-xs text-muted-foreground">
+              <Loader2 className="inline h-3 w-3 animate-spin" /> Carregando…
+            </div>
+          ) : (
+            <OperationTimeline events={events.data ?? []} />
           )}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {allowedActions.map((action) => {
-            const Icon = ACTION_ICON[action] ?? Play;
-            return (
-              <ActionButton
-                key={action}
-                icon={Icon}
-                label={ACTION_LABEL[action]}
-                tone={ACTION_TONE[action]}
-                onClick={() => handleActionClick(action)}
-                disabled={busy}
-              />
-            );
-          })}
-        </div>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      {/* Notas operacionais */}
-      <div>
-        <div className="mb-1 text-xs font-medium">Observações da operação</div>
-        <ul className="space-y-1">
-          {(notes.data ?? []).map((n) => (
-            <li key={n.id} className="rounded-md border bg-surface p-2 text-xs">
-              <div className="text-muted-foreground">{new Date(n.created_at).toLocaleString()}</div>
-              <div>{n.body}</div>
-            </li>
-          ))}
-          {(notes.data ?? []).length === 0 && (
-            <li className="text-[11px] text-muted-foreground">Sem observações locais ainda.</li>
-          )}
-        </ul>
-        <div className="mt-2 flex gap-2">
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Adicionar observação operacional…"
-            rows={2}
-            className="text-sm"
-          />
-          <Button size="sm" onClick={submitNote} disabled={!note.trim() || addNote.isPending}>
-            <StickyNote className="mr-1 h-3.5 w-3.5" /> Salvar
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {mapsUrl && (
-          <Button asChild size="sm" variant="outline">
-            <a href={mapsUrl} target="_blank" rel="noreferrer">
-              <ExternalLink className="mr-2 h-4 w-4" /> Google Maps
-            </a>
-          </Button>
-        )}
-        {order.phone && (
-          <Button asChild size="sm" variant="outline">
-            <a href={`tel:${order.phone}`}>
-              <Phone className="mr-2 h-4 w-4" /> Ligar
-            </a>
-          </Button>
-        )}
-        {canRetryGeocode && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={retryGeocode}
-            disabled={geocodeM.isPending}
-          >
-            {geocodeM.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Localizando…
-              </>
-            ) : (
-              <>
-                <MapPin className="mr-2 h-4 w-4" /> Tentar localizar
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-2 text-xs font-medium">Histórico operacional</div>
-        {events.isLoading ? (
-          <div className="text-xs text-muted-foreground">
-            <Loader2 className="inline h-3 w-3 animate-spin" /> Carregando…
-          </div>
-        ) : (
-          <OperationTimeline events={events.data ?? []} />
-        )}
-      </div>
-
-      {/* Confirmação de ação simples */}
-      <AlertDialog
-        open={confirmAction !== null}
-        onOpenChange={(o) => !o && setConfirmAction(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Confirmar “{confirmAction ? ACTION_LABEL[confirmAction] : ""}”?
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-1 text-sm">
-                <div><strong>Cliente:</strong> {name}</div>
-                {addressText && <div><strong>Endereço:</strong> {addressText}</div>}
-                <div><strong>Pedido:</strong> #{orderNumber}</div>
-                {confirmAction === "confirm_delivery" && hasReturnable && (
-                  <div className="mt-2 rounded bg-violet-50 p-2 text-xs text-violet-800">
-                    Este pedido possui equipamentos retornáveis. Após confirmar a
-                    entrega será obrigatório definir o recolhimento.
-                  </div>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (confirmAction) {
-                  const a = confirmAction;
-                  setConfirmAction(null);
-                  performTransition(a);
-                }
-              }}
-            >
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Reagendar entrega */}
+      {/* Modal: Reagendar entrega */}
       <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reagendar entrega</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Reagendar entrega</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <label className="text-xs font-medium">Nova data</label>
@@ -571,74 +620,139 @@ export function OrderDetailSheet({
             </div>
             <div>
               <label className="text-xs font-medium">Motivo *</label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={3}
-                placeholder="Descreva o motivo do reagendamento"
-              />
+              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              A data original do ERP ({order.deliveryDate ?? "—"}) permanece inalterada.
-              Apenas a agenda operacional local será atualizada.
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRescheduleOpen(false)}>Cancelar</Button>
             <Button onClick={performReschedule} disabled={!reason.trim() || transition.isPending}>
-              Confirmar reagendamento
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Agendar recolhimento */}
+      {/* Modal: Definir recolha (chopeira) */}
+      <Dialog open={defineOpen} onOpenChange={setDefineOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Definir recolha</DialogTitle></DialogHeader>
+          <div className="grid gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setDefineOpen(false);
+                await performTransition("customer_will_contact");
+              }}
+              disabled={busy}
+              className="flex items-center gap-3 rounded-lg border p-4 text-left transition hover:bg-muted/40 disabled:opacity-50"
+            >
+              <Bell className="h-5 w-5 text-amber-600" />
+              <div>
+                <div className="font-medium">Cliente irá avisar</div>
+                <div className="text-xs text-muted-foreground">Sem data agora — cliente entra em contato.</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDefineOpen(false);
+                setPickupOpen(true);
+              }}
+              disabled={busy}
+              className="flex items-center gap-3 rounded-lg border p-4 text-left transition hover:bg-muted/40 disabled:opacity-50"
+            >
+              <CalendarClock className="h-5 w-5 text-sky-600" />
+              <div>
+                <div className="font-medium">Agendar recolha</div>
+                <div className="text-xs text-muted-foreground">Data, hora e responsável (opcional).</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Agendar recolha */}
       <Dialog open={pickupOpen} onOpenChange={setPickupOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Agendar recolhimento</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Agendar recolha</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="rounded bg-muted/40 p-2 text-xs">
-              <div><strong>Cliente:</strong> {name}</div>
-              <div><strong>Pedido:</strong> #{orderNumber}</div>
-              {order.equipments.length > 0 && (
-                <div>
-                  <strong>Equipamentos:</strong>{" "}
-                  {order.equipments
-                    .map((e) => `${e.type || "Equipamento"} ×${e.quantity}`)
-                    .join(", ")}
-                </div>
-              )}
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium">Data *</label>
                 <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-medium">Horário</label>
+                <label className="text-xs font-medium">Hora</label>
                 <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
               </div>
             </div>
             <div>
               <label className="text-xs font-medium">Observação</label>
-              <Textarea
-                value={pickupNote}
-                onChange={(e) => setPickupNote(e.target.value)}
-                rows={2}
-                placeholder="Instruções para o recolhimento (opcional)"
-              />
+              <Textarea value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={2} />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Responsável</label>
+              <select
+                value={pickupAssignee}
+                onChange={(e) => setPickupAssignee(e.target.value)}
+                className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              >
+                <option value="">(opcional)</option>
+                {(profilesQ.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name ?? "Sem nome"}</option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPickupOpen(false)}>Cancelar</Button>
             <Button onClick={performSchedulePickup} disabled={!pickupDate || transition.isPending}>
-              {transition.isPending ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Agendando…</>
-              ) : (
-                "Confirmar agendamento"
-              )}
+              {transition.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Agendando…</> : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar recolha (seleção de equipamentos) */}
+      <Dialog open={confirmPickupOpen} onOpenChange={setConfirmPickupOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Confirmar recolha</DialogTitle></DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p className="text-xs text-muted-foreground">
+              Marque apenas os equipamentos que realmente voltaram. Os não marcados continuam pendentes.
+            </p>
+            {order.equipments.length === 0 && (
+              <p className="text-xs text-muted-foreground">Sem equipamentos vinculados.</p>
+            )}
+            <ul className="divide-y rounded-md border">
+              {order.equipments.map((e, i) => {
+                const checked = returnedIdx.has(i);
+                return (
+                  <li key={i} className="flex items-center gap-3 px-3 py-2">
+                    <Checkbox
+                      id={`eq-${i}`}
+                      checked={checked}
+                      onCheckedChange={(v) => {
+                        setReturnedIdx((prev) => {
+                          const next = new Set(prev);
+                          if (v) next.add(i); else next.delete(i);
+                          return next;
+                        });
+                      }}
+                    />
+                    <label htmlFor={`eq-${i}`} className="flex flex-1 items-center justify-between text-sm">
+                      <span>{e.type || "Equipamento"}</span>
+                      <span className="text-xs text-muted-foreground">×{e.quantity}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPickupOpen(false)}>Cancelar</Button>
+            <Button onClick={performConfirmPickup} disabled={transition.isPending}>
+              {transition.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirmando…</> : "Confirmar recolha"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -647,144 +761,156 @@ export function OrderDetailSheet({
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div>{value}</div>
-    </div>
-  );
-}
+// ── Subcomponentes ──────────────────────────────────────────────────────
 
-function SummaryLine({ label, value }: { label: string; value: string }) {
+function SectionCollapsible({
+  open,
+  onOpenChange,
+  icon: Icon,
+  title,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  icon: typeof Play;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="truncate font-medium text-foreground">{value}</span>
-    </div>
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="w-full justify-between px-2 text-xs">
+          <span className="flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5" /> {title}
+          </span>
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }
 
 function EquipmentList({ items }: { items: NormalizedEquipment[] }) {
   return (
-    <div>
-      <div className="mb-1 text-xs font-medium">Equipamentos</div>
-      <ul className="divide-y rounded-md border text-sm">
-        {items.slice(0, 20).map((it, i) => (
-          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="truncate">{it.type || "Equipamento"}</span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">×{it.quantity}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul className="divide-y rounded-md border text-sm">
+      {items.slice(0, 20).map((it, i) => (
+        <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
+          <span className="truncate">{it.type || "Equipamento"}</span>
+          <span className="shrink-0 tabular-nums text-muted-foreground">×{it.quantity}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function ItemList({ items }: { items: NormalizedItem[] }) {
-  const currency = (n: number) =>
-    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const currency = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   return (
-    <div>
-      <div className="mb-1 text-xs font-medium">Itens</div>
-      <ul className="divide-y rounded-md border text-sm">
-        {items.slice(0, 20).map((it, i) => (
-          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="truncate">{it.product || `Produto #${it.productId ?? "?"}`}</span>
-            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-              {it.quantity} × {currency(it.unitPrice)} = {currency(it.total)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul className="divide-y rounded-md border text-sm">
+      {items.slice(0, 20).map((it, i) => (
+        <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
+          <span className="truncate">{it.product || `Produto #${it.productId ?? "?"}`}</span>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {it.quantity} × {currency(it.unitPrice)} = {currency(it.total)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function AssigneePicker({
+function AssignRow({
   label,
-  currentId,
+  currentName,
   profiles,
   disabled,
-  onAssign,
+  isMe,
+  onPick,
   onAssignMe,
 }: {
   label: string;
-  currentId: string | null;
+  currentName: string | null;
   profiles: Array<{ id: string; full_name: string | null }>;
   disabled?: boolean;
-  onAssign: (userId: string) => void;
+  isMe?: boolean;
+  onPick: (userId: string) => void;
   onAssignMe?: () => void;
 }) {
-  const currentName =
-    currentId ? profiles.find((p) => p.id === currentId)?.full_name ?? "Usuário" : null;
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="min-w-16 text-muted-foreground">{label}:</span>
-      <span className="font-medium">{currentName ?? "Não atribuído"}</span>
-      <div className="ml-auto flex items-center gap-2">
-        <Select
-          value=""
-          onValueChange={(v) => onAssign(v)}
-          disabled={disabled || profiles.length === 0}
-        >
-          <SelectTrigger className="h-8 w-40 text-xs">
-            <SelectValue placeholder="Selecionar…" />
-          </SelectTrigger>
-          <SelectContent>
-            {profiles.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.full_name ?? "Sem nome"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {onAssignMe && (
-          <Button size="sm" variant="outline" onClick={onAssignMe} disabled={disabled}>
-            <UserPlus className="mr-1 h-3 w-3" /> A mim
+    <div className="flex items-center gap-2 text-sm">
+      <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className={cn("min-w-0 flex-1 truncate", currentName ? "font-medium" : "text-muted-foreground")}>
+        {currentName ?? "Sem responsável"}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={disabled}>
+            Alterar
           </Button>
-        )}
-      </div>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56 p-1">
+          {onAssignMe && !isMe && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onAssignMe();
+              }}
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Atribuir a mim
+            </button>
+          )}
+          <div className="my-1 h-px bg-border" />
+          <div className="max-h-52 overflow-y-auto">
+            {profiles.length === 0 && (
+              <div className="px-2 py-2 text-xs text-muted-foreground">Nenhum usuário disponível.</div>
+            )}
+            {profiles.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onPick(p.id);
+                }}
+                className="block w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-muted"
+              >
+                {p.full_name ?? "Sem nome"}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
 
-function ActionButton({
-  icon: Icon,
-  label,
-  tone,
+function PrimaryCTA({
+  action,
   onClick,
   disabled,
 }: {
-  icon: typeof Play;
-  label: string;
-  tone?: ButtonTone;
+  action: OperationAction;
   onClick: () => void;
   disabled?: boolean;
 }) {
-  const toneCls =
-    tone === "success"
-      ? "hover:bg-emerald-50 text-emerald-700 border-emerald-200"
-      : tone === "warning"
-        ? "hover:bg-amber-50 text-amber-800 border-amber-200"
-        : tone === "muted"
-          ? "hover:bg-muted text-muted-foreground"
-          : tone === "sky"
-            ? "hover:bg-sky-50 text-sky-700 border-sky-200"
-            : tone === "violet"
-              ? "hover:bg-violet-50 text-violet-700 border-violet-200"
-              : "";
+  const Icon = ACTION_ICON[action] ?? Play;
+  // Cor primária para ações finais positivas
+  const positive = action === "confirm_delivery" || action === "confirm_pickup";
   return (
-    <button
-      type="button"
+    <Button
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex min-h-11 items-center justify-center gap-2 rounded-md border bg-surface px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50",
-        toneCls,
+        "h-14 w-full text-base font-semibold",
+        positive && "bg-emerald-600 text-white hover:bg-emerald-700",
       )}
     >
-      <Icon className="h-4 w-4" /> {label}
-    </button>
+      <Icon className="mr-2 h-5 w-5" /> {ACTION_LABEL[action]}
+      {ACTIONS_WITH_DIALOG.has(action) && <ChevronDown className="ml-2 h-4 w-4 opacity-70" />}
+    </Button>
   );
 }
