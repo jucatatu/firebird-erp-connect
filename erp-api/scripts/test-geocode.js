@@ -137,8 +137,29 @@ function locOf(o) {
       after &&
       typeof after.location?.latitude === "number" &&
       typeof after.location?.longitude === "number";
-    console.log(`\nResultado: ${ok ? "RESOLVIDO ✓" : "NÃO RESOLVIDO ✗"}`);
-    process.exit(ok ? 0 : 2);
+    console.log(`\nResultado geocoding: ${ok ? "RESOLVIDO ✓" : "NÃO RESOLVIDO ✗"}`);
+
+    // === 4) POST repetido — deve devolver source="cache" (idempotência) ===
+    console.log(`\n═══ 4) POST repetido — deve ser source="cache" ═══`);
+    const p2 = await call("POST", "/api/v1/map/geocode", { orderIds: [target.orderId] });
+    console.log("Status:", p2.status, "elapsedMs:", p2.elapsedMs);
+    console.log(JSON.stringify(p2.json, null, 2));
+    const perOrder2 = p2.json?.data?.details?.[0] || p2.json?.data?.perOrder?.[0];
+    const idempotent = perOrder2?.source === "cache";
+    console.log(`Idempotência: ${idempotent ? "OK ✓ (source=cache)" : "FALHA ✗ (source=" + perOrder2?.source + ")"}`);
+
+    // === 5) GET intermediário — não deve mudar nada ===
+    console.log(`\n═══ 5) GET intermediário — não deve mudar coordenadas ═══`);
+    const g3 = await call("GET", `/api/v1/map/orders?date=${encodeURIComponent(date)}`);
+    const after3 = (g3.json?.data?.orders || []).find(
+      (o) => Number(o.orderId) === Number(target.orderId),
+    );
+    const stable =
+      after3?.location?.latitude === after?.location?.latitude &&
+      after3?.location?.longitude === after?.location?.longitude;
+    console.log(`Estabilidade após POST repetido: ${stable ? "OK ✓" : "FALHA ✗"}`);
+
+    process.exit(ok && idempotent && stable ? 0 : 2);
   } catch (err) {
     console.error("[fatal]", err?.stack || err);
     process.exit(3);
