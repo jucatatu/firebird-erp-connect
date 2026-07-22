@@ -14,6 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
+      operation_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          description: string | null
+          event_type: Database["public"]["Enums"]["operation_event_type"]
+          id: string
+          metadata: Json
+          operation_state_id: string
+          origin: Database["public"]["Enums"]["operation_event_origin"]
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_type: Database["public"]["Enums"]["operation_event_type"]
+          id?: string
+          metadata?: Json
+          operation_state_id: string
+          origin?: Database["public"]["Enums"]["operation_event_origin"]
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          event_type?: Database["public"]["Enums"]["operation_event_type"]
+          id?: string
+          metadata?: Json
+          operation_state_id?: string
+          origin?: Database["public"]["Enums"]["operation_event_origin"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_events_operation_state_id_fkey"
+            columns: ["operation_state_id"]
+            isOneToOne: false
+            referencedRelation: "operation_states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operation_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          operation_state_id: string
+        }
+        Insert: {
+          author_id?: string
+          body: string
+          created_at?: string
+          id?: string
+          operation_state_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          operation_state_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_notes_operation_state_id_fkey"
+            columns: ["operation_state_id"]
+            isOneToOne: false
+            referencedRelation: "operation_states"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operation_states: {
+        Row: {
+          company_id: number | null
+          created_at: string
+          created_by: string
+          erp_order_id: number
+          erp_order_number: number | null
+          id: string
+          operation_date: string
+          operational_date: string | null
+          operational_status: Database["public"]["Enums"]["operational_status"]
+          reschedule_reason: string | null
+          sequence: number | null
+          snapshot: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id?: number | null
+          created_at?: string
+          created_by?: string
+          erp_order_id: number
+          erp_order_number?: number | null
+          id?: string
+          operation_date: string
+          operational_date?: string | null
+          operational_status?: Database["public"]["Enums"]["operational_status"]
+          reschedule_reason?: string | null
+          sequence?: number | null
+          snapshot?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: number | null
+          created_at?: string
+          created_by?: string
+          erp_order_id?: number
+          erp_order_number?: number | null
+          id?: string
+          operation_date?: string
+          operational_date?: string | null
+          operational_status?: Database["public"]["Enums"]["operational_status"]
+          reschedule_reason?: string | null
+          sequence?: number | null
+          snapshot?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       order_draft_events: {
         Row: {
           actor_id: string | null
@@ -221,6 +345,25 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "vendedor" | "aprovador"
+      operation_event_origin: "local" | "erp"
+      operation_event_type:
+        | "loaded"
+        | "started"
+        | "note_added"
+        | "rescheduled"
+        | "customer_will_call"
+        | "delivered"
+        | "collected"
+        | "not_found"
+        | "corrected"
+      operational_status:
+        | "pending"
+        | "in_progress"
+        | "delivered"
+        | "collected"
+        | "customer_will_call"
+        | "not_found"
+        | "rescheduled"
       order_draft_status:
         | "draft"
         | "pending_approval"
@@ -358,6 +501,27 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor", "aprovador"],
+      operation_event_origin: ["local", "erp"],
+      operation_event_type: [
+        "loaded",
+        "started",
+        "note_added",
+        "rescheduled",
+        "customer_will_call",
+        "delivered",
+        "collected",
+        "not_found",
+        "corrected",
+      ],
+      operational_status: [
+        "pending",
+        "in_progress",
+        "delivered",
+        "collected",
+        "customer_will_call",
+        "not_found",
+        "rescheduled",
+      ],
       order_draft_status: [
         "draft",
         "pending_approval",
