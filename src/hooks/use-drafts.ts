@@ -177,7 +177,7 @@ export function useUpdateDraft() {
           name: input.customerName ?? null,
         },
         companyId: input.companyId ?? null,
-        notes: input.notes ?? (oldPayload.notes as string | undefined) ?? "",
+        notes: input.notes ?? (typeof oldPayload.notes === "string" ? oldPayload.notes : "") ?? "",
       };
       const { data, error } = await supabase
         .from("order_drafts")
