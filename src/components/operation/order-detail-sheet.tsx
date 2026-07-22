@@ -113,7 +113,7 @@ export function OrderDetailSheet({
     !hasCoords &&
     Boolean(addressText) &&
     erpId > 0 &&
-    (locSource === "pending" || locSource === "unresolved" || locSource === "error");
+    (locSource === "pending" || locSource === "unresolved");
 
   async function retryGeocode() {
     try {
