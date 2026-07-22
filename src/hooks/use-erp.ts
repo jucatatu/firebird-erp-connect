@@ -4,7 +4,9 @@ import {
   listOrders,
   pingErpDatabase,
   pingErpHealth,
+  getMapOrders,
   type ListOrdersInput,
+  type GetMapOrdersInput,
 } from "@/lib/erp.functions";
 
 /** Ping público /api/v1/health da API Node. */
@@ -46,5 +48,19 @@ export function useListOrdersMutation() {
   const fn = useServerFn(listOrders);
   return useMutation({
     mutationFn: (input: ListOrdersInput) => fn({ data: input }),
+  });
+}
+
+/** GET /api/v1/map/orders — pedidos com location resolvido a partir do cache. */
+export function useMapOrders(input: GetMapOrdersInput | null) {
+  const fn = useServerFn(getMapOrders);
+  return useQuery({
+    queryKey: ["erp", "map", "orders", input?.date, input?.companyId ?? "all"],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input?.date),
+    staleTime: 15_000,
   });
 }
