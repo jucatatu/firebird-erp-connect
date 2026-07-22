@@ -12,6 +12,28 @@ Backend oficial de integração com o ERP Firebird.
   `YYYY-MM-DD` para `MM/DD/YYYY`, parâmetro `companies` no lugar de
   `empresas` (alias legado ainda aceito), sem filtro/classificação
   inventada por empresa.
+- **v1.4.1** — consolidação da geocodificação: idempotência real no POST
+  `/api/v1/map/geocode` (segunda chamada devolve `source: "cache"` e
+  não altera `providerResolvedAt`), single-flight concorrente por
+  `cacheKey`, provider `fake` proibido em produção, endpoint autenticado
+  de diagnóstico `GET /api/v1/health/geocoding/cache/:orderId` protegido
+  pela flag `GEOCODING_DIAGNOSTICS_ENABLED`, e clarificação de que o
+  cache é in-memory por processo (PM2 em `fork` com `instances: 1`).
+
+### Cache de geocodificação e PM2
+
+O cache é in-memory e vive dentro do processo que atende a requisição:
+
+- Rode a API sob PM2 em modo `fork` com `instances: 1`. Cluster
+  fragmenta o cache: um POST resolve num worker e um GET seguinte pode
+  bater no outro e ver `pending`.
+- `scripts/inspect-geocoding-cache.js` roda em processo INDEPENDENTE e
+  sempre vê cache vazio (`sharedWithRunningApi: false`); serve apenas
+  para conferir o endereço canônico e o `cacheKey`.
+- Para inspecionar o cache real do servidor, defina
+  `GEOCODING_DIAGNOSTICS_ENABLED=true` e chame, autenticado,
+  `GET /api/v1/health/geocoding/cache/:orderId`. Desligue a flag
+  depois — o endpoint responde 404 quando desabilitado.
 
 > ⚠️ Este projeto é uma aplicação **Node.js tradicional** (Express + `node-firebird`).
 > Ele **não roda** em ambientes serverless/edge — precisa de um Node com acesso
