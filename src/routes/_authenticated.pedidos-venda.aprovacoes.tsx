@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, ShieldCheck, Inbox } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/approvals")({
+export const Route = createFileRoute("/_authenticated/pedidos-venda/aprovacoes")({
   head: () => ({
     meta: [
       { title: "Fila de aprovações — ERP" },
@@ -138,7 +138,7 @@ function ApprovalsPage() {
                         </span>
                       </div>
                       <Link
-                        to="/orders/$draftId"
+                        to="/pedidos-venda/$draftId"
                         params={{ draftId: d.id }}
                         className="mt-1 block truncate text-sm font-medium hover:underline"
                       >
@@ -156,7 +156,7 @@ function ApprovalsPage() {
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button asChild size="sm" variant="ghost">
-                        <Link to="/orders/$draftId" params={{ draftId: d.id }}>
+                        <Link to="/pedidos-venda/$draftId" params={{ draftId: d.id }}>
                           Ver detalhe
                         </Link>
                       </Button>

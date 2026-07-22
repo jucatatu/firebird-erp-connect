@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { Loader2, User, Package, Truck, CreditCard, ClipboardCheck, Lock, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/orders/new")({
+export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
     meta: [
       { title: "Novo pedido — ERP" },
@@ -108,7 +108,7 @@ function NewDraftPage() {
       <PageHeader
         title="Novo pedido"
         description="Cadastro faseado. Nesta etapa registramos apenas os dados iniciais do cliente."
-        crumbs={[{ label: "Pedidos", to: "/orders" }, { label: "Novo" }]}
+        crumbs={[{ label: "Pedidos de venda", to: "/pedidos-venda" }, { label: "Novo" }]}
       />
 
       <StepIndicator />
@@ -168,7 +168,7 @@ function NewDraftPage() {
             </div>
             <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
               <Button asChild type="button" variant="outline">
-                <Link to="/orders">Cancelar</Link>
+                <Link to="/pedidos-venda">Cancelar</Link>
               </Button>
               <Button type="submit" disabled={create.isPending}>
                 {create.isPending ? (
