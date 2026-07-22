@@ -120,10 +120,11 @@ function DraftDetailPage() {
     (draft.status === "draft" || draft.status === "rejected") && (isOwner || isAdmin);
   const canReopen = draft.status === "rejected" && (isOwner || isAdmin);
 
+  const draftId_ = draft.id;
   const saveChanges = async () => {
     try {
       await update.mutateAsync({
-        id: draft.id,
+        id: draftId_,
         title: title.trim() || null,
         customerName: customerName.trim() || null,
         companyId: company === "auto" ? null : (Number(company) as 1 | 3),
@@ -142,7 +143,7 @@ function DraftDetailPage() {
     reason?: string,
   ) => {
     try {
-      await transition.mutateAsync({ id: draft.id, newStatus, reason: reason ?? null });
+      await transition.mutateAsync({ id: draftId_, newStatus, reason: reason ?? null });
       toast.success("Status atualizado");
     } catch (err) {
       toast.error("Não foi possível atualizar", {
