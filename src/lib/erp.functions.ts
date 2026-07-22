@@ -103,3 +103,76 @@ export const listOrders = createServerFn({ method: "POST" })
       query,
     });
   });
+
+// ── Map / Geocoding (Fase 3C) ────────────────────────────────────────────
+
+export interface MapOrderLocation {
+  latitude: number | null;
+  longitude: number | null;
+  locationType: string;
+  precision: string;
+  placeId: string;
+  matchMismatch: boolean;
+  source: "cache" | "pending" | "unresolved";
+  cacheKey: string;
+}
+
+export interface MapOrder {
+  orderId?: number | null;
+  orderNumber?: number | null;
+  customerName?: string | null;
+  clientName?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  companyId?: number | null;
+  deliveryDate?: string | null;
+  period?: string | null;
+  notes?: string | null;
+  items?: JsonValue[];
+  equipment?: JsonValue[];
+  location: MapOrderLocation;
+  [key: string]: JsonValue | MapOrderLocation | undefined;
+}
+
+export interface MapOrdersSummary {
+  total: number;
+  mapped: number;
+  pending: number;
+  unresolved: number;
+}
+
+export interface MapOrdersPayload {
+  date: string;
+  companyId: number | null;
+  summary: MapOrdersSummary;
+  orders: MapOrder[];
+  [key: string]: JsonValue | MapOrdersSummary | MapOrder[] | number | null;
+}
+
+export interface GetMapOrdersInput {
+  /** YYYY-MM-DD */
+  date: string;
+  /** 1 = Graal, 3 = Grott. Omitir = todas. */
+  companyId?: 1 | 3;
+}
+
+export const getMapOrders = createServerFn({ method: "GET" })
+  .inputValidator((input: GetMapOrdersInput) => {
+    if (!input || typeof input.date !== "string" || !isValidDate(input.date)) {
+      throw new Error("Parâmetro 'date' inválido. Use o formato YYYY-MM-DD.");
+    }
+    if (input.companyId !== undefined && input.companyId !== 1 && input.companyId !== 3) {
+      throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
+    }
+    return input;
+  })
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    const query: Record<string, string> = { date: data.date };
+    if (data.companyId) query.companyId = String(data.companyId);
+    return callErp<MapOrdersPayload>({
+      method: "GET",
+      path: "/api/v1/map/orders",
+      query,
+    });
+  });
