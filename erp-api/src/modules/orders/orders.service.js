@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const firebird = require("../../shared/database/firebird-client");
 const { AppError } = require("../../shared/errors/app-error");
 const { logger } = require("../../config/logger");
+const { env } = require("../../config/env");
 const {
   getStore,
   hashPayload,
@@ -21,6 +22,51 @@ function sanitizedErrorLog(err) {
 }
 
 /**
+ * Mutex global in-process: serializa TODAS as criações de ordens.
+ *
+ * Motivo: SP_CAD_ORDEM_VENDA lê o ID recém-inserido via
+ *   GEN_ID(GEN_ORDENS_VENDA_ID, 0)
+ * Como o generator é global, duas criações simultâneas podem interferir
+ * na leitura do ID entre INSERT e leitura.
+ *
+ * Diferente do lock por Idempotency-Key (que protege retries da MESMA
+ * operação): este lock serializa criações DISTINTAS.
+ *
+ * IMPORTANTE: escopo é o PROCESSO Node atual. Alvo suportado hoje é
+ * PM2 single-instance. Em cluster/multi-instância será necessário um
+ * lock distribuído (ex.: SELECT ... WITH LOCK em tabela de coordenação
+ * no próprio Firebird, ou Redis).
+ */
+let globalChain = Promise.resolve();
+async function withGlobalOrderLock(fn) {
+  const prev = globalChain;
+  let release;
+  const gate = new Promise((r) => {
+    release = r;
+  });
+  globalChain = prev.then(() => gate);
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+function requireIntegrationUserId() {
+  const uid = env.ERP_INTEGRATION_USER_ID;
+  if (!uid || !Number.isFinite(Number(uid)) || Number(uid) <= 0) {
+    throw new AppError({
+      message: "ERP_INTEGRATION_USER_ID não configurado no servidor.",
+      statusCode: 500,
+      code: "CONFIG_ERROR",
+      retryable: false,
+    });
+  }
+  return Number(uid);
+}
+
+/**
  * Executa a criação real da ordem dentro de UMA transação Firebird.
  *
  * Etapas:
@@ -34,9 +80,10 @@ function sanitizedErrorLog(err) {
  * Qualquer exceção → ROLLBACK integral (garantido por withTransaction).
  */
 async function createOrderTransactional({ payload, correlationId }) {
-  return firebird.withTransaction(async (tx) => {
+  const integrationUserId = requireIntegrationUserId();
+  return withGlobalOrderLock(() => firebird.withTransaction(async (tx) => {
     const t0 = Date.now();
-    logger.info({ correlationId }, "orders.create: início");
+    logger.info({ correlationId, integrationUserId }, "orders.create: início");
 
     // 1. Resolução oficial de empresa.
     let companyContext = null;
@@ -53,7 +100,11 @@ async function createOrderTransactional({ payload, correlationId }) {
     );
 
     // 2. Cabeçalho.
-    const completeParams = mapper.buildCompleteProcParams({ payload, companyId });
+    const completeParams = mapper.buildCompleteProcParams({
+      payload,
+      companyId,
+      integrationUserId,
+    });
     logger.info(
       { correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO" },
       "orders.create: executando procedure principal",
@@ -122,7 +173,7 @@ async function createOrderTransactional({ payload, correlationId }) {
     );
 
     return result;
-  }).catch((err) => {
+  })).catch((err) => {
     // Sanitiza qualquer erro cru do driver ANTES de subir.
     if (err instanceof AppError) {
       logger.warn(
