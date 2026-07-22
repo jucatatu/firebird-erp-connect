@@ -38,6 +38,12 @@ const schema = z
     IDEMPOTENCY_STORE: z.enum(["memory", "file"]).default("memory"),
     IDEMPOTENCY_FILE_PATH: z.string().default("./data/idempotency.json"),
     IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
+
+    // ── Auditoria: ID do usuário do ERP usado como ID_USER em toda ordem
+    //    criada pela integração. NUNCA usar userId vindo do frontend.
+    //    Optional no schema para permitir boot; validado no service ao criar
+    //    o primeiro pedido (retorna 500 CONFIG_ERROR se ausente).
+    ERP_INTEGRATION_USER_ID: z.coerce.number().int().positive().optional(),
   })
   .superRefine((val, ctx) => {
     // Nota: SYSDBA/masterkey NÃO são bloqueados aqui — o administrador pode
