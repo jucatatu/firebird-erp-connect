@@ -33,8 +33,10 @@ function OperationsPage() {
   const listMut = useListOrdersMutation();
   const [date, setDate] = useState(todayIso());
 
-  const orders = (listMut.data?.orders ?? []) as Array<Record<string, unknown>>;
-  const count = typeof listMut.data?.count === "number" ? listMut.data.count : orders.length;
+  const payload = listMut.data?.data ?? null;
+  const orders = (payload?.orders ?? []) as Array<Record<string, unknown>>;
+  const count = typeof payload?.count === "number" ? payload.count : orders.length;
+  const erpError = listMut.data?.error;
 
   return (
     <div>
@@ -122,11 +124,12 @@ function OperationsPage() {
         </CardContent>
       </Card>
 
-      {listMut.isError ? (
+      {listMut.isError || erpError ? (
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          {listMut.error instanceof Error
-            ? listMut.error.message
-            : "Falha ao consultar o ERP."}
+          {erpError?.message ??
+            (listMut.error instanceof Error
+              ? listMut.error.message
+              : "Falha ao consultar o ERP.")}
         </div>
       ) : !listMut.data ? (
         <EmptyState
