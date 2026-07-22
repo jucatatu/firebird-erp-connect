@@ -36,6 +36,7 @@ function locationFromEntry(entry, cacheKey) {
       placeId: "",
       matchMismatch: false,
       source: "pending",
+      errorCode: null,
       cacheKey,
     };
   }
@@ -48,6 +49,7 @@ function locationFromEntry(entry, cacheKey) {
       placeId: entry.placeId || "",
       matchMismatch: Boolean(entry.matchMismatch),
       source: "cache",
+      errorCode: null,
       cacheKey,
     };
   }
@@ -60,10 +62,24 @@ function locationFromEntry(entry, cacheKey) {
       placeId: entry.placeId || "",
       matchMismatch: Boolean(entry.matchMismatch),
       source: "unresolved",
+      errorCode: entry.errorCode || null,
       cacheKey,
     };
   }
-  // error / pending / desconhecido → pending para o cliente
+  if (entry.status === "error") {
+    return {
+      latitude: null,
+      longitude: null,
+      locationType: "",
+      precision: "",
+      placeId: entry.placeId || "",
+      matchMismatch: false,
+      source: "error",
+      errorCode: entry.errorCode || "PROVIDER_ERROR",
+      cacheKey,
+    };
+  }
+  // pending / desconhecido
   return {
     latitude: null,
     longitude: null,
@@ -72,6 +88,7 @@ function locationFromEntry(entry, cacheKey) {
     placeId: entry.placeId || "",
     matchMismatch: false,
     source: "pending",
+    errorCode: null,
     cacheKey,
   };
 }
@@ -91,6 +108,7 @@ async function listOrdersForMap({ date, companyId }) {
   let mapped = 0;
   let pending = 0;
   let unresolved = 0;
+  let errors = 0;
 
   const enriched = [];
   for (const order of base.orders) {
@@ -109,6 +127,9 @@ async function listOrdersForMap({ date, companyId }) {
       } else if (entry && (entry.status === "unresolved" || entry.status === "skipped")) {
         unresolved++;
         source = "unresolved";
+      } else if (entry && entry.status === "error") {
+        errors++;
+        source = "error";
       } else {
         pending++;
         source = "pending";
@@ -116,9 +137,12 @@ async function listOrdersForMap({ date, companyId }) {
     }
 
     const location = locationFromEntry(entry, norm.cacheKey);
-    // Se não geocodável, força source unresolved acima.
-    if (!norm.geocodable) location.source = "unresolved";
-    else location.source = source;
+    if (!norm.geocodable) {
+      location.source = "unresolved";
+      location.errorCode = "NOT_GEOCODABLE";
+    } else {
+      location.source = source;
+    }
 
     enriched.push({ ...order, location });
   }
@@ -131,6 +155,7 @@ async function listOrdersForMap({ date, companyId }) {
       mapped,
       pending,
       unresolved,
+      errors,
     },
     orders: enriched,
   };
@@ -240,15 +265,40 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
 
   for (const id of orderIds) {
     const key = orderKey.get(id);
+    const row = byId.get(id);
+    const orderNumber = row
+      ? Number(opsMapper.pick(row, "N_PEDIDO")) || null
+      : null;
+    const addressAvailable = Boolean(row && key);
     if (!key) {
-      perOrder.push({ orderId: id, status: "not_found", cacheKey: null });
+      perOrder.push({
+        orderId: id,
+        orderNumber,
+        status: "not_found",
+        source: null,
+        cacheKey: null,
+        addressAvailable: false,
+        errorCode: "ORDER_NOT_FOUND",
+        precision: null,
+        locationType: null,
+      });
       continue;
     }
     const entry = resultsByKey.get(key);
     // Se não estava na fatia processada, cai como pending explícito.
     if (!entry) {
       pendingCount++;
-      perOrder.push({ orderId: id, status: "pending", cacheKey: key });
+      perOrder.push({
+        orderId: id,
+        orderNumber,
+        status: "pending",
+        source: "pending",
+        cacheKey: key,
+        addressAvailable,
+        errorCode: null,
+        precision: null,
+        locationType: null,
+      });
       continue;
     }
     const status = entry.status;
@@ -257,10 +307,21 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
     else if (status === "pending") pendingCount++;
     else if (status === "error") errorCount++;
 
+    const normalizedStatus = status === "skipped" ? "unresolved" : status;
+    let source = "pending";
+    if (normalizedStatus === "resolved") source = "provider";
+    else if (normalizedStatus === "unresolved") source = "unresolved";
+    else if (normalizedStatus === "error") source = "error";
+
     perOrder.push({
       orderId: id,
+      orderNumber,
       cacheKey: key,
-      status: status === "skipped" ? "unresolved" : status,
+      status: normalizedStatus,
+      source,
+      addressAvailable,
+      precision: status === "resolved" ? entry.precision || null : null,
+      locationType: status === "resolved" ? entry.locationType || null : null,
       location:
         status === "resolved"
           ? {
@@ -277,8 +338,10 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
   }
 
   return {
+    success: true,
     summary: {
-      total: orderIds.length,
+      requested: orderIds.length,
+      found: byId.size,
       resolved: resolvedCount,
       pending: pendingCount,
       unresolved: unresolvedCount,

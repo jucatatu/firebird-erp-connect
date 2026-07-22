@@ -99,6 +99,7 @@ function normalizeAddress(fields) {
 module.exports = {
   normalizeAddress,
   buildCanonical,
+  buildCanonicalAddress: buildCanonical,
   computeCacheKey,
   isGeocodable,
   stripAccents,
