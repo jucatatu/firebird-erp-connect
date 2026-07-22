@@ -13,7 +13,11 @@ export function ErpStatusIndicator({ detailed = false }: { detailed?: boolean })
     dot = "bg-status-failed-fg";
     label = "Indisponível";
   } else if (q.data) {
-    const status = String(q.data.status ?? "").toLowerCase();
+    const status = String(q.data.data?.status ?? "").toLowerCase();
+    if (!q.data.ok) {
+      dot = "bg-status-failed-fg";
+      label = "Indisponível";
+    } else
     if (status === "ok" || status === "healthy" || status === "up") {
       dot = "bg-status-approved-fg";
       label = "Online";
