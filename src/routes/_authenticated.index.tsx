@@ -465,6 +465,7 @@ function MapHome() {
 
 function OrdersList({
   orders,
+  profileById,
   loading,
   error,
   errorMessage,
@@ -472,6 +473,7 @@ function OrdersList({
   onSelect,
 }: {
   orders: EnrichedOrder[];
+  profileById?: Map<string, string>;
   loading: boolean;
   error: boolean;
   errorMessage?: string;
@@ -537,6 +539,14 @@ function OrdersList({
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
                   {OPERATIONAL_STATUS_LABEL[e.status]}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <User className="h-2.5 w-2.5" />
+                  {(() => {
+                    const id = e.state?.delivery_assignee_id;
+                    const nm = id ? profileById?.get(id) : null;
+                    return nm ?? <span className="italic">sem responsável</span>;
+                  })()}
                 </span>
                 {e.state?.operational_date && e.state.operational_date !== e.state.operation_date && (
                   <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-sky-800">
