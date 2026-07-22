@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
 import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
+import { Route as ApiPublicTmpResetAdminRouteImport } from './routes/api/public/_tmp-reset-admin'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_authenticated.pedidos-venda.novo'
 import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
@@ -51,6 +52,11 @@ const AuthenticatedPedidosVendaIndexRoute =
     path: '/pedidos-venda/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicTmpResetAdminRoute = ApiPublicTmpResetAdminRouteImport.update({
+  id: '/api/public/_tmp-reset-admin',
+  path: '/api/public',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsErpRoute =
   AuthenticatedSettingsErpRouteImport.update({
     id: '/settings/erp',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/api/public': typeof ApiPublicTmpResetAdminRoute
   '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesByTo {
@@ -104,6 +111,7 @@ export interface FileRoutesByTo {
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/api/public': typeof ApiPublicTmpResetAdminRoute
   '/pedidos-venda': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesById {
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/_authenticated/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/api/public/_tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
   '/_authenticated/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRouteTypes {
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/api/public'
     | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/api/public'
     | '/pedidos-venda'
   id:
     | '__root__'
@@ -157,12 +168,14 @@ export interface FileRouteTypes {
     | '/_authenticated/pedidos-venda/aprovacoes'
     | '/_authenticated/pedidos-venda/novo'
     | '/_authenticated/settings/erp'
+    | '/api/public/_tmp-reset-admin'
     | '/_authenticated/pedidos-venda/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiPublicTmpResetAdminRoute: typeof ApiPublicTmpResetAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/pedidos-venda/'
       preLoaderRoute: typeof AuthenticatedPedidosVendaIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/_tmp-reset-admin': {
+      id: '/api/public/_tmp-reset-admin'
+      path: '/api/public'
+      fullPath: '/api/public'
+      preLoaderRoute: typeof ApiPublicTmpResetAdminRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings/erp': {
       id: '/_authenticated/settings/erp'
@@ -279,6 +299,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiPublicTmpResetAdminRoute: ApiPublicTmpResetAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
