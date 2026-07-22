@@ -9,6 +9,7 @@ import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
 import { useOperationStates } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
+import { deliveryTimeLabel } from "@/lib/delivery-time";
 import {
   OPERATIONAL_STATUS_COLOR,
   OPERATIONAL_STATUS_LABEL,
@@ -209,6 +210,11 @@ function MapHome() {
         lng: e.order.location.longitude as number,
         color: OPERATIONAL_STATUS_COLOR[e.status],
         label: e.order.customerName,
+        orderNumber: e.order.orderNumber,
+        deliveryTimeLabel: deliveryTimeLabel(
+          e.order.deliveryDate,
+          e.order.period,
+        ),
       }));
   }, [orders]);
 
