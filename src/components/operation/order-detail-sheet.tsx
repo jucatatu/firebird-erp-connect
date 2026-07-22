@@ -32,7 +32,11 @@ import {
   StickyNote,
   Loader2,
 } from "lucide-react";
-import type { MapOrder } from "@/lib/erp.functions";
+import type {
+  NormalizedEquipment,
+  NormalizedItem,
+  NormalizedMapOrder,
+} from "@/lib/erp.functions";
 import {
   OPERATIONAL_STATUS_LABEL,
   OperationConflictError,
@@ -66,18 +70,19 @@ export function OrderDetailSheet({
   onClose,
   onAfterAction,
 }: {
-  order: MapOrder;
+  order: NormalizedMapOrder;
   state: OperationState | null;
   operationDate: string;
   companyId?: number | null;
   onClose: () => void;
   onAfterAction?: (state: OperationState) => void;
 }) {
-  const name = order.customerName || order.clientName || "(sem cliente)";
-  const orderNumber = order.orderNumber ?? order.orderId ?? "—";
-  const erpId = Number(order.orderId ?? order.orderNumber ?? 0);
-  const mapsUrl = order.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`
+  const name = order.customerName;
+  const orderNumber = order.orderNumber;
+  const erpId = order.erpOrderId;
+  const addressText = order.address.formatted;
+  const mapsUrl = addressText
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`
     : null;
 
   const events = useOperationEvents(state?.id);
@@ -103,11 +108,11 @@ export function OrderDetailSheet({
     if (state) return state.id;
     const created = await ensure.mutateAsync({
       erpOrderId: erpId,
-      erpOrderNumber: order.orderNumber ?? null,
-      companyId: order.companyId ?? null,
+      erpOrderNumber: Number(order.orderNumber) || null,
+      companyId: order.companyId,
       operationDate,
-      customerName: order.customerName || order.clientName,
-      address: order.address,
+      customerName: order.customerName,
+      address: addressText || null,
       phone: order.phone,
     });
     return created.id;
@@ -187,37 +192,39 @@ export function OrderDetailSheet({
         </Button>
       </div>
 
-      {order.address && (
+      {addressText && (
         <div className="rounded-md border p-3 text-sm">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Endereço</div>
-          <div>{order.address}</div>
+          <div>{addressText}</div>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-3 text-sm">
-        {order.phone && <Field label="Telefone" value={String(order.phone)} />}
-        {order.period && <Field label="Período" value={String(order.period)} />}
-        {order.deliveryDate && <Field label="Entrega (ERP)" value={String(order.deliveryDate)} />}
+        {order.phone && <Field label="Telefone" value={order.phone} />}
+        {order.period && <Field label="Período" value={order.period} />}
+        {order.deliveryDate && <Field label="Entrega (ERP)" value={order.deliveryDate} />}
+        {order.returnDate && <Field label="Retorno (ERP)" value={order.returnDate} />}
         {order.companyId != null && (
           <Field
             label="Empresa"
             value={order.companyId === 3 ? "Grott" : order.companyId === 1 ? "Graal" : String(order.companyId)}
           />
         )}
+        {order.erpStatus && <Field label="Status ERP" value={order.erpStatus} />}
       </div>
 
-      {Array.isArray(order.equipment) && order.equipment.length > 0 && (
-        <CollectionList title="Equipamentos" items={order.equipment} />
+      {order.equipments.length > 0 && (
+        <EquipmentList items={order.equipments} />
       )}
-      {Array.isArray(order.items) && order.items.length > 0 && (
-        <CollectionList title="Itens" items={order.items} />
+      {order.items.length > 0 && (
+        <ItemList items={order.items} />
       )}
 
-      {order.notes && (
+      {order.observations && (
         <div>
           <div className="mb-1 text-xs font-medium">Observação do ERP</div>
           <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground whitespace-pre-wrap">
-            {order.notes}
+            {order.observations}
           </div>
         </div>
       )}
@@ -298,16 +305,16 @@ export function OrderDetailSheet({
             <AlertDialogDescription asChild>
               <div className="space-y-1 text-sm">
                 <div><strong>Cliente:</strong> {name}</div>
-                {order.address && <div><strong>Endereço:</strong> {order.address}</div>}
+                {addressText && <div><strong>Endereço:</strong> {addressText}</div>}
                 <div><strong>Pedido:</strong> #{orderNumber}</div>
-                {Array.isArray(order.equipment) && (
-                  <div><strong>Equipamentos:</strong> {order.equipment.length}</div>
+                {order.equipments.length > 0 && (
+                  <div><strong>Equipamentos:</strong> {order.equipments.length}</div>
                 )}
-                {Array.isArray(order.items) && (
+                {order.items.length > 0 && (
                   <div><strong>Itens:</strong> {order.items.length}</div>
                 )}
-                {order.notes && (
-                  <div className="text-xs text-muted-foreground">Obs ERP: {order.notes}</div>
+                {order.observations && (
+                  <div className="text-xs text-muted-foreground">Obs ERP: {order.observations}</div>
                 )}
               </div>
             </AlertDialogDescription>
@@ -349,7 +356,7 @@ export function OrderDetailSheet({
               />
             </div>
             <p className="text-[11px] text-muted-foreground">
-              A data original do ERP ({order.deliveryDate ? String(order.deliveryDate) : "—"}) permanece inalterada.
+              A data original do ERP ({order.deliveryDate ?? "—"}) permanece inalterada.
               Apenas a agenda operacional local será atualizada.
             </p>
           </div>
@@ -374,16 +381,35 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CollectionList({ title, items }: { title: string; items: unknown[] }) {
+function EquipmentList({ items }: { items: NormalizedEquipment[] }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-medium">{title}</div>
+      <div className="mb-1 text-xs font-medium">Equipamentos</div>
       <ul className="divide-y rounded-md border text-sm">
         {items.slice(0, 20).map((it, i) => (
-          <li key={i} className="px-3 py-2">
-            {typeof it === "object" && it && "description" in it
-              ? String((it as { description: unknown }).description)
-              : JSON.stringify(it)}
+          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
+            <span className="truncate">{it.type || "Equipamento"}</span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">×{it.quantity}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ItemList({ items }: { items: NormalizedItem[] }) {
+  const currency = (n: number) =>
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return (
+    <div>
+      <div className="mb-1 text-xs font-medium">Itens</div>
+      <ul className="divide-y rounded-md border text-sm">
+        {items.slice(0, 20).map((it, i) => (
+          <li key={i} className="flex items-center justify-between gap-2 px-3 py-2">
+            <span className="truncate">{it.product || `Produto #${it.productId ?? "?"}`}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {it.quantity} × {currency(it.unitPrice)} = {currency(it.total)}
+            </span>
           </li>
         ))}
       </ul>

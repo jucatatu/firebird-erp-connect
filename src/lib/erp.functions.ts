@@ -117,21 +117,62 @@ export interface MapOrderLocation {
   cacheKey: string;
 }
 
+/**
+ * Endereço bruto do ERP. Nas respostas reais é SEMPRE objeto; a variante
+ * string existe apenas como defesa histórica. Consumidores NÃO devem
+ * renderizar diretamente — sempre passar por `normalizeMapOrder`.
+ */
+export type MapOrderAddress =
+  | string
+  | {
+      street?: string | null;
+      number?: string | null;
+      complement?: string | null;
+      neighborhood?: string | null;
+      city?: string | null;
+      state?: string | null;
+    }
+  | null;
+
+export interface MapOrderItemRaw {
+  productId?: number | null;
+  product?: string | null;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  total?: number | null;
+}
+
+export interface MapOrderEquipmentRaw {
+  typeId?: number | null;
+  type?: string | null;
+  quantity?: number | null;
+}
+
+/**
+ * Pedido cru vindo do erp-api. Nomes seguem o contrato do backend
+ * (clientName, expectedDelivery, observations, equipments). Não renderizar
+ * campos deste tipo diretamente — usar `normalizeMapOrder`.
+ */
 export interface MapOrder {
   orderId?: number | null;
-  orderNumber?: number | null;
-  customerName?: string | null;
+  orderNumber?: number | string | null;
+  clientId?: number | null;
   clientName?: string | null;
-  address?: string | null;
+  customerName?: string | null;
   phone?: string | null;
   companyId?: number | null;
+  expectedDelivery?: string | null;
+  expectedReturn?: string | null;
   deliveryDate?: string | null;
   period?: string | null;
+  observations?: string | null;
   notes?: string | null;
-  items?: JsonValue[];
-  equipment?: JsonValue[];
-  location: MapOrderLocation;
-  [key: string]: JsonValue | MapOrderLocation | undefined;
+  erpStatus?: string | null;
+  address?: MapOrderAddress;
+  items?: MapOrderItemRaw[] | null;
+  equipments?: MapOrderEquipmentRaw[] | null;
+  equipment?: MapOrderEquipmentRaw[] | null;
+  location?: MapOrderLocation | null;
 }
 
 export interface MapOrdersSummary {
@@ -146,7 +187,6 @@ export interface MapOrdersPayload {
   companyId: number | null;
   summary: MapOrdersSummary;
   orders: MapOrder[];
-  [key: string]: JsonValue | MapOrdersSummary | MapOrder[] | number | null;
 }
 
 export interface GetMapOrdersInput {
@@ -154,6 +194,199 @@ export interface GetMapOrdersInput {
   date: string;
   /** 1 = Graal, 3 = Grott. Omitir = todas. */
   companyId?: 1 | 3;
+}
+
+// ── Normalização defensiva ───────────────────────────────────────────────
+// Toda UI consome `NormalizedMapOrder`. Uma linha malformada é marcada com
+// `malformed: true` e recebe defaults seguros — nunca derruba a página.
+
+export interface NormalizedAddress {
+  formatted: string;
+  street: string;
+  number: string;
+  complement: string;
+  district: string;
+  city: string;
+  state: string;
+}
+
+export interface NormalizedItem {
+  productId: number | null;
+  product: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface NormalizedEquipment {
+  typeId: number | null;
+  type: string;
+  quantity: number;
+}
+
+export interface NormalizedMapOrder {
+  key: string;
+  erpOrderId: number;
+  orderNumber: string;
+  companyId: number | null;
+  customerName: string;
+  phone: string | null;
+  address: NormalizedAddress;
+  observations: string | null;
+  erpStatus: string | null;
+  deliveryDate: string | null;
+  returnDate: string | null;
+  period: string | null;
+  items: NormalizedItem[];
+  equipments: NormalizedEquipment[];
+  location: MapOrderLocation;
+  malformed: boolean;
+  raw: MapOrder;
+}
+
+const EMPTY_LOCATION: MapOrderLocation = {
+  latitude: null,
+  longitude: null,
+  locationType: "",
+  precision: "",
+  placeId: "",
+  matchMismatch: false,
+  source: "unresolved",
+  cacheKey: "",
+};
+
+const EMPTY_ADDRESS: NormalizedAddress = {
+  formatted: "",
+  street: "",
+  number: "",
+  complement: "",
+  district: "",
+  city: "",
+  state: "",
+};
+
+function s(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+function sOrNull(v: unknown): string | null {
+  const t = s(v);
+  return t === "" ? null : t;
+}
+function n(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+function nOrNull(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+export function normalizeMapOrder(raw: MapOrder, idx: number): NormalizedMapOrder {
+  try {
+    const erpOrderId = Number(raw?.orderId ?? raw?.orderNumber ?? 0) || 0;
+    const orderNumber = s(raw?.orderNumber ?? raw?.orderId) || "—";
+    const customerName = s(raw?.customerName) || s(raw?.clientName) || "(sem cliente)";
+    const phone = sOrNull(raw?.phone);
+    const companyId =
+      raw?.companyId === 1 || raw?.companyId === 3 ? raw.companyId : null;
+
+    const a = raw?.address;
+    let street = "";
+    let number = "";
+    let complement = "";
+    let district = "";
+    let city = "";
+    let state = "";
+    if (typeof a === "string") {
+      street = a.trim();
+    } else if (a && typeof a === "object") {
+      const obj = a as Record<string, unknown>;
+      street = s(obj.street);
+      number = s(obj.number);
+      complement = s(obj.complement);
+      district = s(obj.neighborhood);
+      city = s(obj.city);
+      state = s(obj.state);
+    }
+    const streetLine = [street, number].filter(Boolean).join(", ");
+    const line1 = complement
+      ? [streetLine, complement].filter(Boolean).join(" — ")
+      : streetLine;
+    const cityState = city && state ? `${city} — ${state}` : city || state;
+    const line2 = [district, cityState].filter(Boolean).join(" · ");
+    const formatted = [line1, line2].filter(Boolean).join(" · ");
+
+    const itemsSrc = Array.isArray(raw?.items) ? raw.items : [];
+    const items: NormalizedItem[] = itemsSrc.map((it) => {
+      const o = (it && typeof it === "object" ? it : {}) as Record<string, unknown>;
+      return {
+        productId: nOrNull(o.productId),
+        product: s(o.product),
+        quantity: n(o.quantity),
+        unitPrice: n(o.unitPrice),
+        total: n(o.total),
+      };
+    });
+
+    const eqSrc = Array.isArray(raw?.equipments)
+      ? raw.equipments
+      : Array.isArray(raw?.equipment)
+        ? raw.equipment
+        : [];
+    const equipments: NormalizedEquipment[] = eqSrc.map((it) => {
+      const o = (it && typeof it === "object" ? it : {}) as Record<string, unknown>;
+      return {
+        typeId: nOrNull(o.typeId),
+        type: s(o.type),
+        quantity: n(o.quantity),
+      };
+    });
+
+    const location: MapOrderLocation = raw?.location ?? EMPTY_LOCATION;
+
+    return {
+      key: String(erpOrderId || raw?.orderNumber || `row-${idx}`),
+      erpOrderId,
+      orderNumber,
+      companyId,
+      customerName,
+      phone,
+      address: { formatted, street, number, complement, district, city, state },
+      observations: sOrNull(raw?.observations ?? raw?.notes),
+      erpStatus: sOrNull(raw?.erpStatus),
+      deliveryDate: sOrNull(raw?.expectedDelivery ?? raw?.deliveryDate),
+      returnDate: sOrNull(raw?.expectedReturn),
+      period: sOrNull(raw?.period),
+      items,
+      equipments,
+      location,
+      malformed: false,
+      raw,
+    };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("[normalizeMapOrder] pedido malformado — placeholder aplicado", {
+      idx,
+      message: (err as Error)?.message,
+    });
+    return {
+      key: `malformed-${idx}`,
+      erpOrderId: 0,
+      orderNumber: "—",
+      companyId: null,
+      customerName: "(dados incompletos)",
+      phone: null,
+      address: EMPTY_ADDRESS,
+      observations: null,
+      erpStatus: null,
+      deliveryDate: null,
+      returnDate: null,
+      period: null,
+      items: [],
+      equipments: [],
+      location: EMPTY_LOCATION,
+      malformed: true,
+      raw,
+    };
+  }
 }
 
 export const getMapOrders = createServerFn({ method: "GET" })
