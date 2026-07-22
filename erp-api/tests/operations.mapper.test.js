@@ -27,6 +27,57 @@ test("toDateOnly retorna YYYY-MM-DD sem horário", () => {
   assert.equal(mapper.toDateOnly(null), null);
 });
 
+test("toTimeOnly extrai HH:mm sem conversão de fuso e sem Invalid Date", () => {
+  // Date local: hora do servidor (node-firebird devolve TIMESTAMP local).
+  const localTs = new Date(2026, 6, 21, 10, 44, 0);
+  assert.equal(mapper.toTimeOnly(localTs), "10:44");
+  // 00:00 é tratado como "sem horário real" (DATE puro).
+  assert.equal(mapper.toTimeOnly(new Date(2026, 6, 21, 0, 0, 0)), null);
+  // Strings toleradas.
+  assert.equal(mapper.toTimeOnly("10:44"), "10:44");
+  assert.equal(mapper.toTimeOnly("10:44:22"), "10:44");
+  assert.equal(mapper.toTimeOnly("2026-07-21T15:30:00"), "15:30");
+  assert.equal(mapper.toTimeOnly("2026-07-21T00:00:00"), null);
+  // Inválidos.
+  assert.equal(mapper.toTimeOnly(""), null);
+  assert.equal(mapper.toTimeOnly(null), null);
+  assert.equal(mapper.toTimeOnly("qualquer"), null);
+  assert.equal(mapper.toTimeOnly(new Date("invalid")), null);
+  assert.equal(mapper.toTimeOnly("25:00"), null);
+});
+
+test("buildOrder expõe deliveryTime a partir de DATA_PREV_ENTREGA TIMESTAMP", () => {
+  const ts = new Date(2026, 6, 21, 10, 44, 0);
+  const dto = mapper.buildOrder({ N_PEDIDO: 8434, DATA_PREV_ENTREGA: ts }, null, [], []);
+  assert.equal(dto.expectedDelivery, "2026-07-21");
+  assert.equal(dto.deliveryTime, "10:44");
+});
+
+test("buildOrder prioriza HORA_PREV_ENTREGA quando presente", () => {
+  const dto = mapper.buildOrder(
+    {
+      N_PEDIDO: 8434,
+      DATA_PREV_ENTREGA: new Date(2026, 6, 21, 9, 0, 0),
+      HORA_PREV_ENTREGA: "10:44:00",
+    },
+    null,
+    [],
+    [],
+  );
+  assert.equal(dto.deliveryTime, "10:44");
+});
+
+test("buildOrder retorna deliveryTime=null para DATE puro sem hora", () => {
+  const dto = mapper.buildOrder(
+    { N_PEDIDO: 8434, DATA_PREV_ENTREGA: "2026-07-21" },
+    null,
+    [],
+    [],
+  );
+  assert.equal(dto.expectedDelivery, "2026-07-21");
+  assert.equal(dto.deliveryTime, null);
+});
+
 test("buildOrder mapeia contrato completo com nome, endereço, datas e status", () => {
   const row = {
     ID_ORDENS_VENDA: 500,
