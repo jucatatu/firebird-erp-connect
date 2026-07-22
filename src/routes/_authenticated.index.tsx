@@ -421,9 +421,8 @@ function OrdersList({
     <ul className="divide-y">
       {orders.map((e) => {
         const o = e.order;
-        const name = o.customerName || o.clientName || "(sem cliente)";
         const active = selectedKey === e.key;
-        const src = o.location?.source;
+        const src = o.location.source;
         return (
           <li key={e.key}>
             <button
@@ -441,14 +440,19 @@ function OrdersList({
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: OPERATIONAL_STATUS_COLOR[e.status] }}
                   />
-                  <span className="truncate text-sm font-medium">{name}</span>
+                  <span className="truncate text-sm font-medium">{o.customerName}</span>
+                  {o.malformed && (
+                    <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                      dados incompletos
+                    </span>
+                  )}
                 </div>
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
-                  #{o.orderNumber ?? o.orderId ?? "—"}
+                  #{o.orderNumber}
                 </span>
               </div>
-              {o.address && (
-                <span className="line-clamp-2 text-xs text-muted-foreground">{o.address}</span>
+              {o.address.formatted && (
+                <span className="line-clamp-2 text-xs text-muted-foreground">{o.address.formatted}</span>
               )}
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
