@@ -3,9 +3,9 @@ import { operationService } from "@/lib/operations/OrderOperationService";
 import type {
   OperationState,
   OrderSnapshotInput,
-  OperationalStatus,
 } from "@/lib/operations/types";
 import { OperationConflictError } from "@/lib/operations/types";
+import type { OperationAction } from "@/lib/operations/state-machine";
 
 export function useOperationStates(operationDate: string, companyId?: number | null) {
   return useQuery({
@@ -31,6 +31,19 @@ export function useOperationNotes(stateId: string | null | undefined) {
   });
 }
 
+export function useProfiles() {
+  return useQuery({
+    queryKey: ["operation-profiles"],
+    queryFn: () => operationService.listProfiles(),
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Conjunto único de mutations do detalhe. Todas invalidam as queries
+ * necessárias (states/events/notes) e tratam OperationConflictError
+ * pedindo refetch ao caller.
+ */
 export function useOperationMutations(
   operationDate: string,
   companyId?: number | null,
@@ -56,23 +69,24 @@ export function useOperationMutations(
     onSuccess: (s: OperationState) => invalidate(s.id),
   });
 
-  const applyStatus = useMutation({
+  const transition = useMutation({
     mutationFn: (args: {
       stateId: string;
-      status: OperationalStatus;
+      action: OperationAction;
       expectedVersion: number;
-    }) => operationService.applyStatus(args),
+      payload?: Record<string, unknown>;
+    }) => operationService.transition(args),
     onSuccess: (s: OperationState) => invalidate(s.id),
     onError: handleConflict,
   });
 
-  const reschedule = useMutation({
+  const assignOperator = useMutation({
     mutationFn: (args: {
       stateId: string;
-      newDate: string;
-      reason: string;
+      role: "delivery" | "pickup";
+      userId: string;
       expectedVersion: number;
-    }) => operationService.reschedule(args),
+    }) => operationService.assignOperator(args),
     onSuccess: (s: OperationState) => invalidate(s.id),
     onError: handleConflict,
   });
@@ -89,8 +103,7 @@ export function useOperationMutations(
     onSuccess: () => invalidate(),
   });
 
-  // Silence unused-parameter warning for companyId (kept for future scoping).
   void companyId;
 
-  return { ensure, applyStatus, reschedule, addNote, reorder };
+  return { ensure, transition, assignOperator, addNote, reorder };
 }
