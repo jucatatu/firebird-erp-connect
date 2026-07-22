@@ -308,10 +308,20 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
     else if (status === "error") errorCount++;
 
     const normalizedStatus = status === "skipped" ? "unresolved" : status;
-    let source = "pending";
-    if (normalizedStatus === "resolved") source = "provider";
-    else if (normalizedStatus === "unresolved") source = "unresolved";
-    else if (normalizedStatus === "error") source = "error";
+    // Se resolveOne devolveu source="cache", este POST NÃO chamou o
+    // provider (idempotência). Preservar essa distinção na resposta.
+    let source;
+    if (entry.source) {
+      source = entry.source;
+    } else if (normalizedStatus === "resolved") {
+      source = "provider";
+    } else if (normalizedStatus === "unresolved") {
+      source = "unresolved";
+    } else if (normalizedStatus === "error") {
+      source = "error";
+    } else {
+      source = "pending";
+    }
 
     perOrder.push({
       orderId: id,
@@ -322,6 +332,7 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
       addressAvailable,
       precision: status === "resolved" ? entry.precision || null : null,
       locationType: status === "resolved" ? entry.locationType || null : null,
+      providerResolvedAt: entry.providerResolvedAt || null,
       location:
         status === "resolved"
           ? {
