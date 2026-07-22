@@ -188,3 +188,70 @@
     color: var(--color-foreground);
   }
 }
+
+/* ── Google Maps: etiqueta do marcador de pedido ─────────────────────── */
+.mom-wrap {
+  --mom-dot: #f97316;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  user-select: none;
+  pointer-events: auto;
+  will-change: transform;
+}
+.mom-wrap .mom-label {
+  background: var(--color-surface, #fff);
+  color: var(--color-foreground, #111);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  border-left: 3px solid var(--mom-dot);
+  border-radius: 6px;
+  padding: 3px 7px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  line-height: 1.15;
+  min-width: 44px;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.mom-wrap .mom-order {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.mom-wrap .mom-time {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-muted-foreground, #666);
+  font-variant-numeric: tabular-nums;
+}
+.mom-wrap .mom-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--mom-dot);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.mom-wrap[data-selected="true"] .mom-label {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  outline: 2px solid var(--mom-dot);
+  outline-offset: 1px;
+}
+.mom-wrap[data-selected="true"] .mom-dot {
+  width: 12px;
+  height: 12px;
+  border-width: 3px;
+}
+@media (max-width: 640px) {
+  .mom-wrap .mom-label {
+    padding: 2px 6px;
+    min-width: 40px;
+  }
+  .mom-wrap .mom-order {
+    font-size: 11px;
+  }
+  .mom-wrap .mom-time {
+    font-size: 10px;
+  }
+}
