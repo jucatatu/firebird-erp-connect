@@ -7,7 +7,7 @@ import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useMapOrders } from "@/hooks/use-erp";
 import { useOperationStates } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
-import { normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
+import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import {
   OPERATIONAL_STATUS_COLOR,
   OPERATIONAL_STATUS_LABEL,
@@ -143,12 +143,9 @@ function MapHome() {
 
   const markers: MapMarkerData[] = useMemo(() => {
     return orders
-      .filter(
-        (e) =>
-          e.order.location.source === "cache" &&
-          typeof e.order.location.latitude === "number" &&
-          typeof e.order.location.longitude === "number",
-      )
+      // Marcadores dependem APENAS de coordenada válida. Lista/detalhe/ações
+      // operacionais ignoram `location` — a fonte de verdade é `address`.
+      .filter((e) => isMappable(e.order))
       .map((e) => ({
         id: e.key,
         lat: e.order.location.latitude as number,

@@ -255,6 +255,23 @@ const EMPTY_LOCATION: MapOrderLocation = {
   cacheKey: "",
 };
 
+/**
+ * Helper único: um pedido é mapeável quando (e somente quando) possui
+ * latitude e longitude numéricas. Endereço é sempre obrigatório; location
+ * é enriquecimento opcional. Nenhum fluxo operacional deve depender disto.
+ */
+export function isMappable(
+  order: Pick<NormalizedMapOrder, "location"> | { location?: MapOrderLocation | null } | null | undefined,
+): boolean {
+  const loc = order?.location;
+  return (
+    typeof loc?.latitude === "number" &&
+    Number.isFinite(loc.latitude) &&
+    typeof loc?.longitude === "number" &&
+    Number.isFinite(loc.longitude)
+  );
+}
+
 const EMPTY_ADDRESS: NormalizedAddress = {
   formatted: "",
   street: "",
