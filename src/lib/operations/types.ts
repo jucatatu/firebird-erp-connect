@@ -57,6 +57,16 @@ export interface OperationState {
   updated_at: string;
   /** Optimistic-concurrency version. Incremented on every RPC update. */
   version: number;
+  has_returnable_equipment?: boolean;
+  delivery_assignee_id?: string | null;
+  delivery_assigned_at?: string | null;
+  delivery_assigned_by?: string | null;
+  pickup_assignee_id?: string | null;
+  pickup_assigned_at?: string | null;
+  pickup_assigned_by?: string | null;
+  pickup_scheduled_date?: string | null;
+  pickup_scheduled_time?: string | null;
+  pickup_note?: string | null;
 }
 
 /**
