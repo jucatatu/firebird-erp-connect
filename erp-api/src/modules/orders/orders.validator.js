@@ -86,7 +86,7 @@ const bodySchema = z
     address: addressSchema,
     notes: z.string().max(LIMITS.OBS).nullable().optional(),
     // stockOutput e userId são aceitos por compatibilidade mas IGNORADOS.
-    // SAIDA_ESTOQUE é fixado em 0 e ID_USER vem de ERP_INTEGRATION_USER_ID.
+    // SAIDA_ESTOQUE é fixado em 0 e ID_USER é a constante interna CAD_USER=2.
     stockOutput: z.boolean().optional(),
     userId: positiveInt.optional(),
     carrierId: nullableInt.optional(),

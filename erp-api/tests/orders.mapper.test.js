@@ -27,7 +27,6 @@ test("resolveCompanyId fallback vira 1", () => {
 test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
   const params = mapper.buildCompleteProcParams({
     companyId: 3,
-    integrationUserId: 77,
     payload: {
       customerId: 100,
       sellerId: 10,
@@ -67,8 +66,9 @@ test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
   assert.equal(params[22], 1);
   // SAIDA_ESTOQUE fixado em 0 no servidor, ignora payload.stockOutput=true
   assert.equal(params[23], 0);
-  // ID_USER vem do integrationUserId (servidor), ignora payload.userId=999
-  assert.equal(params[24], 77);
+  // ID_USER é a constante interna CAD_USER=2, ignora payload.userId=999
+  assert.equal(params[24], 2);
+  assert.equal(params[24], mapper.CAD_USER);
   assert.equal(params[25], null);
   assert.ok(params[7] instanceof Date);
 });
