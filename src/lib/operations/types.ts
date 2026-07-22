@@ -5,7 +5,12 @@ export type OperationalStatus =
   | "collected"
   | "customer_will_call"
   | "not_found"
-  | "rescheduled";
+  | "rescheduled"
+  | "awaiting_pickup_definition"
+  | "awaiting_customer_contact"
+  | "pickup_scheduled"
+  | "pickup_in_progress"
+  | "pickup_completed";
 
 export type OperationEventType =
   | "loaded"
@@ -16,7 +21,22 @@ export type OperationEventType =
   | "delivered"
   | "collected"
   | "not_found"
-  | "corrected";
+  | "corrected"
+  | "delivery_assigned"
+  | "delivery_assignee_changed"
+  | "delivery_started"
+  | "delivery_confirmed"
+  | "delivery_customer_not_found"
+  | "delivery_rescheduled"
+  | "customer_will_contact"
+  | "pickup_scheduled"
+  | "pickup_rescheduled"
+  | "pickup_assigned"
+  | "pickup_assignee_changed"
+  | "pickup_started"
+  | "pickup_customer_not_found"
+  | "pickup_confirmed"
+  | "operation_completed";
 
 export type OperationEventOrigin = "local" | "erp";
 
@@ -102,6 +122,11 @@ export const OPERATIONAL_STATUS_LABEL: Record<OperationalStatus, string> = {
   customer_will_call: "Cliente irá avisar",
   not_found: "Não localizado",
   rescheduled: "Reagendado",
+  awaiting_pickup_definition: "Aguardando definição do recolhimento",
+  awaiting_customer_contact: "Aguardando cliente avisar",
+  pickup_scheduled: "Recolhimento agendado",
+  pickup_in_progress: "Em recolhimento",
+  pickup_completed: "Recolhimento concluído",
 };
 
 // Cores usadas no marcador do mapa (hex). Mantidas independentes do
@@ -114,4 +139,9 @@ export const OPERATIONAL_STATUS_COLOR: Record<OperationalStatus, string> = {
   customer_will_call: "#eab308", // amarelo
   not_found: "#6b7280",       // cinza
   rescheduled: "#0ea5e9",     // ciano
+  awaiting_pickup_definition: "#f59e0b", // âmbar
+  awaiting_customer_contact: "#eab308",  // amarelo
+  pickup_scheduled: "#0ea5e9",           // ciano
+  pickup_in_progress: "#7c3aed",         // roxo
+  pickup_completed: "#16a34a",           // verde
 };
