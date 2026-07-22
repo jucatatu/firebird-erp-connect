@@ -64,6 +64,11 @@ const schema = z
     GEOCODING_PERSIST_COORDS: boolFromString.default(false),
     // TTL do claim de in-flight (evita locks órfãos se um processo cair).
     GEOCODING_INFLIGHT_TTL_MS: z.coerce.number().int().positive().default(60000),
+    // Feature flag do endpoint autenticado de diagnóstico do cache
+    // (GET /api/v1/health/geocoding/cache/:orderId). Desligado por padrão;
+    // habilite apenas temporariamente para investigar produção e desligue
+    // logo depois. Sem esta flag o endpoint responde 404.
+    GEOCODING_DIAGNOSTICS_ENABLED: boolFromString.default(false),
   })
   .superRefine((val, ctx) => {
     // Nota: SYSDBA/masterkey NÃO são bloqueados aqui — o administrador pode
