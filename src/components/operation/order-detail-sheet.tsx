@@ -35,10 +35,16 @@ import {
 import type { MapOrder } from "@/lib/erp.functions";
 import {
   OPERATIONAL_STATUS_LABEL,
+  OperationConflictError,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
-import { useOperationEvents, useOperationMutations, useOperationNotes } from "@/hooks/use-operations";
+import {
+  useOperationEvents,
+  useOperationMutations,
+  useOperationNotes,
+} from "@/hooks/use-operations";
+import { toast } from "sonner";
 import { OperationTimeline } from "./operation-timeline";
 import { cn } from "@/lib/utils";
 
@@ -76,9 +82,15 @@ export function OrderDetailSheet({
 
   const events = useOperationEvents(state?.id);
   const notes = useOperationNotes(state?.id);
-  const { ensure, setStatus, reschedule, addNote } = useOperationMutations(
+  const onConflict = () => {
+    toast.error("Este pedido foi alterado por outro usuário", {
+      description: "Os dados serão atualizados automaticamente.",
+    });
+  };
+  const { ensure, applyStatus, reschedule, addNote } = useOperationMutations(
     operationDate,
     companyId,
+    onConflict,
   );
 
   const [confirm, setConfirm] = useState<ActionKey | null>(null);
@@ -102,18 +114,43 @@ export function OrderDetailSheet({
   }
 
   async function performAction(action: ActionKey) {
-    const id = await ensureStateId();
-    const res = await setStatus.mutateAsync({ stateId: id, status: action as OperationalStatus });
-    onAfterAction?.(res);
+    try {
+      const id = await ensureStateId();
+      const res = await applyStatus.mutateAsync({
+        stateId: id,
+        status: action as OperationalStatus,
+        expectedVersion: state?.version ?? 1,
+      });
+      onAfterAction?.(res);
+    } catch (err) {
+      if (!(err instanceof OperationConflictError)) {
+        toast.error("Não foi possível aplicar a ação", {
+          description: (err as Error)?.message ?? String(err),
+        });
+      }
+    }
   }
 
   async function performReschedule() {
     if (!reason.trim()) return;
-    const id = await ensureStateId();
-    const res = await reschedule.mutateAsync({ stateId: id, newDate, reason: reason.trim() });
-    setRescheduleOpen(false);
-    setReason("");
-    onAfterAction?.(res);
+    try {
+      const id = await ensureStateId();
+      const res = await reschedule.mutateAsync({
+        stateId: id,
+        newDate,
+        reason: reason.trim(),
+        expectedVersion: state?.version ?? 1,
+      });
+      setRescheduleOpen(false);
+      setReason("");
+      onAfterAction?.(res);
+    } catch (err) {
+      if (!(err instanceof OperationConflictError)) {
+        toast.error("Não foi possível reagendar", {
+          description: (err as Error)?.message ?? String(err),
+        });
+      }
+    }
   }
 
   async function submitNote() {
@@ -124,7 +161,7 @@ export function OrderDetailSheet({
   }
 
   const currentStatus = state?.operational_status ?? "pending";
-  const busy = ensure.isPending || setStatus.isPending || reschedule.isPending;
+  const busy = ensure.isPending || applyStatus.isPending || reschedule.isPending;
 
   return (
     <div className="space-y-4">

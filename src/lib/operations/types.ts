@@ -35,6 +35,33 @@ export interface OperationState {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Optimistic-concurrency version. Incremented on every RPC update. */
+  version: number;
+}
+
+/**
+ * Snapshot fields explicitly persisted on operation_states.snapshot.
+ * Kept minimal: only fields needed to keep the row usable if the ERP
+ * later renames/removes the underlying record. No credentials, no
+ * financial data, no ERP items/equipment (those are re-fetched live).
+ */
+export const SNAPSHOT_FIELDS = [
+  "customerName",
+  "address",
+  "phone",
+  "orderNumber",
+  "deliveryDate",
+  "period",
+] as const;
+export type SnapshotField = (typeof SNAPSHOT_FIELDS)[number];
+
+/** Error code raised by RPCs when optimistic-lock version mismatch. */
+export const OPERATION_CONFLICT_CODE = "P0004";
+export class OperationConflictError extends Error {
+  constructor(message = "Este pedido foi alterado por outro usuário.") {
+    super(message);
+    this.name = "OperationConflictError";
+  }
 }
 
 export interface OperationEvent {

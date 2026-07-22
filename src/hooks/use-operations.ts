@@ -5,6 +5,7 @@ import type {
   OrderSnapshotInput,
   OperationalStatus,
 } from "@/lib/operations/types";
+import { OperationConflictError } from "@/lib/operations/types";
 
 export function useOperationStates(operationDate: string, companyId?: number | null) {
   return useQuery({
@@ -30,39 +31,50 @@ export function useOperationNotes(stateId: string | null | undefined) {
   });
 }
 
-export function useOperationMutations(operationDate: string, companyId?: number | null) {
+export function useOperationMutations(
+  operationDate: string,
+  companyId?: number | null,
+  onConflict?: () => void,
+) {
   const qc = useQueryClient();
   const invalidate = (stateId?: string) => {
-    qc.invalidateQueries({ queryKey: ["operation-states", operationDate, companyId ?? "all"] });
+    qc.invalidateQueries({ queryKey: ["operation-states"] });
     if (stateId) {
       qc.invalidateQueries({ queryKey: ["operation-events", stateId] });
       qc.invalidateQueries({ queryKey: ["operation-notes", stateId] });
     }
   };
+  const handleConflict = (err: unknown) => {
+    if (err instanceof OperationConflictError) {
+      qc.invalidateQueries({ queryKey: ["operation-states"] });
+      onConflict?.();
+    }
+  };
 
   const ensure = useMutation({
     mutationFn: (input: OrderSnapshotInput) => operationService.ensureState(input),
-    onSuccess: (s) => invalidate(s.id),
-  });
-
-  const setStatus = useMutation({
-    mutationFn: async (args: { stateId: string; status: OperationalStatus }) => {
-      switch (args.status) {
-        case "in_progress": return operationService.startOrder(args.stateId);
-        case "delivered": return operationService.markDelivered(args.stateId);
-        case "collected": return operationService.markCollected(args.stateId);
-        case "customer_will_call": return operationService.markCustomerWillCall(args.stateId);
-        case "not_found": return operationService.markNotFound(args.stateId);
-        default: throw new Error(`Transição não suportada: ${args.status}`);
-      }
-    },
     onSuccess: (s: OperationState) => invalidate(s.id),
   });
 
+  const applyStatus = useMutation({
+    mutationFn: (args: {
+      stateId: string;
+      status: OperationalStatus;
+      expectedVersion: number;
+    }) => operationService.applyStatus(args),
+    onSuccess: (s: OperationState) => invalidate(s.id),
+    onError: handleConflict,
+  });
+
   const reschedule = useMutation({
-    mutationFn: (args: { stateId: string; newDate: string; reason: string }) =>
-      operationService.reschedule(args),
-    onSuccess: (s) => invalidate(s.id),
+    mutationFn: (args: {
+      stateId: string;
+      newDate: string;
+      reason: string;
+      expectedVersion: number;
+    }) => operationService.reschedule(args),
+    onSuccess: (s: OperationState) => invalidate(s.id),
+    onError: handleConflict,
   });
 
   const addNote = useMutation({
@@ -77,5 +89,8 @@ export function useOperationMutations(operationDate: string, companyId?: number 
     onSuccess: () => invalidate(),
   });
 
-  return { ensure, setStatus, reschedule, addNote, reorder };
+  // Silence unused-parameter warning for companyId (kept for future scoping).
+  void companyId;
+
+  return { ensure, applyStatus, reschedule, addNote, reorder };
 }

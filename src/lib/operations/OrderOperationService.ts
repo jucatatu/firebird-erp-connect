@@ -1,29 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
-import type {
-  OperationState,
-  OperationEvent,
-  OperationNote,
-  OperationalStatus,
-  OrderSnapshotInput,
+import {
+  OPERATION_CONFLICT_CODE,
+  OperationConflictError,
+  SNAPSHOT_FIELDS,
+  type OperationState,
+  type OperationEvent,
+  type OperationNote,
+  type OperationalStatus,
+  type OrderSnapshotInput,
+  type SnapshotField,
 } from "./types";
 
 /**
  * Interface pública das ações operacionais. Deve permanecer independente
  * de transporte (Supabase, HTTP, etc). O adapter atual grava no Lovable
- * Cloud; um `ErpOrderOperationService` futuro poderá enviar ao Firebird
- * sem alterar chamadas do frontend.
+ * Cloud via RPC (matriz de transições + versão otimista); um
+ * `ErpOrderOperationService` futuro poderá enviar ao Firebird sem
+ * alterar chamadas do frontend.
  */
 export interface OrderOperationService {
   ensureState(input: OrderSnapshotInput): Promise<OperationState>;
-  startOrder(stateId: string): Promise<OperationState>;
-  markDelivered(stateId: string): Promise<OperationState>;
-  markCollected(stateId: string): Promise<OperationState>;
-  markCustomerWillCall(stateId: string): Promise<OperationState>;
-  markNotFound(stateId: string): Promise<OperationState>;
+  applyStatus(input: {
+    stateId: string;
+    status: OperationalStatus;
+    expectedVersion: number;
+  }): Promise<OperationState>;
   reschedule(input: {
     stateId: string;
     newDate: string;
     reason: string;
+    expectedVersion: number;
   }): Promise<OperationState>;
   addNote(input: { stateId: string; body: string }): Promise<OperationNote>;
   reorder(input: {
@@ -39,36 +45,56 @@ export interface OrderOperationService {
 }
 
 function unwrap<T>(res: { data: T | null; error: unknown }): T {
-  if (res.error) throw res.error as Error;
+  if (res.error) throw normalizeError(res.error);
   return res.data as T;
+}
+
+function normalizeError(err: unknown): Error {
+  const e = err as { code?: string; message?: string };
+  if (e?.code === OPERATION_CONFLICT_CODE || /operation_state_conflict/i.test(e?.message ?? "")) {
+    return new OperationConflictError();
+  }
+  return err as Error;
+}
+
+// Snapshot mínimo: apenas campos necessários para continuidade operacional.
+// NÃO persiste credenciais, dados financeiros, itens/equipamentos, documentos
+// ou conteúdo não exibido na operação. Ver SNAPSHOT_FIELDS em types.ts.
+function buildSnapshot(input: OrderSnapshotInput): Record<string, unknown> {
+  const src = (input.snapshot ?? {}) as Record<string, unknown>;
+  const merged: Partial<Record<SnapshotField, unknown>> = {
+    customerName: input.customerName ?? null,
+    address: input.address ?? null,
+    phone: input.phone ?? null,
+    orderNumber: input.erpOrderNumber ?? null,
+    deliveryDate: src.deliveryDate ?? null,
+    period: src.period ?? null,
+  };
+  const out: Record<string, unknown> = {};
+  for (const f of SNAPSHOT_FIELDS) {
+    const v = merged[f];
+    if (v !== undefined && v !== null && v !== "") out[f] = v;
+  }
+  return out;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
-async function updateStatus(
-  stateId: string,
-  status: OperationalStatus,
-): Promise<OperationState> {
-  const { data: userRes } = await supabase.auth.getUser();
-  const uid = userRes.user?.id ?? null;
-  const res = await db
-    .from("operation_states")
-    .update({ operational_status: status, updated_by: uid })
-    .eq("id", stateId)
-    .select("*")
-    .single();
-  return unwrap<OperationState>(res);
-}
-
 export const LocalOrderOperationService: OrderOperationService = {
   async ensureState(input) {
-    const existing = await db
+    // Chave única agora é (company_id, erp_order_id); reagendamentos NÃO
+    // criam novo estado — mudam operational_date do mesmo registro.
+    let q = db
       .from("operation_states")
       .select("*")
-      .eq("operation_date", input.operationDate)
-      .eq("erp_order_id", input.erpOrderId)
-      .maybeSingle();
+      .eq("erp_order_id", input.erpOrderId);
+    if (input.companyId == null) {
+      q = q.is("company_id", null);
+    } else {
+      q = q.eq("company_id", input.companyId);
+    }
+    const existing = await q.maybeSingle();
     if (existing.error) throw existing.error;
     if (existing.data) return existing.data as OperationState;
 
@@ -82,11 +108,7 @@ export const LocalOrderOperationService: OrderOperationService = {
         erp_order_number: input.erpOrderNumber ?? null,
         company_id: input.companyId ?? null,
         operation_date: input.operationDate,
-        snapshot: input.snapshot ?? {
-          customerName: input.customerName ?? null,
-          address: input.address ?? null,
-          phone: input.phone ?? null,
-        },
+        snapshot: buildSnapshot(input),
         created_by: uid,
       })
       .select("*")
@@ -94,27 +116,29 @@ export const LocalOrderOperationService: OrderOperationService = {
     return unwrap<OperationState>(res);
   },
 
-  startOrder: (id) => updateStatus(id, "in_progress"),
-  markDelivered: (id) => updateStatus(id, "delivered"),
-  markCollected: (id) => updateStatus(id, "collected"),
-  markCustomerWillCall: (id) => updateStatus(id, "customer_will_call"),
-  markNotFound: (id) => updateStatus(id, "not_found"),
+  async applyStatus({ stateId, status, expectedVersion }) {
+    const res = await db.rpc("apply_operation_status", {
+      _state_id: stateId,
+      _new_status: status,
+      _expected_version: expectedVersion,
+      _reason: null,
+    });
+    if (res.error) throw normalizeError(res.error);
+    // RPC retorna record → array de 1 elemento pelo PostgREST.
+    const row = Array.isArray(res.data) ? res.data[0] : res.data;
+    return row as OperationState;
+  },
 
-  async reschedule({ stateId, newDate, reason }) {
-    const { data: userRes } = await supabase.auth.getUser();
-    const uid = userRes.user?.id ?? null;
-    const res = await db
-      .from("operation_states")
-      .update({
-        operational_status: "rescheduled",
-        operational_date: newDate,
-        reschedule_reason: reason,
-        updated_by: uid,
-      })
-      .eq("id", stateId)
-      .select("*")
-      .single();
-    return unwrap<OperationState>(res);
+  async reschedule({ stateId, newDate, reason, expectedVersion }) {
+    const res = await db.rpc("reschedule_operation", {
+      _state_id: stateId,
+      _new_date: newDate,
+      _reason: reason,
+      _expected_version: expectedVersion,
+    });
+    if (res.error) throw normalizeError(res.error);
+    const row = Array.isArray(res.data) ? res.data[0] : res.data;
+    return row as OperationState;
   },
 
   async addNote({ stateId, body }) {
@@ -127,7 +151,7 @@ export const LocalOrderOperationService: OrderOperationService = {
       .select("*")
       .single();
     const note = unwrap<OperationNote>(noteRes);
-    // Trigger não cobre inserção de nota — log manual do evento.
+    // Note não tem trigger — registra evento único aqui.
     await db.from("operation_events").insert({
       operation_state_id: stateId,
       event_type: "note_added",
@@ -139,7 +163,6 @@ export const LocalOrderOperationService: OrderOperationService = {
   },
 
   async reorder({ operationDate, orderedStateIds }) {
-    // Atualização em batch: cada linha recebe sequence conforme posição.
     await Promise.all(
       orderedStateIds.map((id, idx) =>
         db
@@ -152,10 +175,15 @@ export const LocalOrderOperationService: OrderOperationService = {
   },
 
   async listStates({ operationDate, companyId }) {
+    // Um pedido reagendado deve APARECER apenas na nova data operacional
+    // e DESAPARECER da antiga. Se operational_date estiver preenchido,
+    // ele é a agenda efetiva; caso contrário usa operation_date (data do ERP).
     let q = db
       .from("operation_states")
       .select("*")
-      .eq("operation_date", operationDate);
+      .or(
+        `operational_date.eq.${operationDate},and(operational_date.is.null,operation_date.eq.${operationDate})`,
+      );
     if (companyId != null) q = q.eq("company_id", companyId);
     const res = await q.order("sequence", { ascending: true, nullsFirst: false });
     if (res.error) throw res.error;

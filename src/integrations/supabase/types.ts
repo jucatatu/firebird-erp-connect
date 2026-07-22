@@ -103,6 +103,7 @@ export type Database = {
           snapshot: Json
           updated_at: string
           updated_by: string | null
+          version: number
         }
         Insert: {
           company_id?: number | null
@@ -119,6 +120,7 @@ export type Database = {
           snapshot?: Json
           updated_at?: string
           updated_by?: string | null
+          version?: number
         }
         Update: {
           company_id?: number | null
@@ -135,6 +137,7 @@ export type Database = {
           snapshot?: Json
           updated_at?: string
           updated_by?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -275,6 +278,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_company_access: {
+        Row: {
+          company_id: number
+          created_at: string
+          created_by: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id: number
+          created_at?: string
+          created_by?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: number
+          created_at?: string
+          created_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -301,12 +325,78 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_operation_status: {
+        Args: {
+          _expected_version: number
+          _new_status: Database["public"]["Enums"]["operational_status"]
+          _reason?: string
+          _state_id: string
+        }
+        Returns: {
+          company_id: number | null
+          created_at: string
+          created_by: string
+          erp_order_id: number
+          erp_order_number: number | null
+          id: string
+          operation_date: string
+          operational_date: string | null
+          operational_status: Database["public"]["Enums"]["operational_status"]
+          reschedule_reason: string | null
+          sequence: number | null
+          snapshot: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_states"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      has_company_access: {
+        Args: { _company_id: number; _uid: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      reschedule_operation: {
+        Args: {
+          _expected_version: number
+          _new_date: string
+          _reason: string
+          _state_id: string
+        }
+        Returns: {
+          company_id: number | null
+          created_at: string
+          created_by: string
+          erp_order_id: number
+          erp_order_number: number | null
+          id: string
+          operation_date: string
+          operational_date: string | null
+          operational_status: Database["public"]["Enums"]["operational_status"]
+          reschedule_reason: string | null
+          sequence: number | null
+          snapshot: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_states"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_order_draft_status: {
         Args: {
