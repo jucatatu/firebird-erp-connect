@@ -189,33 +189,43 @@
   }
 }
 
-/* ── Google Maps: etiqueta do marcador de pedido ─────────────────────── */
+/* ── Google Maps: marcador compacto (estilo sistema antigo) ─────────── */
 .mom-wrap {
   --mom-dot: #f97316;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   user-select: none;
   pointer-events: auto;
   will-change: transform;
+  line-height: 1;
+}
+.mom-wrap .mom-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--mom-dot);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  flex: 0 0 auto;
 }
 .mom-wrap .mom-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: var(--color-surface, #fff);
   color: var(--color-foreground, #111);
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
-  border-left: 3px solid var(--mom-dot);
-  border-radius: 6px;
-  padding: 3px 7px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  padding: 2px 8px;
+  height: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-  text-align: center;
-  line-height: 1.15;
-  min-width: 44px;
   white-space: nowrap;
   font-family: inherit;
 }
 .mom-wrap .mom-order {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -225,28 +235,20 @@
   color: var(--color-muted-foreground, #666);
   font-variant-numeric: tabular-nums;
 }
-.mom-wrap .mom-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--mom-dot);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
 .mom-wrap[data-selected="true"] .mom-label {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   outline: 2px solid var(--mom-dot);
   outline-offset: 1px;
 }
 .mom-wrap[data-selected="true"] .mom-dot {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-width: 3px;
 }
 @media (max-width: 640px) {
   .mom-wrap .mom-label {
-    padding: 2px 6px;
-    min-width: 40px;
+    padding: 2px 7px;
+    height: 18px;
   }
   .mom-wrap .mom-order {
     font-size: 11px;

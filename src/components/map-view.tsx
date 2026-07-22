@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -16,18 +16,25 @@ export interface MapMarkerData {
   label?: string;
   /** Número comercial do pedido (nunca ID interno). */
   orderNumber?: string;
-  /** Rótulo pronto do horário — "HH:mm" ou "Sem horário". */
-  deliveryTimeLabel?: string;
+  /** Horário no formato "HH:mm". Null/undefined = não exibir horário. */
+  deliveryTime?: string | null;
 }
 
 let loaderPromise: Promise<void> | null = null;
 
+/** Zoom aplicado quando existe apenas um pedido localizado. */
+export const SINGLE_ORDER_ZOOM = 16;
+/** Teto do zoom em fitBounds automático de múltiplos pedidos próximos. */
+export const MULTIPLE_ORDER_MAX_ZOOM = 14;
 /**
- * Limite superior do zoom aplicado APENAS pelo enquadramento automático
- * (abertura, troca de data, refetch, botão centralizar). O usuário
- * continua livre para aproximar manualmente além disto.
+ * Piso operacional: se o fitBounds automático resultar em zoom menor que
+ * isto, os pedidos estão distantes demais — evitamos abrir todo o estado.
  */
-export const MAX_AUTO_ZOOM = 16;
+export const OPERATIONAL_MIN_ZOOM = 11;
+/** Zoom aplicado quando centralizamos no primeiro pedido de sequência distante. */
+export const DISTANT_FALLBACK_ZOOM = 13;
+/** Compat: usado por consumidores antigos, mantém-se como o teto de um pedido. */
+export const MAX_AUTO_ZOOM = SINGLE_ORDER_ZOOM;
 
 function escapeHtml(s: string): string {
   return s
@@ -63,7 +70,8 @@ const DEFAULT_ZOOM = 11;
 
 interface LabelOverlayOpts {
   orderNumber: string;
-  timeLabel: string;
+  /** "HH:mm" quando disponível; caso contrário null/undefined (não mostrar). */
+  deliveryTime?: string | null;
   color: string;
   selected: boolean;
 }
@@ -88,14 +96,19 @@ function createLabelOverlay(
     if (!div) return;
     div.dataset.selected = current.selected ? "true" : "false";
     div.style.setProperty("--mom-dot", current.color);
+    div.style.zIndex = current.selected ? "50" : "10";
     const num = current.orderNumber?.trim() || "—";
-    const time = current.timeLabel?.trim() || "Sem horário";
+    const time =
+      typeof current.deliveryTime === "string" ? current.deliveryTime.trim() : "";
+    const timeHtml = time
+      ? `<span class="mom-time">${escapeHtml(time)}</span>`
+      : "";
     div.innerHTML =
-      `<div class="mom-label">` +
-      `<div class="mom-order">${escapeHtml(num)}</div>` +
-      `<div class="mom-time">${escapeHtml(time)}</div>` +
-      `</div>` +
-      `<div class="mom-dot" aria-hidden="true"></div>`;
+      `<span class="mom-dot" aria-hidden="true"></span>` +
+      `<span class="mom-label">` +
+      `<strong class="mom-order">#${escapeHtml(num)}</strong>` +
+      timeHtml +
+      `</span>`;
   }
 
   overlay.onAdd = function onAdd() {
@@ -104,7 +117,9 @@ function createLabelOverlay(
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
     div.style.position = "absolute";
-    div.style.transform = "translate(-50%, -100%)";
+    // Bolinha ancorada exatamente sobre a coordenada: translada o wrap
+    // meia-bolinha para a esquerda e metade da altura para cima.
+    div.style.transform = "translate(-6px, -50%)";
     div.style.cursor = "pointer";
     div.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -148,7 +163,10 @@ function createLabelOverlay(
 
   overlay.setSelected = function setSelected(selected) {
     current = { ...current, selected };
-    if (div) div.dataset.selected = selected ? "true" : "false";
+    if (div) {
+      div.dataset.selected = selected ? "true" : "false";
+      div.style.zIndex = selected ? "50" : "10";
+    }
   };
 
   overlay.destroy = function destroy() {
@@ -159,18 +177,21 @@ function createLabelOverlay(
 }
 
 /**
- * Aplica o enquadramento automático respeitando MAX_AUTO_ZOOM.
- * - 0 pontos: não faz nada (mantém centro/zoom atual).
- * - 1 ponto: centraliza no ponto e usa MAX_AUTO_ZOOM.
- * - 2+ pontos: fitBounds e, se necessário, limita o zoom final.
+ * Enquadramento OPERACIONAL (padrão da abertura / troca de data /
+ * botão “Centralizar pedidos”):
+ *  - 0 pontos: mantém centro/zoom atuais;
+ *  - 1 ponto: centraliza + SINGLE_ORDER_ZOOM;
+ *  - vários pontos próximos: fitBounds limitado a MULTIPLE_ORDER_MAX_ZOOM;
+ *  - pontos distantes (o fitBounds resultaria em zoom < OPERATIONAL_MIN_ZOOM):
+ *    centraliza no PRIMEIRO pedido da sequência exibida, zoom DISTANT_FALLBACK_ZOOM.
  */
-function fitMapToMarkers(map: google.maps.Map, markers: MapMarkerData[]) {
+function fitOperational(map: google.maps.Map, markers: MapMarkerData[]) {
   if (!window.google) return;
   if (markers.length === 0) return;
   if (markers.length === 1) {
     const m = markers[0];
     map.setCenter({ lat: m.lat, lng: m.lng });
-    map.setZoom(MAX_AUTO_ZOOM);
+    map.setZoom(SINGLE_ORDER_ZOOM);
     return;
   }
   const bounds = new window.google.maps.LatLngBounds();
@@ -178,8 +199,39 @@ function fitMapToMarkers(map: google.maps.Map, markers: MapMarkerData[]) {
   map.fitBounds(bounds, 80);
   window.google.maps.event.addListenerOnce(map, "idle", () => {
     const z = map.getZoom();
-    if (typeof z === "number" && z > MAX_AUTO_ZOOM) {
-      map.setZoom(MAX_AUTO_ZOOM);
+    if (typeof z !== "number") return;
+    if (z < OPERATIONAL_MIN_ZOOM) {
+      // Muito distantes — recua para visão operacional do primeiro pedido.
+      const first = markers[0];
+      map.setCenter({ lat: first.lat, lng: first.lng });
+      map.setZoom(DISTANT_FALLBACK_ZOOM);
+    } else if (z > MULTIPLE_ORDER_MAX_ZOOM) {
+      map.setZoom(MULTIPLE_ORDER_MAX_ZOOM);
+    }
+  });
+}
+
+/**
+ * Enquadramento EXPLÍCITO (“Ver todos”): fitBounds real de todos os pontos,
+ * sem piso operacional. Ainda respeita o teto SINGLE_ORDER_ZOOM para não
+ * dar zoom absurdo em um único ponto.
+ */
+function fitAll(map: google.maps.Map, markers: MapMarkerData[]) {
+  if (!window.google) return;
+  if (markers.length === 0) return;
+  if (markers.length === 1) {
+    const m = markers[0];
+    map.setCenter({ lat: m.lat, lng: m.lng });
+    map.setZoom(SINGLE_ORDER_ZOOM);
+    return;
+  }
+  const bounds = new window.google.maps.LatLngBounds();
+  markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }));
+  map.fitBounds(bounds, 80);
+  window.google.maps.event.addListenerOnce(map, "idle", () => {
+    const z = map.getZoom();
+    if (typeof z === "number" && z > SINGLE_ORDER_ZOOM) {
+      map.setZoom(SINGLE_ORDER_ZOOM);
     }
   });
 }
@@ -196,6 +248,8 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const overlaysRef = useRef<Map<string, LabelOverlay>>(new Map());
+  const markersRef = useRef<MapMarkerData[]>(markers);
+  markersRef.current = markers;
   const clickRef = useRef<typeof onMarkerClick>(onMarkerClick);
   clickRef.current = onMarkerClick;
   const [ready, setReady] = useState(false);
@@ -244,7 +298,7 @@ export function MapView({
     for (const m of markers) {
       const opts: LabelOverlayOpts = {
         orderNumber: m.orderNumber ?? m.label ?? "—",
-        timeLabel: m.deliveryTimeLabel ?? "Sem horário",
+        deliveryTime: m.deliveryTime ?? null,
         color: m.color,
         selected: selectedId === m.id,
       };
@@ -261,18 +315,47 @@ export function MapView({
     }
   }, [markers, ready, selectedId]);
 
-  // Enquadramento automático controlado: dispara apenas quando o
-  // conjunto de marcadores muda (fingerprint), respeitando MAX_AUTO_ZOOM.
+  // Enquadramento automático operacional: dispara APENAS quando o
+  // conjunto de marcadores muda (fingerprint) — não a cada seleção,
+  // não ao abrir/fechar sheet, não a cada refetch.
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    fitMapToMarkers(mapRef.current, markers);
-    // Depende do fingerprint — não do onMarkerClick nem do selectedId.
+    fitOperational(mapRef.current, markersRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fingerprint]);
+
+  const onCenter = useCallback(() => {
+    if (mapRef.current) fitOperational(mapRef.current, markersRef.current);
+  }, []);
+  const onSeeAll = useCallback(() => {
+    if (mapRef.current) fitAll(mapRef.current, markersRef.current);
+  }, []);
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
+      {ready && markers.length > 0 && (
+        <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-2 md:left-4 md:top-4">
+          <button
+            type="button"
+            onClick={onCenter}
+            className="pointer-events-auto rounded-md border bg-surface/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-surface"
+            aria-label="Centralizar pedidos"
+          >
+            Centralizar pedidos
+          </button>
+          {markers.length > 1 && (
+            <button
+              type="button"
+              onClick={onSeeAll}
+              className="pointer-events-auto rounded-md border bg-surface/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-surface"
+              aria-label="Ver todos os pedidos"
+            >
+              Ver todos
+            </button>
+          )}
+        </div>
+      )}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80">
           <div className="rounded-md border bg-surface px-4 py-3 text-sm text-destructive">
