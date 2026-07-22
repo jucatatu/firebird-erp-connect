@@ -122,6 +122,7 @@ export interface OrderSnapshotInput {
   address?: string | null;
   phone?: string | null;
   snapshot?: Record<string, unknown>;
+  hasReturnableEquipment?: boolean;
 }
 
 export const OPERATIONAL_STATUS_LABEL: Record<OperationalStatus, string> = {
