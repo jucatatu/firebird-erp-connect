@@ -19,6 +19,22 @@ const { AppError } = require("../errors/app-error");
  *
  * IMPORTANTE: `withLock` é apenas in-process. Em multi-instância,
  * substituir por Redis/DB.
+ *
+ * ── Janela residual de duplicação (documentar honestamente) ────────────
+ * Sequência do createOrder:
+ *   1. begin tx no Firebird
+ *   2. SP_CAD_ORDEM_VENDA_COMPLETO + itens + equipamentos
+ *   3. COMMIT no Firebird
+ *   4. store.put(key, entry) — grava resultado da idempotência em disco
+ *
+ * Se o processo cair ENTRE 3 e 4, o COMMIT já persistiu o pedido no ERP
+ * mas o cliente pode fazer retry com a mesma Idempotency-Key e o Node
+ * NÃO encontrará o registro — vai criar um SEGUNDO pedido.
+ *
+ * Portanto NÃO afirmamos garantia exactly-once. Para eliminá-la é
+ * necessário coordenação transacional (ex.: registrar Idempotency-Key
+ * no próprio Firebird dentro da mesma transação) ou identificador
+ * externo persistido no ERP — fora do escopo desta fase.
  */
 
 const TTL_MS = env.IDEMPOTENCY_TTL_HOURS * 60 * 60 * 1000;
@@ -68,13 +84,14 @@ function createMemoryStore() {
 
 // ── File store (JSON, escrita atômica via rename) ───────────────────────
 function createFileStore(filePath) {
+  const absPath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
   let cache = null; // { [key]: entry }
   let writeChain = Promise.resolve();
 
   async function load() {
     if (cache !== null) return cache;
     try {
-      const raw = await fsp.readFile(filePath, "utf8");
+      const raw = await fsp.readFile(absPath, "utf8");
       const parsed = JSON.parse(raw);
       cache = parsed && typeof parsed === "object" ? parsed : {};
     } catch (err) {
@@ -82,7 +99,7 @@ function createFileStore(filePath) {
         cache = {};
       } else {
         logger.error(
-          { code: err && err.code },
+          { code: err && err.code, path: absPath },
           "idempotency: falha ao carregar store de arquivo",
         );
         throw new AppError({
@@ -98,11 +115,24 @@ function createFileStore(filePath) {
 
   async function persist() {
     const snapshot = JSON.stringify(cache);
-    const dir = path.dirname(filePath);
-    await fsp.mkdir(dir, { recursive: true });
-    const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    await fsp.writeFile(tmp, snapshot, "utf8");
-    await fsp.rename(tmp, filePath);
+    const dir = path.dirname(absPath);
+    try {
+      await fsp.mkdir(dir, { recursive: true });
+      const tmp = `${absPath}.${process.pid}.${Date.now()}.tmp`;
+      await fsp.writeFile(tmp, snapshot, "utf8");
+      await fsp.rename(tmp, absPath);
+    } catch (err) {
+      logger.error(
+        { code: err && err.code, path: absPath },
+        "idempotency: volume não gravável",
+      );
+      throw new AppError({
+        message: "Store de idempotência indisponível.",
+        statusCode: 503,
+        code: "IDEMPOTENCY_STORE_UNAVAILABLE",
+        retryable: true,
+      });
+    }
   }
 
   function gc() {
@@ -116,7 +146,7 @@ function createFileStore(filePath) {
   return {
     kind: "file",
     async init() {
-      await fsp.mkdir(path.dirname(filePath), { recursive: true });
+      await fsp.mkdir(path.dirname(absPath), { recursive: true });
       await load();
       gc();
     },
@@ -146,7 +176,10 @@ let instance = null;
 function getStore() {
   if (instance) return instance;
   if (env.IDEMPOTENCY_STORE === "file") {
-    instance = createFileStore(env.IDEMPOTENCY_FILE_PATH);
+    const p = path.isAbsolute(env.IDEMPOTENCY_FILE_PATH)
+      ? env.IDEMPOTENCY_FILE_PATH
+      : path.resolve(process.cwd(), env.IDEMPOTENCY_FILE_PATH);
+    instance = createFileStore(p);
   } else {
     instance = createMemoryStore();
   }
