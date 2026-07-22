@@ -6,7 +6,6 @@ import {
   type OperationState,
   type OperationEvent,
   type OperationNote,
-  type OperationalStatus,
   type OrderSnapshotInput,
   type SnapshotField,
 } from "./types";
@@ -21,11 +20,6 @@ import type { OperationAction } from "./state-machine";
  */
 export interface OrderOperationService {
   ensureState(input: OrderSnapshotInput): Promise<OperationState>;
-  applyStatus(input: {
-    stateId: string;
-    status: OperationalStatus;
-    expectedVersion: number;
-  }): Promise<OperationState>;
   transition(input: {
     stateId: string;
     action: OperationAction;
@@ -39,12 +33,6 @@ export interface OrderOperationService {
     expectedVersion: number;
   }): Promise<OperationState>;
   listProfiles(): Promise<Array<{ id: string; full_name: string | null }>>;
-  reschedule(input: {
-    stateId: string;
-    newDate: string;
-    reason: string;
-    expectedVersion: number;
-  }): Promise<OperationState>;
   addNote(input: { stateId: string; body: string }): Promise<OperationNote>;
   reorder(input: {
     operationDate: string;
@@ -131,19 +119,6 @@ export const LocalOrderOperationService: OrderOperationService = {
     return unwrap<OperationState>(res);
   },
 
-  async applyStatus({ stateId, status, expectedVersion }) {
-    const res = await db.rpc("apply_operation_status", {
-      _state_id: stateId,
-      _new_status: status,
-      _expected_version: expectedVersion,
-      _reason: null,
-    });
-    if (res.error) throw normalizeError(res.error);
-    // RPC retorna record → array de 1 elemento pelo PostgREST.
-    const row = Array.isArray(res.data) ? res.data[0] : res.data;
-    return row as OperationState;
-  },
-
   async transition({ stateId, action, expectedVersion, payload }) {
     const res = await db.rpc("apply_operation_transition", {
       _state_id: stateId,
@@ -176,18 +151,6 @@ export const LocalOrderOperationService: OrderOperationService = {
       .order("full_name", { ascending: true });
     if (res.error) throw res.error;
     return (res.data ?? []) as Array<{ id: string; full_name: string | null }>;
-  },
-
-  async reschedule({ stateId, newDate, reason, expectedVersion }) {
-    const res = await db.rpc("reschedule_operation", {
-      _state_id: stateId,
-      _new_date: newDate,
-      _reason: reason,
-      _expected_version: expectedVersion,
-    });
-    if (res.error) throw normalizeError(res.error);
-    const row = Array.isArray(res.data) ? res.data[0] : res.data;
-    return row as OperationState;
   },
 
   async addNote({ stateId, body }) {
