@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 
 const LoginRoute = LoginRouteImport.update({
@@ -17,37 +18,44 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsErpRoute =
   AuthenticatedSettingsErpRouteImport.update({
-    id: '/_authenticated/settings/erp',
+    id: '/settings/erp',
     path: '/settings/erp',
-    getParentRoute: () => rootRouteImport,
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/login' | '/settings/erp'
+  fullPaths: '/' | '/login' | '/settings/erp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/settings/erp'
-  id: '__root__' | '/login' | '/_authenticated/settings/erp'
+  to: '/' | '/login' | '/settings/erp'
+  id: '__root__' | '/_authenticated' | '/login' | '/_authenticated/settings/erp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
-  AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -59,19 +67,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings/erp': {
       id: '/_authenticated/settings/erp'
       path: '/settings/erp'
       fullPath: '/settings/erp'
       preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  LoginRoute: LoginRoute,
+interface AuthenticatedRouteChildren {
+  AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
