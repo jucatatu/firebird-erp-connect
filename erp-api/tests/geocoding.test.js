@@ -51,9 +51,17 @@ test("resolveOne persiste no cache e a segunda chamada é hit", async () => {
   const provider = createFakeProvider();
   const r1 = await geocoding.resolveOne(addr(), provider, { cache });
   assert.equal(r1.status, "resolved");
+  assert.equal(r1.source, "provider", "primeira chamada = provider");
+  assert.ok(r1.providerResolvedAt, "providerResolvedAt setado em resolved");
   assert.equal(provider._calls.length, 1);
   const r2 = await geocoding.resolveOne(addr(), provider, { cache });
   assert.equal(r2.status, "resolved");
+  assert.equal(r2.source, "cache", "segunda chamada = cache (idempotente)");
+  assert.equal(
+    r2.providerResolvedAt,
+    r1.providerResolvedAt,
+    "providerResolvedAt preservado entre POSTs",
+  );
   assert.equal(provider._calls.length, 1, "não deve rechamar provider");
 });
 
