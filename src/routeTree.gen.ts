@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated.orders.new'
+import { Route as AuthenticatedOrdersDraftIdRouteImport } from './routes/_authenticated.orders.$draftId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -46,11 +47,18 @@ const AuthenticatedOrdersNewRoute = AuthenticatedOrdersNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AuthenticatedOrdersRoute,
 } as any)
+const AuthenticatedOrdersDraftIdRoute =
+  AuthenticatedOrdersDraftIdRouteImport.update({
+    id: '/$draftId',
+    path: '/$draftId',
+    getParentRoute: () => AuthenticatedOrdersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/': typeof AuthenticatedIndexRoute
+  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
@@ -67,20 +76,34 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
   '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/orders' | '/orders/new' | '/settings/erp'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/orders'
+    | '/orders/$draftId'
+    | '/orders/new'
+    | '/settings/erp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/orders' | '/' | '/orders/new' | '/settings/erp'
+  to:
+    | '/login'
+    | '/orders'
+    | '/'
+    | '/orders/$draftId'
+    | '/orders/new'
+    | '/settings/erp'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/orders'
     | '/_authenticated/'
+    | '/_authenticated/orders/$draftId'
     | '/_authenticated/orders/new'
     | '/_authenticated/settings/erp'
   fileRoutesById: FileRoutesById
@@ -134,14 +157,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersNewRouteImport
       parentRoute: typeof AuthenticatedOrdersRoute
     }
+    '/_authenticated/orders/$draftId': {
+      id: '/_authenticated/orders/$draftId'
+      path: '/$draftId'
+      fullPath: '/orders/$draftId'
+      preLoaderRoute: typeof AuthenticatedOrdersDraftIdRouteImport
+      parentRoute: typeof AuthenticatedOrdersRoute
+    }
   }
 }
 
 interface AuthenticatedOrdersRouteChildren {
+  AuthenticatedOrdersDraftIdRoute: typeof AuthenticatedOrdersDraftIdRoute
   AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
 }
 
 const AuthenticatedOrdersRouteChildren: AuthenticatedOrdersRouteChildren = {
+  AuthenticatedOrdersDraftIdRoute: AuthenticatedOrdersDraftIdRoute,
   AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
 }
 
