@@ -3,6 +3,12 @@
 const { LIMITS } = require("./orders.validator");
 
 /**
+ * ID_USER fixado internamente para toda ordem criada pela integração.
+ * NUNCA vem do .env nem do frontend — regra de negócio oficial.
+ */
+const CAD_USER = 2;
+
+/**
  * Trunca string preservando os primeiros N caracteres. WIN1252 é 1B/char,
  * portanto tamanho em caracteres == tamanho em bytes para o intervalo suportado.
  * Caracteres fora do WIN1252 são deixados para o driver decodificar/rejeitar.
@@ -49,7 +55,7 @@ function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
  * SEMPRE fixado em 1 aqui — jamais lido do payload. CHAVE fixada em NULL.
  */
 function buildCompleteProcParams(input) {
-  const { payload, companyId, integrationUserId } = input;
+  const { payload, companyId } = input;
   const addr = payload.address;
   return [
     /*  0 ID_EMPRESA               */ companyId,
@@ -76,7 +82,7 @@ function buildCompleteProcParams(input) {
     /* 21 OBS                      */ truncate(orNull(payload.notes), LIMITS.OBS),
     /* 22 GERA_COBRANCA (FIXO=1)   */ 1,
     /* 23 SAIDA_ESTOQUE (FIXO=0)   */ 0,
-    /* 24 ID_USER (do servidor)    */ integrationUserId,
+    /* 24 ID_USER (constante CAD_USER) */ CAD_USER,
     /* 25 CHAVE (NULL para criar)  */ null,
     /* 26 ID_TRANSPORTADOR         */ orNull(payload.carrierId),
     /* 27 ID_TRANSPORTADOR_VEICULO */ orNull(payload.carrierVehicleId),
@@ -109,6 +115,7 @@ function buildEquipmentProcParams(orderId, eq) {
 }
 
 module.exports = {
+  CAD_USER,
   resolveCompanyId,
   buildCompleteProcParams,
   buildItemProcParams,
