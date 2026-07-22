@@ -88,6 +88,54 @@ function toDateOnly(v) {
   return null;
 }
 
+/**
+ * Extrai "HH:mm" de um valor TIME/TIMESTAMP do Firebird.
+ *
+ * Regras:
+ *   - `Date`: usa hora LOCAL (getHours/getMinutes) — o driver node-firebird
+ *     devolve TIMESTAMP como Date em fuso local, então nenhuma conversão
+ *     de fuso adicional é aplicada.
+ *   - string "HH:mm[:ss]": valida e retorna "HH:mm".
+ *   - string "YYYY-MM-DDTHH:mm[:ss]...": extrai HH:mm literal.
+ *   - `00:00` proveniente de campo DATE puro é rejeitado (não é um horário
+ *     real de entrega). Se o campo for TIME de valor 00:00 legítimo, o
+ *     domínio operacional continua exibindo "Sem horário", como acordado
+ *     com o frontend.
+ *   - Qualquer outro valor → null.
+ *
+ * Nunca lança. Nunca retorna "Invalid Date".
+ */
+function toTimeOnly(v) {
+  if (v === undefined || v === null || v === "") return null;
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return null;
+    const h = v.getHours();
+    const m = v.getMinutes();
+    if (h === 0 && m === 0) return null;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  if (typeof v === "string") {
+    const s = v.trim();
+    const hhmm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+    if (hhmm) {
+      const h = Number(hhmm[1]);
+      const m = Number(hhmm[2]);
+      if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+      if (h === 0 && m === 0) return null;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    const iso = /^\d{4}-\d{2}-\d{2}[Tt](\d{2}):(\d{2})/.exec(s);
+    if (iso) {
+      const h = Number(iso[1]);
+      const m = Number(iso[2]);
+      if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+      if (h === 0 && m === 0) return null;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+  }
+  return null;
+}
+
 function orEmpty(v) {
   const s = toNullableString(v);
   return s === null ? "" : s;
@@ -179,6 +227,14 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
       ? ""
       : String(orderNumberRaw).trim();
 
+  // Horário de entrega: preferência por HORA_PREV_ENTREGA (TIME dedicado,
+  // caso exista no schema), com fallback para a parte de hora de
+  // DATA_PREV_ENTREGA (quando armazenado como TIMESTAMP). Não altera
+  // `expectedDelivery`, que segue expondo apenas a data.
+  const deliveryTime =
+    toTimeOnly(pick(orderRow, "HORA_PREV_ENTREGA")) ??
+    toTimeOnly(pick(orderRow, "DATA_PREV_ENTREGA"));
+
   return {
     orderId: toNullableInt(pick(orderRow, "ID_ORDENS_VENDA")),
     orderNumber: orderNumberStr,
@@ -186,6 +242,7 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
     clientName: mapClientName(orderRow),
     phone: phone === undefined ? null : phone,
     expectedDelivery: toDateOnly(pick(orderRow, "DATA_PREV_ENTREGA")),
+    deliveryTime,
     expectedReturn: toDateOnly(pick(orderRow, "DATA_PREV_RETORNO")),
     observations: toNullableString(pick(orderRow, "OBS")),
     erpStatus: toNullableString(pick(orderRow, "STATUS_DESCRICAO")),
@@ -204,6 +261,7 @@ module.exports = {
   toNullableNumber,
   toNullableInt,
   toDateOnly,
+  toTimeOnly,
   dedupeBy,
   mapItemRow,
   mapEquipmentRow,
