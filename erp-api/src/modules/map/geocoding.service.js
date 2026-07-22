@@ -4,8 +4,7 @@ const { env } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const { normalizeAddress, stripAccents, normField } = require("./geocoding-normalize");
 const { getCache } = require("./geocoding-cache");
-const { createFakeProvider } = require("./providers/fake.provider");
-const { createGoogleProvider } = require("./providers/google.provider");
+const providers = require("./providers");
 
 /**
  * Serviço de geocodificação com:
@@ -54,12 +53,7 @@ function detectMismatch({ requested, provider }) {
   return Boolean(cityMismatch || stateMismatch);
 }
 
-/** Registry: seleciona o provider a partir do env, salvo injeção explícita. */
-function pickProvider(explicit) {
-  if (explicit) return explicit;
-  if (env.GEOCODING_PROVIDER === "google") return createGoogleProvider();
-  return createFakeProvider();
-}
+const pickProvider = providers.pickProvider;
 
 /**
  * Resolve um único endereço.
@@ -147,6 +141,32 @@ async function resolveOne(fields, provider, opts = {}) {
           matchMismatch: false,
           status: "unresolved",
           errorCode: "ZERO_RESULTS",
+          attempts,
+          lastProviderAt: Date.now(),
+        };
+        await cache.upsert(norm.cacheKey, entry);
+        return { cacheKey: norm.cacheKey, ...entry };
+      }
+
+      // Erro conhecido do provider (REQUEST_DENIED, TIMEOUT, NETWORK_ERROR,
+      // OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR, HTTP_5xx, etc).
+      // Estado `error` é DISTINTO de `pending` — o GET deve mostrar como
+      // source="error" com errorCode preservado.
+      if (result.status === "ERROR") {
+        const entry = {
+          normalizedAddress: norm.canonical,
+          placeId: (cached && cached.placeId) || "",
+          latitude: null,
+          longitude: null,
+          locationType: "",
+          precision: "",
+          matchedCountry: "",
+          matchedState: "",
+          matchedCity: "",
+          matchedPostalCode: "",
+          matchMismatch: false,
+          status: "error",
+          errorCode: result.errorCode || "PROVIDER_ERROR",
           attempts,
           lastProviderAt: Date.now(),
         };
