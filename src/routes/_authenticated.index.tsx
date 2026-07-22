@@ -7,7 +7,7 @@ import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useMapOrders } from "@/hooks/use-erp";
 import { useOperationStates } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
-import type { MapOrder } from "@/lib/erp.functions";
+import { normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import {
   OPERATIONAL_STATUS_COLOR,
   OPERATIONAL_STATUS_LABEL,
@@ -42,7 +42,7 @@ type CompanyChoice = "all" | "1" | "3";
 type SortKey = "manual" | "customer" | "city" | "status" | "number";
 
 interface EnrichedOrder {
-  order: MapOrder;
+  order: NormalizedMapOrder;
   key: string;
   erpId: number;
   state: OperationState | null;
@@ -51,10 +51,6 @@ interface EnrichedOrder {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function orderKey(o: MapOrder, idx: number): string {
-  return String(o.orderId ?? o.orderNumber ?? idx);
 }
 
 function MapHome() {
@@ -78,22 +74,29 @@ function MapHome() {
   const geoSummary = payload?.summary ?? { total: 0, mapped: 0, pending: 0, unresolved: 0 };
   const erpError = ordersQ.data && !ordersQ.data.ok ? ordersQ.data.error : null;
 
+  // Normaliza defensivamente antes do render. Uma linha malformada é
+  // rebaixada a placeholder e sinalizada por `malformed`, mas nunca
+  // interrompe a página inteira.
+  const normalizedOrders: NormalizedMapOrder[] = useMemo(
+    () => rawOrders.map((o, idx) => normalizeMapOrder(o, idx)),
+    [rawOrders],
+  );
+
   // Junta pedidos do ERP com estados operacionais locais por erp_order_id.
   const enrichedAll: EnrichedOrder[] = useMemo(() => {
     const stateByErpId = new Map<number, OperationState>();
     (statesQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
-    return rawOrders.map((o, idx) => {
-      const erpId = Number(o.orderId ?? o.orderNumber ?? 0);
-      const state = stateByErpId.get(erpId) ?? null;
+    return normalizedOrders.map((n) => {
+      const state = stateByErpId.get(n.erpOrderId) ?? null;
       return {
-        order: o,
-        key: orderKey(o, idx),
-        erpId,
+        order: n,
+        key: n.key,
+        erpId: n.erpOrderId,
         state,
         status: state?.operational_status ?? "pending",
       };
     });
-  }, [rawOrders, statesQ.data]);
+  }, [normalizedOrders, statesQ.data]);
 
   // Filtro por texto + status operacional
   const filtered: EnrichedOrder[] = useMemo(() => {
@@ -101,10 +104,11 @@ function MapHome() {
     return enrichedAll.filter((e) => {
       if (filter !== "all" && e.status !== filter) return false;
       if (!q) return true;
-      const name = (e.order.customerName || e.order.clientName || "").toLowerCase();
-      const addr = (e.order.address || "").toLowerCase();
-      const num = String(e.order.orderNumber ?? e.order.orderId ?? "");
-      return name.includes(q) || addr.includes(q) || num.includes(q);
+      return (
+        e.order.customerName.toLowerCase().includes(q) ||
+        e.order.address.formatted.toLowerCase().includes(q) ||
+        e.order.orderNumber.toLowerCase().includes(q)
+      );
     });
   }, [enrichedAll, query, filter]);
 
@@ -113,24 +117,18 @@ function MapHome() {
     const arr = [...filtered];
     switch (sort) {
       case "customer":
-        arr.sort((a, b) =>
-          (a.order.customerName || a.order.clientName || "").localeCompare(
-            b.order.customerName || b.order.clientName || "",
-          ),
-        );
+        arr.sort((a, b) => a.order.customerName.localeCompare(b.order.customerName));
         break;
       case "city":
-        arr.sort((a, b) => (a.order.address || "").localeCompare(b.order.address || ""));
+        arr.sort((a, b) =>
+          a.order.address.formatted.localeCompare(b.order.address.formatted),
+        );
         break;
       case "status":
         arr.sort((a, b) => a.status.localeCompare(b.status));
         break;
       case "number":
-        arr.sort(
-          (a, b) =>
-            Number(a.order.orderNumber ?? a.order.orderId ?? 0) -
-            Number(b.order.orderNumber ?? b.order.orderId ?? 0),
-        );
+        arr.sort((a, b) => a.erpId - b.erpId);
         break;
       case "manual":
       default:
@@ -147,16 +145,16 @@ function MapHome() {
     return orders
       .filter(
         (e) =>
-          e.order.location?.source === "cache" &&
+          e.order.location.source === "cache" &&
           typeof e.order.location.latitude === "number" &&
           typeof e.order.location.longitude === "number",
       )
       .map((e) => ({
         id: e.key,
-        lat: e.order.location!.latitude as number,
-        lng: e.order.location!.longitude as number,
+        lat: e.order.location.latitude as number,
+        lng: e.order.location.longitude as number,
         color: OPERATIONAL_STATUS_COLOR[e.status],
-        label: e.order.customerName || e.order.clientName || "Pedido",
+        label: e.order.customerName,
       }));
   }, [orders]);
 
