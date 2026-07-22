@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { MapView, type MapMarkerData } from "@/components/map-view";
 import { OperationalFilters, type OperationalFilter } from "@/components/operation/operational-filters";
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
-import { useMapOrders } from "@/hooks/use-erp";
+import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
 import { useOperationStates } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
@@ -68,6 +69,15 @@ function MapHome() {
 
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
+  const geocodeM = useGeocodeOrders();
+  const qc = useQueryClient();
+
+  // Controle anti-loop: IDs internos já tentados nesta sessão (por data).
+  // Reseta quando a data muda para permitir novas tentativas do dia seguinte.
+  const attemptedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    attemptedRef.current = new Set();
+  }, [date]);
 
   const payload = ordersQ.data?.data ?? null;
   const rawOrders: MapOrder[] = useMemo(() => payload?.orders ?? [], [payload]);
@@ -97,6 +107,53 @@ function MapHome() {
       };
     });
   }, [normalizedOrders, statesQ.data]);
+
+  // ── Auto-geocoding: dispara POST /api/v1/map/geocode para os pedidos
+  // pending que ainda não foram tentados nesta sessão. Uma única vez por
+  // conjunto. Falha não gera loop pois os IDs entram em `attemptedRef`
+  // imediatamente. Nova tentativa: mudar de data ou usar o botão manual.
+  useEffect(() => {
+    if (ordersQ.isLoading || ordersQ.isFetching) return;
+    if (!ordersQ.data?.ok) return;
+    if (geocodeM.isPending) return;
+
+    const pendingIds: number[] = [];
+    for (const o of rawOrders) {
+      const id = typeof o.orderId === "number" ? o.orderId : Number(o.orderId);
+      if (!Number.isInteger(id) || id <= 0) continue;
+      if (attemptedRef.current.has(id)) continue;
+      const loc = o.location;
+      if (!loc || loc.source !== "pending") continue;
+      if (Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)) continue;
+      pendingIds.push(id);
+    }
+    if (pendingIds.length === 0) return;
+
+    // Marca antes de disparar — protege contra re-render/refetch em loop.
+    pendingIds.forEach((id) => attemptedRef.current.add(id));
+
+    if (import.meta.env.DEV) {
+      console.log("[map-geocoding] pending orders:", pendingIds.length);
+      console.log("[map-geocoding] posting internal ids:", pendingIds);
+    }
+
+    geocodeM
+      .mutateAsync({ orderIds: pendingIds })
+      .then((res) => {
+        if (import.meta.env.DEV) {
+          console.log("[map-geocoding] completed:", res?.ok ? "ok" : "error", res?.status);
+        }
+        // Refetch para materializar as coordenadas.
+        qc.invalidateQueries({ queryKey: ["erp", "map", "orders", date] });
+      })
+      .catch((err) => {
+        if (import.meta.env.DEV) {
+          console.warn("[map-geocoding] failed:", (err as Error)?.message);
+        }
+        // IDs permanecem em attemptedRef para evitar loop; usuário pode
+        // retentar manualmente pelo OrderDetailSheet.
+      });
+  }, [rawOrders, ordersQ.data, ordersQ.isLoading, ordersQ.isFetching, geocodeM, qc, date]);
 
   // Filtro por texto + status operacional
   const filtered: EnrichedOrder[] = useMemo(() => {
