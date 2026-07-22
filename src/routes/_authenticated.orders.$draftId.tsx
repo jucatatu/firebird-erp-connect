@@ -1,8 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { useMyRoles, primaryRole } from "@/hooks/use-auth";
+import { useMyRoles } from "@/hooks/use-auth";
 import {
   useOrderDraft,
   useOrderDraftEvents,
@@ -57,14 +57,12 @@ export const Route = createFileRoute("/_authenticated/orders/$draftId")({
 
 function DraftDetailPage() {
   const { draftId } = Route.useParams();
-  const navigate = useNavigate();
 
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
   const rolesQ = useMyRoles(user);
-  const role = primaryRole(rolesQ.data);
   const isAdmin = (rolesQ.data ?? []).includes("admin");
   const isApprover = (rolesQ.data ?? []).includes("aprovador") || isAdmin;
 
