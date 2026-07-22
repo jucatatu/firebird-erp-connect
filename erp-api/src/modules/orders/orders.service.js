@@ -5,7 +5,6 @@ const crypto = require("crypto");
 const firebird = require("../../shared/database/firebird-client");
 const { AppError } = require("../../shared/errors/app-error");
 const { logger } = require("../../config/logger");
-const { env } = require("../../config/env");
 const {
   getStore,
   hashPayload,
@@ -53,19 +52,6 @@ async function withGlobalOrderLock(fn) {
   }
 }
 
-function requireIntegrationUserId() {
-  const uid = env.ERP_INTEGRATION_USER_ID;
-  if (!uid || !Number.isFinite(Number(uid)) || Number(uid) <= 0) {
-    throw new AppError({
-      message: "ERP_INTEGRATION_USER_ID não configurado no servidor.",
-      statusCode: 500,
-      code: "CONFIG_ERROR",
-      retryable: false,
-    });
-  }
-  return Number(uid);
-}
-
 /**
  * Executa a criação real da ordem dentro de UMA transação Firebird.
  *
@@ -80,10 +66,9 @@ function requireIntegrationUserId() {
  * Qualquer exceção → ROLLBACK integral (garantido por withTransaction).
  */
 async function createOrderTransactional({ payload, correlationId }) {
-  const integrationUserId = requireIntegrationUserId();
   return withGlobalOrderLock(() => firebird.withTransaction(async (tx) => {
     const t0 = Date.now();
-    logger.info({ correlationId, integrationUserId }, "orders.create: início");
+    logger.info({ correlationId, cadUser: mapper.CAD_USER }, "orders.create: início");
 
     // 1. Resolução oficial de empresa.
     let companyContext = null;
@@ -103,7 +88,6 @@ async function createOrderTransactional({ payload, correlationId }) {
     const completeParams = mapper.buildCompleteProcParams({
       payload,
       companyId,
-      integrationUserId,
     });
     logger.info(
       { correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO" },

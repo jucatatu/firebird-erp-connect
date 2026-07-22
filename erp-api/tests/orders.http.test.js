@@ -375,7 +375,7 @@ test("mutex global serializa criações concorrentes (chaves distintas)", async 
   assert.equal(state.rollbacks, 0);
 });
 
-test("SAIDA_ESTOQUE fixado em 0 e ID_USER vem de ERP_INTEGRATION_USER_ID", async () => {
+test("SAIDA_ESTOQUE fixado em 0 e ID_USER vem da constante CAD_USER", async () => {
   reset();
   const app = createApp();
   const res = await signedPost(
@@ -389,5 +389,5 @@ test("SAIDA_ESTOQUE fixado em 0 e ID_USER vem de ERP_INTEGRATION_USER_ID", async
     /FROM SP_CAD_ORDEM_VENDA_COMPLETO/i.test(c.sql),
   );
   assert.equal(completeCall.params[23], 0); // SAIDA_ESTOQUE
-  assert.equal(completeCall.params[24], 42); // ID_USER (do helpers/env.js)
+  assert.equal(completeCall.params[24], 2); // ID_USER (constante CAD_USER)
 });
