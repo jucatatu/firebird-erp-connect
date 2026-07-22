@@ -6,7 +6,7 @@ import {
   useListOrdersMutation,
 } from "@/hooks/use-erp";
 
-export const Route = createFileRoute("/settings/erp")({
+export const Route = createFileRoute("/_authenticated/settings/erp")({
   head: () => ({
     meta: [
       { title: "Diagnóstico ERP — Firebird Integration" },
