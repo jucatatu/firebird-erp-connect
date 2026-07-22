@@ -222,35 +222,20 @@ function MapHome() {
       }));
   }, [orders]);
 
-  // Contadores
-  const counters = useMemo(() => {
-    const base: Record<OperationalStatus, number> = {
-      pending: 0,
-      in_progress: 0,
-      delivered: 0,
-      collected: 0,
-      customer_will_call: 0,
-      not_found: 0,
-      rescheduled: 0,
-    };
+  // Contadores por bucket funcional (Pendente, Em entrega, ...).
+  const filterCounts = useMemo(() => {
+    const base: Partial<Record<OperationalFilter, number>> = {};
     enrichedAll.forEach((e) => {
-      base[e.status] += 1;
+      const bucket = filterOfStatus(e.status);
+      base[bucket] = (base[bucket] ?? 0) + 1;
     });
-    return { ...base, total: enrichedAll.length };
+    base.all = enrichedAll.length;
+    return base;
   }, [enrichedAll]);
 
-  const filterCounts: Record<OperationalFilter, number> = useMemo(
-    () => ({
-      all: enrichedAll.length,
-      pending: counters.pending,
-      in_progress: counters.in_progress,
-      delivered: counters.delivered,
-      collected: counters.collected,
-      customer_will_call: counters.customer_will_call,
-      not_found: counters.not_found,
-      rescheduled: counters.rescheduled,
-    }),
-    [enrichedAll.length, counters],
+  const counters = useMemo(
+    () => ({ ...filterCounts, total: enrichedAll.length }),
+    [filterCounts, enrichedAll.length],
   );
 
   const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
