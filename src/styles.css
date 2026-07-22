@@ -75,6 +75,12 @@
   --color-status-failed-fg: var(--status-failed-fg);
   --color-status-cancelled-bg: var(--status-cancelled-bg);
   --color-status-cancelled-fg: var(--status-cancelled-fg);
+  --color-map-pedido: var(--map-pedido);
+  --color-map-higienizacao: var(--map-higienizacao);
+  --color-map-entregue: var(--map-entregue);
+  --color-map-liberado: var(--map-liberado);
+  --color-map-recolhido: var(--map-recolhido);
+  --color-map-avisar: var(--map-avisar);
 }
 
 :root {
