@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
+import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
 import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_authenticated.pedidos-venda.novo'
 import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
 import { Route as AuthenticatedPedidosVendaDraftIdRouteImport } from './routes/_authenticated.pedidos-venda.$draftId'
+import { Route as AuthenticatedOrdersSplatRouteImport } from './routes/_authenticated.orders.$'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -30,6 +33,16 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPedidosVendaIndexRoute =
@@ -62,10 +75,19 @@ const AuthenticatedPedidosVendaDraftIdRoute =
     path: '/pedidos-venda/$draftId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedOrdersSplatRoute =
+  AuthenticatedOrdersSplatRouteImport.update({
+    id: '/orders/$',
+    path: '/orders/$',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/approvals': typeof AuthenticatedApprovalsRoute
+  '/operations': typeof AuthenticatedOperationsRoute
+  '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
@@ -74,7 +96,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/approvals': typeof AuthenticatedApprovalsRoute
+  '/operations': typeof AuthenticatedOperationsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
@@ -85,7 +110,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/operations': typeof AuthenticatedOperationsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/_authenticated/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
@@ -97,6 +125,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/approvals'
+    | '/operations'
+    | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
@@ -105,7 +136,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/approvals'
+    | '/operations'
     | '/'
+    | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
@@ -115,7 +149,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/approvals'
+    | '/_authenticated/operations'
     | '/_authenticated/'
+    | '/_authenticated/orders/$'
     | '/_authenticated/pedidos-venda/$draftId'
     | '/_authenticated/pedidos-venda/aprovacoes'
     | '/_authenticated/pedidos-venda/novo'
@@ -149,6 +186,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/operations': {
+      id: '/_authenticated/operations'
+      path: '/operations'
+      fullPath: '/operations'
+      preLoaderRoute: typeof AuthenticatedOperationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/approvals': {
+      id: '/_authenticated/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof AuthenticatedApprovalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pedidos-venda/': {
@@ -186,11 +237,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPedidosVendaDraftIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/orders/$': {
+      id: '/_authenticated/orders/$'
+      path: '/orders/$'
+      fullPath: '/orders/$'
+      preLoaderRoute: typeof AuthenticatedOrdersSplatRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
   AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
   AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
   AuthenticatedPedidosVendaNovoRoute: typeof AuthenticatedPedidosVendaNovoRoute
@@ -199,7 +260,10 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedOrdersSplatRoute: AuthenticatedOrdersSplatRoute,
   AuthenticatedPedidosVendaDraftIdRoute: AuthenticatedPedidosVendaDraftIdRoute,
   AuthenticatedPedidosVendaAprovacoesRoute:
     AuthenticatedPedidosVendaAprovacoesRoute,
