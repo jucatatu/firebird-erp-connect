@@ -11,7 +11,7 @@ export const Route = createFileRoute("/api/public/tmp-reset-admin")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { error } = await supabaseAdmin.auth.admin.updateUserById(
           "5234ff2c-2816-4026-8d2d-bbedc684b9df",
-          { password: "grA@5320177" },
+          { password: "@gRa5320177" },
         );
         if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
         return new Response(JSON.stringify({ ok: true }), {
