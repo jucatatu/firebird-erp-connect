@@ -9,68 +9,51 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SettingsErpRouteImport } from './routes/settings.erp'
+import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsErpRoute = SettingsErpRouteImport.update({
-  id: '/settings/erp',
-  path: '/settings/erp',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedSettingsErpRoute =
+  AuthenticatedSettingsErpRouteImport.update({
+    id: '/_authenticated/settings/erp',
+    path: '/settings/erp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings/erp'
+  fullPaths: '/settings/erp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings/erp'
-  id: '__root__' | '/' | '/settings/erp'
+  to: '/settings/erp'
+  id: '__root__' | '/_authenticated/settings/erp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SettingsErpRoute: typeof SettingsErpRoute
+  AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/erp': {
-      id: '/settings/erp'
+    '/_authenticated/settings/erp': {
+      id: '/_authenticated/settings/erp'
       path: '/settings/erp'
       fullPath: '/settings/erp'
-      preLoaderRoute: typeof SettingsErpRouteImport
+      preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SettingsErpRoute: SettingsErpRoute,
+  AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
