@@ -31,6 +31,13 @@ const schema = z
       .default("info"),
 
     DEV_BYPASS_AUTH: boolFromString.default(false),
+
+    // ── Idempotência (Fase 2G) ───────────────────────────────────────────
+    // "memory"  → armazenamento em memória do processo (NÃO usar em produção)
+    // "file"    → arquivo JSON local com escrita atômica (PM2/single-node)
+    IDEMPOTENCY_STORE: z.enum(["memory", "file"]).default("memory"),
+    IDEMPOTENCY_FILE_PATH: z.string().default("./data/idempotency.json"),
+    IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
   })
   .superRefine((val, ctx) => {
     // Nota: SYSDBA/masterkey NÃO são bloqueados aqui — o administrador pode
