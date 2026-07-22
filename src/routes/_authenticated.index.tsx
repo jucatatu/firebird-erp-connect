@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { MapView, type MapMarkerData } from "@/components/map-view";
 import { MapFilterChips } from "@/components/map-filter-chips";
 import { type MapLayerKey } from "@/lib/map-layers";
-import { useListOrders } from "@/hooks/use-erp";
+import { useMapOrders } from "@/hooks/use-erp";
+import type { MapOrder } from "@/lib/erp.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -14,8 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, Phone, ExternalLink, X } from "lucide-react";
+import { Calendar, List, MapPin, Search, Phone, ExternalLink, X, MapPinOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Flag para habilitar o botão "Tentar localizar" quando o provider real do
+// geocoding for autorizado. Mantido como false (mensagem informativa apenas).
+const GEOCODE_TRIGGER_ENABLED =
+  import.meta.env.VITE_ERP_GEOCODE_ENABLED === "true";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -30,22 +36,7 @@ export const Route = createFileRoute("/_authenticated/")({
 
 type CompanyChoice = "all" | "1" | "3";
 
-interface OrderRow {
-  orderId?: number | null;
-  orderNumber?: number | null;
-  customerName?: string | null;
-  clientName?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  companyId?: number | null;
-  deliveryDate?: string | null;
-  period?: string | null;
-  notes?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  items?: unknown[];
-  equipment?: unknown[];
-}
+type OrderRow = MapOrder;
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -60,19 +51,15 @@ function MapHome() {
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const companies = (company === "all" ? [1, 3] : [Number(company)]) as (1 | 3)[];
-  const ordersQ = useListOrders(active.has("pedidos") ? { date, companies } : null);
+  const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
+  const ordersQ = useMapOrders(
+    active.has("pedidos") ? { date, companyId } : null,
+  );
 
-  const rawOrders: OrderRow[] = useMemo(() => {
-    const data = ordersQ.data as { data?: unknown } | undefined;
-    if (!data) return [];
-    const d = data.data as unknown;
-    if (Array.isArray(d)) return d as OrderRow[];
-    if (d && typeof d === "object" && Array.isArray((d as { orders?: unknown[] }).orders)) {
-      return (d as { orders: OrderRow[] }).orders;
-    }
-    return [];
-  }, [ordersQ.data]);
+  const payload = ordersQ.data?.data ?? null;
+  const rawOrders: OrderRow[] = useMemo(() => payload?.orders ?? [], [payload]);
+  const summary = payload?.summary ?? { total: 0, mapped: 0, pending: 0, unresolved: 0 };
+  const erpError = ordersQ.data && !ordersQ.data.ok ? ordersQ.data.error : null;
 
   const orders = useMemo(() => {
     if (!query.trim()) return rawOrders;
@@ -92,11 +79,16 @@ function MapHome() {
       : "";
     const fill = raw ? `oklch(${raw})` : "#ea6a2a";
     return orders
-      .filter((o) => typeof o.latitude === "number" && typeof o.longitude === "number")
+      .filter(
+        (o) =>
+          o.location?.source === "cache" &&
+          typeof o.location.latitude === "number" &&
+          typeof o.location.longitude === "number",
+      )
       .map((o, idx) => ({
         id: String(o.orderId ?? o.orderNumber ?? idx),
-        lat: o.latitude as number,
-        lng: o.longitude as number,
+        lat: o.location!.latitude as number,
+        lng: o.location!.longitude as number,
         color: fill,
         label: o.customerName || o.clientName || "Pedido",
       }));
@@ -118,6 +110,10 @@ function MapHome() {
   useEffect(() => {
     if (selected) setDetailOpen(true);
   }, [selected]);
+
+  const pendingWithAddress = rawOrders.filter(
+    (o) => o.location?.source === "pending",
+  ).length;
 
   const toggleLayer = (k: MapLayerKey) =>
     setActive((s) => {
@@ -160,12 +156,17 @@ function MapHome() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+          <SummaryBar summary={summary} className="mt-3" />
+          {pendingWithAddress > 0 && (
+            <GeocodeButton pending={pendingWithAddress} className="mt-2" />
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           <OrdersList
             orders={orders}
             loading={ordersQ.isLoading}
-            error={ordersQ.isError}
+            error={ordersQ.isError || Boolean(erpError)}
+            errorMessage={erpError?.message}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
@@ -205,7 +206,8 @@ function MapHome() {
             <OrdersList
               orders={orders}
               loading={ordersQ.isLoading}
-              error={ordersQ.isError}
+              error={ordersQ.isError || Boolean(erpError)}
+              errorMessage={erpError?.message}
               selectedId={selectedId}
               onSelect={setSelectedId}
             />
@@ -214,9 +216,16 @@ function MapHome() {
 
         {mobileView === "map" && markers.length === 0 && !ordersQ.isLoading && (
           <div className="pointer-events-none absolute inset-x-4 bottom-24 z-10 mx-auto max-w-md rounded-lg border bg-surface/95 p-3 text-center text-xs text-muted-foreground shadow-sm backdrop-blur md:bottom-4">
-            {active.has("pedidos")
-              ? "Nenhum pedido com coordenadas para esta data. Assim que o ERP retornar lat/lng, os pinos aparecem aqui."
-              : "Ative uma camada para ver marcadores no mapa."}
+            {!active.has("pedidos") ? (
+              "Ative uma camada para ver marcadores no mapa."
+            ) : rawOrders.length === 0 ? (
+              "Nenhum pedido encontrado para esta data."
+            ) : (
+              <>
+                {rawOrders.length} pedido{rawOrders.length === 1 ? "" : "s"} sem
+                coordenadas ainda. Aguardando localização — nenhum pino no mapa.
+              </>
+            )}
           </div>
         )}
 
