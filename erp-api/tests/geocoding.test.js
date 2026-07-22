@@ -141,3 +141,51 @@ test("cache tryClaim bloqueia concorrência cross-request", async () => {
   await cache.releaseClaim("k");
   assert.equal(await cache.tryClaim("k", 1000), true);
 });
+
+test("provider retornando ERROR REQUEST_DENIED vira status=error (não pending)", async () => {
+  geocoding._resetInflightForTests();
+  const cache = createMemoryCache();
+  const provider = createFakeProvider();
+  const res = await geocoding.resolveOne(
+    addr({ street: "Rua request-denied" }),
+    provider,
+    { cache },
+  );
+  assert.equal(res.status, "error");
+  assert.equal(res.errorCode, "REQUEST_DENIED");
+  // Persistido no cache com o mesmo status.
+  const stored = await cache.get(res.cacheKey);
+  assert.equal(stored.status, "error");
+  assert.equal(stored.errorCode, "REQUEST_DENIED");
+});
+
+test("provider TIMEOUT vira status=error com errorCode=TIMEOUT", async () => {
+  geocoding._resetInflightForTests();
+  const cache = createMemoryCache();
+  const provider = createFakeProvider();
+  const res = await geocoding.resolveOne(
+    addr({ street: "Rua provider-timeout" }),
+    provider,
+    { cache },
+  );
+  assert.equal(res.status, "error");
+  assert.equal(res.errorCode, "TIMEOUT");
+});
+
+test("cacheKey do GET e do POST são idênticos para a mesma row", () => {
+  // Simula a mesma cadeia usada em map.service tanto na leitura como
+  // no POST: opsMapper.mapAddress produz {street, number, ...} e
+  // normalizeAddress computa a cacheKey.
+  const fields = {
+    street: "Rua Osvaldo Maes",
+    number: "30",
+    complement: "",
+    neighborhood: "Estrada Nova",
+    city: "Jaraguá do Sul",
+    state: "SC",
+    postalCode: "",
+  };
+  const getSide = normalizeAddress(fields);
+  const postSide = normalizeAddress({ ...fields, complement: "Sala 999" });
+  assert.equal(getSide.cacheKey, postSide.cacheKey);
+});
