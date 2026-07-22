@@ -127,23 +127,6 @@ function ErpDiagnosticsPage() {
   const rolesQ = useMyRoles(user);
   const isAdmin = (rolesQ.data ?? []).includes("admin");
 
-  if (!rolesQ.isLoading && !isAdmin) {
-    return (
-      <div className="mx-auto max-w-lg py-12 text-center">
-        <h1 className="text-lg font-semibold">Acesso restrito</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Esta página é exclusiva de administradores.
-        </p>
-        <Link
-          to="/"
-          className="mt-4 inline-block text-sm underline"
-        >
-          Voltar
-        </Link>
-      </div>
-    );
-  }
-
   const health = useErpHealth();
   const dbHealth = useErpDatabaseHealth();
 
@@ -179,6 +162,20 @@ function ErpDiagnosticsPage() {
   const ordersList = (result?.ok && result.data?.orders) || [];
   const graalCount = ordersList.filter((o) => Number(pick(o, "companyId")) === 1).length;
   const grottCount = ordersList.filter((o) => Number(pick(o, "companyId")) === 3).length;
+
+  if (!rolesQ.isLoading && !isAdmin) {
+    return (
+      <div className="mx-auto max-w-lg py-12 text-center">
+        <h1 className="text-lg font-semibold">Acesso restrito</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Esta página é exclusiva de administradores.
+        </p>
+        <Link to="/" className="mt-4 inline-block text-sm underline">
+          Voltar
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-6 py-8">
