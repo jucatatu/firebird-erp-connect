@@ -23,7 +23,7 @@ import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 
 type StatusFilter = OrderDraftStatus | "all";
 
-export const Route = createFileRoute("/_authenticated/orders")({
+export const Route = createFileRoute("/_authenticated/pedidos-venda/")({
   head: () => ({
     meta: [
       { title: "Pedidos — ERP" },
@@ -81,7 +81,7 @@ function OrdersListPage() {
         actions={
           (role === "vendedor" || isAdmin) && (
             <Button asChild size="sm">
-              <Link to="/orders/new">
+              <Link to="/pedidos-venda/novo">
                 <PlusCircle className="mr-2 h-4 w-4" /> Novo pedido
               </Link>
             </Button>
@@ -149,7 +149,7 @@ function OrdersListPage() {
           action={
             (role === "vendedor" || isAdmin) && (
               <Button asChild size="sm">
-                <Link to="/orders/new">Novo pedido</Link>
+                <Link to="/pedidos-venda/novo">Novo pedido</Link>
               </Button>
             )
           }
@@ -173,7 +173,7 @@ function OrdersListPage() {
                   <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2 align-top">
                       <Link
-                        to="/orders/$draftId"
+                        to="/pedidos-venda/$draftId"
                         params={{ draftId: d.id }}
                         className="block"
                       >
@@ -205,7 +205,7 @@ function OrdersListPage() {
             {rows.map((d) => (
               <li key={d.id}>
                 <Link
-                  to="/orders/$draftId"
+                  to="/pedidos-venda/$draftId"
                   params={{ draftId: d.id }}
                   className="block rounded-md border bg-surface p-3"
                 >

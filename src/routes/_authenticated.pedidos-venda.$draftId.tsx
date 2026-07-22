@@ -44,7 +44,7 @@ import {
   Save,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/orders/$draftId")({
+export const Route = createFileRoute("/_authenticated/pedidos-venda/$draftId")({
   head: () => ({
     meta: [
       { title: "Detalhe do pedido — ERP" },
@@ -103,7 +103,7 @@ function DraftDetailPage() {
       <div className="rounded-md border p-6 text-center">
         <p className="text-sm">Pedido não encontrado.</p>
         <Button asChild size="sm" variant="outline" className="mt-3">
-          <Link to="/orders">Voltar</Link>
+          <Link to="/pedidos-venda">Voltar</Link>
         </Button>
       </div>
     );
@@ -155,7 +155,7 @@ function DraftDetailPage() {
       <PageHeader
         title={draft.title || draft.customer_name_snapshot || "Pedido"}
         description={STATUS_DESCRIPTION[draft.status]}
-        crumbs={[{ label: "Pedidos", to: "/orders" }, { label: "Detalhe" }]}
+        crumbs={[{ label: "Pedidos de venda", to: "/pedidos-venda" }, { label: "Detalhe" }]}
         actions={
           <div className="flex items-center gap-2">
             <OrderIdentifier id={draft.id} />
@@ -377,7 +377,7 @@ function DraftDetailPage() {
                 className="w-full"
                 variant="outline"
               >
-                <Link to="/orders">Voltar à lista</Link>
+                <Link to="/pedidos-venda">Voltar à lista</Link>
               </Button>
             </CardContent>
           </Card>

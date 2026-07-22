@@ -12,12 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
-import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
+import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
-import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated.orders.new'
-import { Route as AuthenticatedOrdersDraftIdRouteImport } from './routes/_authenticated.orders.$draftId'
+import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_authenticated.pedidos-venda.novo'
+import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
+import { Route as AuthenticatedPedidosVendaDraftIdRouteImport } from './routes/_authenticated.pedidos-venda.$draftId'
+import { Route as AuthenticatedOrdersSplatRouteImport } from './routes/_authenticated.orders.$'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -33,11 +35,6 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
   id: '/operations',
   path: '/operations',
@@ -48,22 +45,41 @@ const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
   path: '/approvals',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPedidosVendaIndexRoute =
+  AuthenticatedPedidosVendaIndexRouteImport.update({
+    id: '/pedidos-venda/',
+    path: '/pedidos-venda/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsErpRoute =
   AuthenticatedSettingsErpRouteImport.update({
     id: '/settings/erp',
     path: '/settings/erp',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedOrdersNewRoute = AuthenticatedOrdersNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AuthenticatedOrdersRoute,
-} as any)
-const AuthenticatedOrdersDraftIdRoute =
-  AuthenticatedOrdersDraftIdRouteImport.update({
-    id: '/$draftId',
-    path: '/$draftId',
-    getParentRoute: () => AuthenticatedOrdersRoute,
+const AuthenticatedPedidosVendaNovoRoute =
+  AuthenticatedPedidosVendaNovoRouteImport.update({
+    id: '/pedidos-venda/novo',
+    path: '/pedidos-venda/novo',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPedidosVendaAprovacoesRoute =
+  AuthenticatedPedidosVendaAprovacoesRouteImport.update({
+    id: '/pedidos-venda/aprovacoes',
+    path: '/pedidos-venda/aprovacoes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPedidosVendaDraftIdRoute =
+  AuthenticatedPedidosVendaDraftIdRouteImport.update({
+    id: '/pedidos-venda/$draftId',
+    path: '/pedidos-venda/$draftId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOrdersSplatRoute =
+  AuthenticatedOrdersSplatRouteImport.update({
+    id: '/orders/$',
+    path: '/orders/$',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -71,20 +87,24 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/operations': typeof AuthenticatedOperationsRoute
-  '/orders': typeof AuthenticatedOrdersRouteWithChildren
-  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/orders/$': typeof AuthenticatedOrdersSplatRoute
+  '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
+  '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
+  '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/operations': typeof AuthenticatedOperationsRoute
-  '/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/': typeof AuthenticatedIndexRoute
-  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/orders/$': typeof AuthenticatedOrdersSplatRoute
+  '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
+  '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
+  '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/pedidos-venda': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,11 +112,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/operations': typeof AuthenticatedOperationsRoute
-  '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
+  '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
+  '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
+  '/_authenticated/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/_authenticated/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,31 +127,37 @@ export interface FileRouteTypes {
     | '/login'
     | '/approvals'
     | '/operations'
-    | '/orders'
-    | '/orders/$draftId'
-    | '/orders/new'
+    | '/orders/$'
+    | '/pedidos-venda/$draftId'
+    | '/pedidos-venda/aprovacoes'
+    | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/approvals'
     | '/operations'
-    | '/orders'
     | '/'
-    | '/orders/$draftId'
-    | '/orders/new'
+    | '/orders/$'
+    | '/pedidos-venda/$draftId'
+    | '/pedidos-venda/aprovacoes'
+    | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/pedidos-venda'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/approvals'
     | '/_authenticated/operations'
-    | '/_authenticated/orders'
     | '/_authenticated/'
-    | '/_authenticated/orders/$draftId'
-    | '/_authenticated/orders/new'
+    | '/_authenticated/orders/$'
+    | '/_authenticated/pedidos-venda/$draftId'
+    | '/_authenticated/pedidos-venda/aprovacoes'
+    | '/_authenticated/pedidos-venda/novo'
     | '/_authenticated/settings/erp'
+    | '/_authenticated/pedidos-venda/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -160,13 +188,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/orders': {
-      id: '/_authenticated/orders'
-      path: '/orders'
-      fullPath: '/orders'
-      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/operations': {
       id: '/_authenticated/operations'
       path: '/operations'
@@ -181,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedApprovalsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/pedidos-venda/': {
+      id: '/_authenticated/pedidos-venda/'
+      path: '/pedidos-venda'
+      fullPath: '/pedidos-venda/'
+      preLoaderRoute: typeof AuthenticatedPedidosVendaIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/erp': {
       id: '/_authenticated/settings/erp'
       path: '/settings/erp'
@@ -188,50 +216,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/orders/new': {
-      id: '/_authenticated/orders/new'
-      path: '/new'
-      fullPath: '/orders/new'
-      preLoaderRoute: typeof AuthenticatedOrdersNewRouteImport
-      parentRoute: typeof AuthenticatedOrdersRoute
+    '/_authenticated/pedidos-venda/novo': {
+      id: '/_authenticated/pedidos-venda/novo'
+      path: '/pedidos-venda/novo'
+      fullPath: '/pedidos-venda/novo'
+      preLoaderRoute: typeof AuthenticatedPedidosVendaNovoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/orders/$draftId': {
-      id: '/_authenticated/orders/$draftId'
-      path: '/$draftId'
-      fullPath: '/orders/$draftId'
-      preLoaderRoute: typeof AuthenticatedOrdersDraftIdRouteImport
-      parentRoute: typeof AuthenticatedOrdersRoute
+    '/_authenticated/pedidos-venda/aprovacoes': {
+      id: '/_authenticated/pedidos-venda/aprovacoes'
+      path: '/pedidos-venda/aprovacoes'
+      fullPath: '/pedidos-venda/aprovacoes'
+      preLoaderRoute: typeof AuthenticatedPedidosVendaAprovacoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/pedidos-venda/$draftId': {
+      id: '/_authenticated/pedidos-venda/$draftId'
+      path: '/pedidos-venda/$draftId'
+      fullPath: '/pedidos-venda/$draftId'
+      preLoaderRoute: typeof AuthenticatedPedidosVendaDraftIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/orders/$': {
+      id: '/_authenticated/orders/$'
+      path: '/orders/$'
+      fullPath: '/orders/$'
+      preLoaderRoute: typeof AuthenticatedOrdersSplatRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
-interface AuthenticatedOrdersRouteChildren {
-  AuthenticatedOrdersDraftIdRoute: typeof AuthenticatedOrdersDraftIdRoute
-  AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
-}
-
-const AuthenticatedOrdersRouteChildren: AuthenticatedOrdersRouteChildren = {
-  AuthenticatedOrdersDraftIdRoute: AuthenticatedOrdersDraftIdRoute,
-  AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
-}
-
-const AuthenticatedOrdersRouteWithChildren =
-  AuthenticatedOrdersRoute._addFileChildren(AuthenticatedOrdersRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
-  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
+  AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
+  AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
+  AuthenticatedPedidosVendaNovoRoute: typeof AuthenticatedPedidosVendaNovoRoute
   AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
+  AuthenticatedPedidosVendaIndexRoute: typeof AuthenticatedPedidosVendaIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
-  AuthenticatedOrdersRoute: AuthenticatedOrdersRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedOrdersSplatRoute: AuthenticatedOrdersSplatRoute,
+  AuthenticatedPedidosVendaDraftIdRoute: AuthenticatedPedidosVendaDraftIdRoute,
+  AuthenticatedPedidosVendaAprovacoesRoute:
+    AuthenticatedPedidosVendaAprovacoesRoute,
+  AuthenticatedPedidosVendaNovoRoute: AuthenticatedPedidosVendaNovoRoute,
   AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
+  AuthenticatedPedidosVendaIndexRoute: AuthenticatedPedidosVendaIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -245,13 +283,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
