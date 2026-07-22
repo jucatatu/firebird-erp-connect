@@ -124,6 +124,7 @@ export const LocalOrderOperationService: OrderOperationService = {
         operation_date: input.operationDate,
         snapshot: buildSnapshot(input),
         created_by: uid,
+        has_returnable_equipment: input.hasReturnableEquipment ?? false,
       })
       .select("*")
       .single();
@@ -141,6 +142,40 @@ export const LocalOrderOperationService: OrderOperationService = {
     // RPC retorna record → array de 1 elemento pelo PostgREST.
     const row = Array.isArray(res.data) ? res.data[0] : res.data;
     return row as OperationState;
+  },
+
+  async transition({ stateId, action, expectedVersion, payload }) {
+    const res = await db.rpc("apply_operation_transition", {
+      _state_id: stateId,
+      _action: action,
+      _expected_version: expectedVersion,
+      _payload: payload ?? {},
+    });
+    if (res.error) throw normalizeError(res.error);
+    const row = Array.isArray(res.data) ? res.data[0] : res.data;
+    return row as OperationState;
+  },
+
+  async assignOperator({ stateId, role, userId, expectedVersion }) {
+    const res = await db.rpc("assign_operation_operator", {
+      _state_id: stateId,
+      _role: role,
+      _user_id: userId,
+      _expected_version: expectedVersion,
+    });
+    if (res.error) throw normalizeError(res.error);
+    const row = Array.isArray(res.data) ? res.data[0] : res.data;
+    return row as OperationState;
+  },
+
+  async listProfiles() {
+    const res = await db
+      .from("profiles")
+      .select("id, full_name")
+      .eq("active", true)
+      .order("full_name", { ascending: true });
+    if (res.error) throw res.error;
+    return (res.data ?? []) as Array<{ id: string; full_name: string | null }>;
   },
 
   async reschedule({ stateId, newDate, reason, expectedVersion }) {
