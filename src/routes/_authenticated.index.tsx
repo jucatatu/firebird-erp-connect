@@ -164,7 +164,7 @@ function MapHome() {
   const filtered: EnrichedOrder[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     return enrichedAll.filter((e) => {
-      if (filter !== "all" && e.status !== filter) return false;
+      if (filter !== "all" && filterOfStatus(e.status) !== filter) return false;
       if (!q) return true;
       return (
         e.order.customerName.toLowerCase().includes(q) ||
