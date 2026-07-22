@@ -1,6 +1,6 @@
 {
   "name": "erp-api",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "ERP API v1.0.0 - Backend oficial de integração com ERP Firebird",
   "main": "server.js",
   "scripts": {
