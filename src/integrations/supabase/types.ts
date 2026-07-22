@@ -92,12 +92,22 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivery_assigned_at: string | null
+          delivery_assigned_by: string | null
+          delivery_assignee_id: string | null
           erp_order_id: number
           erp_order_number: number | null
+          has_returnable_equipment: boolean
           id: string
           operation_date: string
           operational_date: string | null
           operational_status: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at: string | null
+          pickup_assigned_by: string | null
+          pickup_assignee_id: string | null
+          pickup_note: string | null
+          pickup_scheduled_date: string | null
+          pickup_scheduled_time: string | null
           reschedule_reason: string | null
           sequence: number | null
           snapshot: Json
@@ -109,12 +119,22 @@ export type Database = {
           company_id?: number | null
           created_at?: string
           created_by?: string
+          delivery_assigned_at?: string | null
+          delivery_assigned_by?: string | null
+          delivery_assignee_id?: string | null
           erp_order_id: number
           erp_order_number?: number | null
+          has_returnable_equipment?: boolean
           id?: string
           operation_date: string
           operational_date?: string | null
           operational_status?: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at?: string | null
+          pickup_assigned_by?: string | null
+          pickup_assignee_id?: string | null
+          pickup_note?: string | null
+          pickup_scheduled_date?: string | null
+          pickup_scheduled_time?: string | null
           reschedule_reason?: string | null
           sequence?: number | null
           snapshot?: Json
@@ -126,12 +146,22 @@ export type Database = {
           company_id?: number | null
           created_at?: string
           created_by?: string
+          delivery_assigned_at?: string | null
+          delivery_assigned_by?: string | null
+          delivery_assignee_id?: string | null
           erp_order_id?: number
           erp_order_number?: number | null
+          has_returnable_equipment?: boolean
           id?: string
           operation_date?: string
           operational_date?: string | null
           operational_status?: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at?: string | null
+          pickup_assigned_by?: string | null
+          pickup_assignee_id?: string | null
+          pickup_note?: string | null
+          pickup_scheduled_date?: string | null
+          pickup_scheduled_time?: string | null
           reschedule_reason?: string | null
           sequence?: number | null
           snapshot?: Json
@@ -139,7 +169,22 @@ export type Database = {
           updated_by?: string | null
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "operation_states_delivery_assignee_id_fkey"
+            columns: ["delivery_assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_states_pickup_assignee_id_fkey"
+            columns: ["pickup_assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_draft_events: {
         Row: {
@@ -336,12 +381,104 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivery_assigned_at: string | null
+          delivery_assigned_by: string | null
+          delivery_assignee_id: string | null
           erp_order_id: number
           erp_order_number: number | null
+          has_returnable_equipment: boolean
           id: string
           operation_date: string
           operational_date: string | null
           operational_status: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at: string | null
+          pickup_assigned_by: string | null
+          pickup_assignee_id: string | null
+          pickup_note: string | null
+          pickup_scheduled_date: string | null
+          pickup_scheduled_time: string | null
+          reschedule_reason: string | null
+          sequence: number | null
+          snapshot: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_states"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      apply_operation_transition: {
+        Args: {
+          _action: string
+          _expected_version: number
+          _payload?: Json
+          _state_id: string
+        }
+        Returns: {
+          company_id: number | null
+          created_at: string
+          created_by: string
+          delivery_assigned_at: string | null
+          delivery_assigned_by: string | null
+          delivery_assignee_id: string | null
+          erp_order_id: number
+          erp_order_number: number | null
+          has_returnable_equipment: boolean
+          id: string
+          operation_date: string
+          operational_date: string | null
+          operational_status: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at: string | null
+          pickup_assigned_by: string | null
+          pickup_assignee_id: string | null
+          pickup_note: string | null
+          pickup_scheduled_date: string | null
+          pickup_scheduled_time: string | null
+          reschedule_reason: string | null
+          sequence: number | null
+          snapshot: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operation_states"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assign_operation_operator: {
+        Args: {
+          _expected_version: number
+          _role: string
+          _state_id: string
+          _user_id: string
+        }
+        Returns: {
+          company_id: number | null
+          created_at: string
+          created_by: string
+          delivery_assigned_at: string | null
+          delivery_assigned_by: string | null
+          delivery_assignee_id: string | null
+          erp_order_id: number
+          erp_order_number: number | null
+          has_returnable_equipment: boolean
+          id: string
+          operation_date: string
+          operational_date: string | null
+          operational_status: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at: string | null
+          pickup_assigned_by: string | null
+          pickup_assignee_id: string | null
+          pickup_note: string | null
+          pickup_scheduled_date: string | null
+          pickup_scheduled_time: string | null
           reschedule_reason: string | null
           sequence: number | null
           snapshot: Json
@@ -378,12 +515,22 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivery_assigned_at: string | null
+          delivery_assigned_by: string | null
+          delivery_assignee_id: string | null
           erp_order_id: number
           erp_order_number: number | null
+          has_returnable_equipment: boolean
           id: string
           operation_date: string
           operational_date: string | null
           operational_status: Database["public"]["Enums"]["operational_status"]
+          pickup_assigned_at: string | null
+          pickup_assigned_by: string | null
+          pickup_assignee_id: string | null
+          pickup_note: string | null
+          pickup_scheduled_date: string | null
+          pickup_scheduled_time: string | null
           reschedule_reason: string | null
           sequence: number | null
           snapshot: Json
@@ -446,6 +593,21 @@ export type Database = {
         | "collected"
         | "not_found"
         | "corrected"
+        | "delivery_assigned"
+        | "delivery_assignee_changed"
+        | "delivery_started"
+        | "delivery_confirmed"
+        | "delivery_customer_not_found"
+        | "delivery_rescheduled"
+        | "customer_will_contact"
+        | "pickup_scheduled"
+        | "pickup_rescheduled"
+        | "pickup_assigned"
+        | "pickup_assignee_changed"
+        | "pickup_started"
+        | "pickup_customer_not_found"
+        | "pickup_confirmed"
+        | "operation_completed"
       operational_status:
         | "pending"
         | "in_progress"
@@ -454,6 +616,11 @@ export type Database = {
         | "customer_will_call"
         | "not_found"
         | "rescheduled"
+        | "awaiting_pickup_definition"
+        | "awaiting_customer_contact"
+        | "pickup_scheduled"
+        | "pickup_in_progress"
+        | "pickup_completed"
       order_draft_status:
         | "draft"
         | "pending_approval"
@@ -602,6 +769,21 @@ export const Constants = {
         "collected",
         "not_found",
         "corrected",
+        "delivery_assigned",
+        "delivery_assignee_changed",
+        "delivery_started",
+        "delivery_confirmed",
+        "delivery_customer_not_found",
+        "delivery_rescheduled",
+        "customer_will_contact",
+        "pickup_scheduled",
+        "pickup_rescheduled",
+        "pickup_assigned",
+        "pickup_assignee_changed",
+        "pickup_started",
+        "pickup_customer_not_found",
+        "pickup_confirmed",
+        "operation_completed",
       ],
       operational_status: [
         "pending",
@@ -611,6 +793,11 @@ export const Constants = {
         "customer_will_call",
         "not_found",
         "rescheduled",
+        "awaiting_pickup_definition",
+        "awaiting_customer_contact",
+        "pickup_scheduled",
+        "pickup_in_progress",
+        "pickup_completed",
       ],
       order_draft_status: [
         "draft",

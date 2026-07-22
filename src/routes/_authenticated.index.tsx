@@ -2,7 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MapView, type MapMarkerData } from "@/components/map-view";
-import { OperationalFilters, type OperationalFilter } from "@/components/operation/operational-filters";
+import {
+  OperationalFilters,
+  filterOfStatus,
+  type OperationalFilter,
+} from "@/components/operation/operational-filters";
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
@@ -64,6 +68,9 @@ function MapHome() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [detailOpen, setDetailOpen] = useState(false);
+  // Contador que força remount do sheet ao reabrir o mesmo pedido —
+  // corrige o bug em que o mesmo marcador não reabria após fechar.
+  const [openSeq, setOpenSeq] = useState(0);
 
   const online = useNetworkStatus();
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
@@ -160,7 +167,7 @@ function MapHome() {
   const filtered: EnrichedOrder[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     return enrichedAll.filter((e) => {
-      if (filter !== "all" && e.status !== filter) return false;
+      if (filter !== "all" && filterOfStatus(e.status) !== filter) return false;
       if (!q) return true;
       return (
         e.order.customerName.toLowerCase().includes(q) ||
@@ -218,42 +225,35 @@ function MapHome() {
       }));
   }, [orders]);
 
-  // Contadores
-  const counters = useMemo(() => {
-    const base: Record<OperationalStatus, number> = {
-      pending: 0,
-      in_progress: 0,
-      delivered: 0,
-      collected: 0,
-      customer_will_call: 0,
-      not_found: 0,
-      rescheduled: 0,
-    };
+  // Contadores por bucket funcional (Pendente, Em entrega, ...).
+  const filterCounts = useMemo(() => {
+    const base: Partial<Record<OperationalFilter, number>> = {};
     enrichedAll.forEach((e) => {
-      base[e.status] += 1;
+      const bucket = filterOfStatus(e.status);
+      base[bucket] = (base[bucket] ?? 0) + 1;
     });
-    return { ...base, total: enrichedAll.length };
+    base.all = enrichedAll.length;
+    return base;
   }, [enrichedAll]);
 
-  const filterCounts: Record<OperationalFilter, number> = useMemo(
-    () => ({
-      all: enrichedAll.length,
-      pending: counters.pending,
-      in_progress: counters.in_progress,
-      delivered: counters.delivered,
-      collected: counters.collected,
-      customer_will_call: counters.customer_will_call,
-      not_found: counters.not_found,
-      rescheduled: counters.rescheduled,
-    }),
-    [enrichedAll.length, counters],
+  const counters = useMemo(
+    () => ({ ...filterCounts, total: enrichedAll.length }),
+    [filterCounts, enrichedAll.length],
   );
 
   const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
 
   useEffect(() => {
-    if (selected) setDetailOpen(true);
-  }, [selected]);
+    if (selected) {
+      setDetailOpen(true);
+      setOpenSeq((n) => n + 1);
+    }
+  }, [selected, selectedKey]);
+
+  function handleCloseDetail() {
+    setDetailOpen(false);
+    setSelectedKey(null);
+  }
 
   // Auto-selecionar próximo pendente após ação
   function selectNextPending(currentKey: string) {
@@ -429,11 +429,12 @@ function MapHome() {
         <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto md:ml-auto md:max-w-xl">
           {selected && (
             <OrderDetailSheet
+              key={`${selected.key}-${openSeq}`}
               order={selected.order}
               state={selected.state}
               operationDate={date}
               companyId={companyId ?? null}
-              onClose={() => setDetailOpen(false)}
+              onClose={handleCloseDetail}
               onAfterAction={() => selectNextPending(selected.key)}
             />
           )}
