@@ -120,6 +120,30 @@ function useTimedQuery<T>(startedAt: number | undefined, isFetching: boolean) {
 }
 
 function ErpDiagnosticsPage() {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+  const rolesQ = useMyRoles(user);
+  const isAdmin = (rolesQ.data ?? []).includes("admin");
+
+  if (!rolesQ.isLoading && !isAdmin) {
+    return (
+      <div className="mx-auto max-w-lg py-12 text-center">
+        <h1 className="text-lg font-semibold">Acesso restrito</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Esta página é exclusiva de administradores.
+        </p>
+        <Link
+          to="/"
+          className="mt-4 inline-block text-sm underline"
+        >
+          Voltar
+        </Link>
+      </div>
+    );
+  }
+
   const health = useErpHealth();
   const dbHealth = useErpDatabaseHealth();
 
