@@ -14,6 +14,7 @@ const { errorMiddleware } = require("./middleware/error.middleware");
 const healthRoutes = require("./modules/health/health.routes");
 const operationsRoutes = require("./modules/operations/operations.routes");
 const ordersRoutes = require("./modules/orders/orders.routes");
+const mapRoutes = require("./modules/map/map.routes");
 
 function createApp() {
   const app = express();
@@ -51,6 +52,7 @@ function createApp() {
   v1.use("/health", healthRoutes);
   v1.use("/operations", operationsRoutes);
   v1.use("/orders", ordersRoutes);
+  v1.use("/map", mapRoutes);
   app.use("/api/v1", v1);
 
   app.use(notFoundMiddleware);

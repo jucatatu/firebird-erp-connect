@@ -38,6 +38,32 @@ const schema = z
     IDEMPOTENCY_STORE: z.enum(["memory", "file"]).default("memory"),
     IDEMPOTENCY_FILE_PATH: z.string().default("./data/idempotency.json"),
     IDEMPOTENCY_TTL_HOURS: z.coerce.number().int().positive().default(24),
+
+    // ── Geocoding (Fase 3C) ──────────────────────────────────────────────
+    // Provider real de geocodificação. "fake" é usado nos testes e no boot
+    // padrão — nenhuma chamada externa é feita sem trocar explicitamente
+    // para "google".
+    GEOCODING_PROVIDER: z.enum(["fake", "google"]).default("fake"),
+    // Chave da Google Geocoding API. Só é usada quando o provider é "google";
+    // fora disso pode ficar vazia. Nunca é logada.
+    GOOGLE_GEOCODING_API_KEY: z.string().default(""),
+    // Limite absoluto de endereços resolvidos por chamada ao POST /map/geocode
+    // (defesa em profundidade contra custo externo descontrolado).
+    GEOCODING_MAX_PER_REQUEST: z.coerce.number().int().positive().max(200).default(25),
+    // Timeout global da rodada de resolução (ms). Endereços que não completarem
+    // dentro dessa janela permanecem "pending" e podem ser reprocessados.
+    GEOCODING_GLOBAL_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+    // Timeout por chamada individual ao provider.
+    GEOCODING_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(4000),
+    // Persistência de coordenadas (latitude/longitude). A política oficial da
+    // Geocoding API restringe armazenamento; apenas place_id é explicitamente
+    // permitido de forma indefinida. Enquanto essa validação contratual não
+    // for concluída, coordenadas ficam APENAS em memória do processo. Este
+    // flag existe para habilitar persistência quando/se autorizado; hoje o
+    // cache é in-memory e o valor é informativo.
+    GEOCODING_PERSIST_COORDS: boolFromString.default(false),
+    // TTL do claim de in-flight (evita locks órfãos se um processo cair).
+    GEOCODING_INFLIGHT_TTL_MS: z.coerce.number().int().positive().default(60000),
   })
   .superRefine((val, ctx) => {
     // Nota: SYSDBA/masterkey NÃO são bloqueados aqui — o administrador pode
