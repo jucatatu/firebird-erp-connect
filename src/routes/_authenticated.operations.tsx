@@ -64,7 +64,7 @@ function OperationsPage() {
                 ? "Verificando…"
                 : health.isError
                   ? "Indisponível"
-                  : String(health.data?.status ?? "OK")}
+                  : String(health.data?.data?.status ?? "OK")}
             </div>
           </CardContent>
         </Card>
