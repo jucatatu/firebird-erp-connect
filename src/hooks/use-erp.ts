@@ -5,8 +5,10 @@ import {
   pingErpDatabase,
   pingErpHealth,
   getMapOrders,
+  geocodeOrders,
   type ListOrdersInput,
   type GetMapOrdersInput,
+  type GeocodeOrdersInput,
 } from "@/lib/erp.functions";
 
 /** Ping público /api/v1/health da API Node. */
@@ -62,5 +64,13 @@ export function useMapOrders(input: GetMapOrdersInput | null) {
     },
     enabled: Boolean(input?.date),
     staleTime: 15_000,
+  });
+}
+
+/** POST /api/v1/map/geocode — dispara geocodificação para IDs internos. */
+export function useGeocodeOrders() {
+  const fn = useServerFn(geocodeOrders);
+  return useMutation({
+    mutationFn: (input: GeocodeOrdersInput) => fn({ data: input }),
   });
 }
