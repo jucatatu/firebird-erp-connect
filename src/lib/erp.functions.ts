@@ -170,9 +170,20 @@ export const getMapOrders = createServerFn({ method: "GET" })
     const { callErp } = await import("./erp.server");
     const query: Record<string, string> = { date: data.date };
     if (data.companyId) query.companyId = String(data.companyId);
-    return callErp<MapOrdersPayload>({
+    const res = await callErp<JsonValue>({
       method: "GET",
       path: "/api/v1/map/orders",
       query,
     });
+    return res as unknown as {
+      ok: boolean;
+      status: number;
+      data: MapOrdersPayload | null;
+      error: {
+        code: string;
+        message: string;
+        retryable: boolean;
+        details?: JsonValue;
+      } | null;
+    };
   });
