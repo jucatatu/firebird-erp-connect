@@ -165,6 +165,8 @@ export interface MapOrder {
   expectedReturn?: string | null;
   deliveryDate?: string | null;
   period?: string | null;
+  /** Horário de entrega "HH:mm" — backend v1.4.2+. Pode não existir. */
+  deliveryTime?: string | null;
   observations?: string | null;
   notes?: string | null;
   erpStatus?: string | null;
@@ -243,6 +245,8 @@ export interface NormalizedMapOrder {
   deliveryDate: string | null;
   returnDate: string | null;
   period: string | null;
+  /** "HH:mm" ou null. Frontend nunca inventa horário. */
+  deliveryTime: string | null;
   items: NormalizedItem[];
   equipments: NormalizedEquipment[];
   location: MapOrderLocation;
