@@ -26,15 +26,11 @@ let loaderPromise: Promise<void> | null = null;
 export const SINGLE_ORDER_ZOOM = 16;
 /** Teto do zoom em fitBounds automático de múltiplos pedidos próximos. */
 export const MULTIPLE_ORDER_MAX_ZOOM = 14;
-/**
- * Piso operacional: se o fitBounds automático resultar em zoom menor que
- * isto, os pedidos estão distantes demais — evitamos abrir todo o estado.
- */
-export const OPERATIONAL_MIN_ZOOM = 11;
-/** Zoom aplicado quando centralizamos no primeiro pedido de sequência distante. */
-export const DISTANT_FALLBACK_ZOOM = 13;
 /** Compat: usado por consumidores antigos, mantém-se como o teto de um pedido. */
 export const MAX_AUTO_ZOOM = SINGLE_ORDER_ZOOM;
+
+/** Cor dourada única do marcador (padrão do sistema antigo). */
+const MARKER_GOLD = "#d99a22";
 
 function escapeHtml(s: string): string {
   return s
@@ -177,44 +173,12 @@ function createLabelOverlay(
 }
 
 /**
- * Enquadramento OPERACIONAL (padrão da abertura / troca de data /
- * botão “Centralizar pedidos”):
- *  - 0 pontos: mantém centro/zoom atuais;
+ * Enquadramento único: mostra TODOS os pedidos localizados.
+ *  - 0 pontos: mantém centro/zoom;
  *  - 1 ponto: centraliza + SINGLE_ORDER_ZOOM;
- *  - vários pontos próximos: fitBounds limitado a MULTIPLE_ORDER_MAX_ZOOM;
- *  - pontos distantes (o fitBounds resultaria em zoom < OPERATIONAL_MIN_ZOOM):
- *    centraliza no PRIMEIRO pedido da sequência exibida, zoom DISTANT_FALLBACK_ZOOM.
- */
-function fitOperational(map: google.maps.Map, markers: MapMarkerData[]) {
-  if (!window.google) return;
-  if (markers.length === 0) return;
-  if (markers.length === 1) {
-    const m = markers[0];
-    map.setCenter({ lat: m.lat, lng: m.lng });
-    map.setZoom(SINGLE_ORDER_ZOOM);
-    return;
-  }
-  const bounds = new window.google.maps.LatLngBounds();
-  markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }));
-  map.fitBounds(bounds, 80);
-  window.google.maps.event.addListenerOnce(map, "idle", () => {
-    const z = map.getZoom();
-    if (typeof z !== "number") return;
-    if (z < OPERATIONAL_MIN_ZOOM) {
-      // Muito distantes — recua para visão operacional do primeiro pedido.
-      const first = markers[0];
-      map.setCenter({ lat: first.lat, lng: first.lng });
-      map.setZoom(DISTANT_FALLBACK_ZOOM);
-    } else if (z > MULTIPLE_ORDER_MAX_ZOOM) {
-      map.setZoom(MULTIPLE_ORDER_MAX_ZOOM);
-    }
-  });
-}
-
-/**
- * Enquadramento EXPLÍCITO (“Ver todos”): fitBounds real de todos os pontos,
- * sem piso operacional. Ainda respeita o teto SINGLE_ORDER_ZOOM para não
- * dar zoom absurdo em um único ponto.
+ *  - 2+ pontos: fitBounds com padding, limitado apenas por MULTIPLE_ORDER_MAX_ZOOM (teto).
+ * Nunca esconde pedidos — pontos distantes ficam visíveis, mesmo que o zoom
+ * fique baixo. Não há mais fallback para “primeiro pedido”.
  */
 function fitAll(map: google.maps.Map, markers: MapMarkerData[]) {
   if (!window.google) return;
@@ -227,11 +191,11 @@ function fitAll(map: google.maps.Map, markers: MapMarkerData[]) {
   }
   const bounds = new window.google.maps.LatLngBounds();
   markers.forEach((m) => bounds.extend({ lat: m.lat, lng: m.lng }));
-  map.fitBounds(bounds, 80);
+  map.fitBounds(bounds, { top: 70, right: 50, bottom: 70, left: 50 });
   window.google.maps.event.addListenerOnce(map, "idle", () => {
     const z = map.getZoom();
-    if (typeof z === "number" && z > SINGLE_ORDER_ZOOM) {
-      map.setZoom(SINGLE_ORDER_ZOOM);
+    if (typeof z === "number" && z > MULTIPLE_ORDER_MAX_ZOOM) {
+      map.setZoom(MULTIPLE_ORDER_MAX_ZOOM);
     }
   });
 }
@@ -299,7 +263,8 @@ export function MapView({
       const opts: LabelOverlayOpts = {
         orderNumber: m.orderNumber ?? m.label ?? "—",
         deliveryTime: m.deliveryTime ?? null,
-        color: m.color,
+        // Dourado único para todos os marcadores (padrão do sistema antigo).
+        color: MARKER_GOLD,
         selected: selectedId === m.id,
       };
       let ov = existing.get(m.id);
@@ -320,14 +285,11 @@ export function MapView({
   // não ao abrir/fechar sheet, não a cada refetch.
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    fitOperational(mapRef.current, markersRef.current);
+    fitAll(mapRef.current, markersRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, fingerprint]);
 
   const onCenter = useCallback(() => {
-    if (mapRef.current) fitOperational(mapRef.current, markersRef.current);
-  }, []);
-  const onSeeAll = useCallback(() => {
     if (mapRef.current) fitAll(mapRef.current, markersRef.current);
   }, []);
 
@@ -335,26 +297,33 @@ export function MapView({
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" />
       {ready && markers.length > 0 && (
-        <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-2 md:left-4 md:top-4">
-          <button
-            type="button"
-            onClick={onCenter}
-            className="pointer-events-auto rounded-md border bg-surface/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-surface"
-            aria-label="Centralizar pedidos"
+        <button
+          type="button"
+          onClick={onCenter}
+          title="Centralizar pedidos"
+          aria-label="Centralizar pedidos"
+          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md border bg-surface/95 text-foreground shadow-sm backdrop-blur transition hover:bg-surface md:right-4 md:top-4"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
           >
-            Centralizar pedidos
-          </button>
-          {markers.length > 1 && (
-            <button
-              type="button"
-              onClick={onSeeAll}
-              className="pointer-events-auto rounded-md border bg-surface/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-surface"
-              aria-label="Ver todos os pedidos"
-            >
-              Ver todos
-            </button>
-          )}
-        </div>
+            <circle cx="12" cy="12" r="8" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <line x1="12" y1="1" x2="12" y2="4" />
+            <line x1="12" y1="20" x2="12" y2="23" />
+            <line x1="1" y1="12" x2="4" y2="12" />
+            <line x1="20" y1="12" x2="23" y2="12" />
+          </svg>
+        </button>
       )}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80">
