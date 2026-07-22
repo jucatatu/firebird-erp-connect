@@ -31,13 +31,17 @@ test("toTimeOnly extrai HH:mm sem conversão de fuso e sem Invalid Date", () => 
   // Date local: hora do servidor (node-firebird devolve TIMESTAMP local).
   const localTs = new Date(2026, 6, 21, 10, 44, 0);
   assert.equal(mapper.toTimeOnly(localTs), "10:44");
-  // 00:00 é tratado como "sem horário real" (DATE puro).
-  assert.equal(mapper.toTimeOnly(new Date(2026, 6, 21, 0, 0, 0)), null);
+  // 00:00 e 00:33 são horários REAIS de DATA_PREV_ENTREGA (TIMESTAMP);
+  // não podem ser descartados.
+  assert.equal(mapper.toTimeOnly(new Date(2026, 6, 21, 0, 0, 0)), "00:00");
+  assert.equal(mapper.toTimeOnly(new Date(2026, 6, 21, 0, 33, 0)), "00:33");
+  assert.equal(mapper.toTimeOnly(new Date(2026, 6, 21, 16, 30, 0)), "16:30");
   // Strings toleradas.
   assert.equal(mapper.toTimeOnly("10:44"), "10:44");
   assert.equal(mapper.toTimeOnly("10:44:22"), "10:44");
   assert.equal(mapper.toTimeOnly("2026-07-21T15:30:00"), "15:30");
-  assert.equal(mapper.toTimeOnly("2026-07-21T00:00:00"), null);
+  assert.equal(mapper.toTimeOnly("2026-07-21T00:00:00"), "00:00");
+  assert.equal(mapper.toTimeOnly("00:33"), "00:33");
   // Inválidos.
   assert.equal(mapper.toTimeOnly(""), null);
   assert.equal(mapper.toTimeOnly(null), null);
@@ -53,18 +57,30 @@ test("buildOrder expõe deliveryTime a partir de DATA_PREV_ENTREGA TIMESTAMP", (
   assert.equal(dto.deliveryTime, "10:44");
 });
 
-test("buildOrder prioriza HORA_PREV_ENTREGA quando presente", () => {
+test("buildOrder usa SEMPRE DATA_PREV_ENTREGA (ignora HORA_PREV_ENTREGA)", () => {
   const dto = mapper.buildOrder(
     {
       N_PEDIDO: 8434,
-      DATA_PREV_ENTREGA: new Date(2026, 6, 21, 9, 0, 0),
-      HORA_PREV_ENTREGA: "10:44:00",
+      DATA_PREV_ENTREGA: new Date(2026, 6, 22, 10, 44, 0),
+      HORA_PREV_ENTREGA: "23:59:00",
     },
     null,
     [],
     [],
   );
+  assert.equal(dto.expectedDelivery, "2026-07-22");
   assert.equal(dto.deliveryTime, "10:44");
+});
+
+test("buildOrder preserva 00:33 vindo de DATA_PREV_ENTREGA", () => {
+  const dto = mapper.buildOrder(
+    { N_PEDIDO: 8431, DATA_PREV_ENTREGA: new Date(2026, 6, 21, 0, 33, 0) },
+    null,
+    [],
+    [],
+  );
+  assert.equal(dto.expectedDelivery, "2026-07-21");
+  assert.equal(dto.deliveryTime, "00:33");
 });
 
 test("buildOrder retorna deliveryTime=null para DATE puro sem hora", () => {

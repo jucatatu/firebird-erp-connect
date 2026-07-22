@@ -97,10 +97,9 @@ function toDateOnly(v) {
  *     de fuso adicional é aplicada.
  *   - string "HH:mm[:ss]": valida e retorna "HH:mm".
  *   - string "YYYY-MM-DDTHH:mm[:ss]...": extrai HH:mm literal.
- *   - `00:00` proveniente de campo DATE puro é rejeitado (não é um horário
- *     real de entrega). Se o campo for TIME de valor 00:00 legítimo, o
- *     domínio operacional continua exibindo "Sem horário", como acordado
- *     com o frontend.
+ *   - `00:00` NÃO é descartado. `DATA_PREV_ENTREGA` é TIMESTAMP e valores
+ *     de meia-noite (00:00, 00:33, etc.) foram confirmados como horários
+ *     reais de entrega no ERP.
  *   - Qualquer outro valor → null.
  *
  * Nunca lança. Nunca retorna "Invalid Date".
@@ -111,7 +110,6 @@ function toTimeOnly(v) {
     if (Number.isNaN(v.getTime())) return null;
     const h = v.getHours();
     const m = v.getMinutes();
-    if (h === 0 && m === 0) return null;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
   if (typeof v === "string") {
@@ -121,7 +119,6 @@ function toTimeOnly(v) {
       const h = Number(hhmm[1]);
       const m = Number(hhmm[2]);
       if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-      if (h === 0 && m === 0) return null;
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
     const iso = /^\d{4}-\d{2}-\d{2}[Tt](\d{2}):(\d{2})/.exec(s);
@@ -129,7 +126,6 @@ function toTimeOnly(v) {
       const h = Number(iso[1]);
       const m = Number(iso[2]);
       if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-      if (h === 0 && m === 0) return null;
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     }
   }
@@ -227,13 +223,11 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
       ? ""
       : String(orderNumberRaw).trim();
 
-  // Horário de entrega: preferência por HORA_PREV_ENTREGA (TIME dedicado,
-  // caso exista no schema), com fallback para a parte de hora de
-  // DATA_PREV_ENTREGA (quando armazenado como TIMESTAMP). Não altera
-  // `expectedDelivery`, que segue expondo apenas a data.
-  const deliveryTime =
-    toTimeOnly(pick(orderRow, "HORA_PREV_ENTREGA")) ??
-    toTimeOnly(pick(orderRow, "DATA_PREV_ENTREGA"));
+  // Horário de entrega: a fonte canônica é o TIMESTAMP DATA_PREV_ENTREGA.
+  // O MESMO valor bruto é reprocessado — nunca extraia hora do resultado
+  // já convertido para YYYY-MM-DD.
+  const rawExpectedDelivery = pick(orderRow, "DATA_PREV_ENTREGA");
+  const deliveryTime = toTimeOnly(rawExpectedDelivery);
 
   return {
     orderId: toNullableInt(pick(orderRow, "ID_ORDENS_VENDA")),
@@ -241,7 +235,7 @@ function buildOrder(orderRow, phone, itemRows, equipRows) {
     clientId: toNullableInt(pick(orderRow, "ID_CLIENTE")),
     clientName: mapClientName(orderRow),
     phone: phone === undefined ? null : phone,
-    expectedDelivery: toDateOnly(pick(orderRow, "DATA_PREV_ENTREGA")),
+    expectedDelivery: toDateOnly(rawExpectedDelivery),
     deliveryTime,
     expectedReturn: toDateOnly(pick(orderRow, "DATA_PREV_RETORNO")),
     observations: toNullableString(pick(orderRow, "OBS")),
