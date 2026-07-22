@@ -21,7 +21,7 @@ export interface AllowedContext {
 }
 
 export function getAllowedOperationalActions(ctx: AllowedContext): OperationAction[] {
-  const { status } = ctx;
+  const { status, hasReturnableEquipment } = ctx;
   switch (status) {
     case "pending":
     case "rescheduled":
@@ -46,6 +46,19 @@ export function getAllowedOperationalActions(ctx: AllowedContext): OperationActi
     default:
       return [];
   }
+  // hasReturnableEquipment é usado pelo backend para decidir se
+  // `confirm_delivery` termina em `delivered` ou `awaiting_pickup_definition`.
+  // Aqui deixamos declarado para futuras regras específicas da UI.
+  void hasReturnableEquipment;
+}
+
+/** Espelho de `apply_operation_transition` — ação é válida para o estado atual. */
+export function canTransition(
+  status: OperationalStatus,
+  action: OperationAction,
+  hasReturnableEquipment = false,
+): boolean {
+  return getAllowedOperationalActions({ status, hasReturnableEquipment }).includes(action);
 }
 
 export function isOperationActive(status: OperationalStatus): boolean {
