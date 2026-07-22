@@ -68,6 +68,9 @@ function MapHome() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [detailOpen, setDetailOpen] = useState(false);
+  // Contador que força remount do sheet ao reabrir o mesmo pedido —
+  // corrige o bug em que o mesmo marcador não reabria após fechar.
+  const [openSeq, setOpenSeq] = useState(0);
 
   const online = useNetworkStatus();
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
@@ -241,8 +244,16 @@ function MapHome() {
   const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
 
   useEffect(() => {
-    if (selected) setDetailOpen(true);
-  }, [selected]);
+    if (selected) {
+      setDetailOpen(true);
+      setOpenSeq((n) => n + 1);
+    }
+  }, [selected, selectedKey]);
+
+  function handleCloseDetail() {
+    setDetailOpen(false);
+    setSelectedKey(null);
+  }
 
   // Auto-selecionar próximo pendente após ação
   function selectNextPending(currentKey: string) {
@@ -418,11 +429,12 @@ function MapHome() {
         <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto md:ml-auto md:max-w-xl">
           {selected && (
             <OrderDetailSheet
+              key={`${selected.key}-${openSeq}`}
               order={selected.order}
               state={selected.state}
               operationDate={date}
               companyId={companyId ?? null}
-              onClose={() => setDetailOpen(false)}
+              onClose={handleCloseDetail}
               onAfterAction={() => selectNextPending(selected.key)}
             />
           )}
