@@ -2,7 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MapView, type MapMarkerData } from "@/components/map-view";
-import { OperationalFilters, type OperationalFilter } from "@/components/operation/operational-filters";
+import {
+  OperationalFilters,
+  filterOfStatus,
+  type OperationalFilter,
+} from "@/components/operation/operational-filters";
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
