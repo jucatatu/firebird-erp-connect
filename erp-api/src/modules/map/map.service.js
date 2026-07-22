@@ -1,0 +1,247 @@
+"use strict";
+
+const operationsService = require("../operations/operations.service");
+const mapRepository = require("./map.repository");
+const opsMapper = require("../operations/operations.mapper");
+const { normalizeAddress } = require("./geocoding-normalize");
+const { getCache } = require("./geocoding-cache");
+const geocoding = require("./geocoding.service");
+
+/**
+ * Adapta o endereço do contrato Operations para os campos que o normalize
+ * espera. NÃO inclui postalCode enquanto a coluna ORDENS_VENDA.CEP não é
+ * confirmada via scripts/inspect-firebird-column.js.
+ */
+function fieldsFromOrder(order) {
+  return {
+    street: order.address?.street || "",
+    number: order.address?.number || "",
+    complement: order.address?.complement || "",
+    neighborhood: order.address?.neighborhood || "",
+    city: order.address?.city || "",
+    state: order.address?.state || "",
+    postalCode: "",
+  };
+}
+
+function locationFromEntry(entry, cacheKey) {
+  if (!entry) {
+    return {
+      latitude: null,
+      longitude: null,
+      locationType: "",
+      precision: "",
+      placeId: "",
+      matchMismatch: false,
+      source: "pending",
+      cacheKey,
+    };
+  }
+  if (entry.status === "resolved") {
+    return {
+      latitude: entry.latitude ?? null,
+      longitude: entry.longitude ?? null,
+      locationType: entry.locationType || "",
+      precision: entry.precision || "",
+      placeId: entry.placeId || "",
+      matchMismatch: Boolean(entry.matchMismatch),
+      source: "cache",
+      cacheKey,
+    };
+  }
+  if (entry.status === "unresolved" || entry.status === "skipped") {
+    return {
+      latitude: null,
+      longitude: null,
+      locationType: entry.locationType || "",
+      precision: "",
+      placeId: entry.placeId || "",
+      matchMismatch: Boolean(entry.matchMismatch),
+      source: "unresolved",
+      cacheKey,
+    };
+  }
+  // error / pending / desconhecido → pending para o cliente
+  return {
+    latitude: null,
+    longitude: null,
+    locationType: "",
+    precision: "",
+    placeId: entry.placeId || "",
+    matchMismatch: false,
+    source: "pending",
+    cacheKey,
+  };
+}
+
+/**
+ * GET /api/v1/map/orders — SOMENTE LEITURA (Firebird + cache).
+ * Nunca chama provider.
+ */
+async function listOrdersForMap({ date, companyId }) {
+  const base = await operationsService.listOrdersForDelivery({
+    date,
+    companies: companyId ? [companyId] : [1, 3],
+    companiesProvided: Boolean(companyId),
+  });
+
+  const cache = getCache();
+  let mapped = 0;
+  let pending = 0;
+  let unresolved = 0;
+
+  const enriched = [];
+  for (const order of base.orders) {
+    const norm = normalizeAddress(fieldsFromOrder(order));
+    let entry = null;
+    let source = "pending";
+
+    if (!norm.geocodable) {
+      source = "unresolved";
+      unresolved++;
+    } else {
+      entry = await cache.get(norm.cacheKey);
+      if (entry && entry.status === "resolved") {
+        mapped++;
+        source = "cache";
+      } else if (entry && (entry.status === "unresolved" || entry.status === "skipped")) {
+        unresolved++;
+        source = "unresolved";
+      } else {
+        pending++;
+        source = "pending";
+      }
+    }
+
+    const location = locationFromEntry(entry, norm.cacheKey);
+    // Se não geocodável, força source unresolved acima.
+    if (!norm.geocodable) location.source = "unresolved";
+    else location.source = source;
+
+    enriched.push({ ...order, location });
+  }
+
+  return {
+    date,
+    companyId: companyId ?? null,
+    summary: {
+      total: enriched.length,
+      mapped,
+      pending,
+      unresolved,
+    },
+    orders: enriched,
+  };
+}
+
+/**
+ * POST /api/v1/map/geocode — resolve endereços dos orderIds informados.
+ * Nunca aceita endereço/coordenadas vindos do browser.
+ */
+async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
+  const rows = await mapRepository.findOrdersAddressesByIds(orderIds);
+  // rowByOrderId
+  const byId = new Map();
+  for (const row of rows) {
+    const oid = Number(opsMapper.pick(row, "ID_ORDENS_VENDA"));
+    if (Number.isFinite(oid)) byId.set(oid, row);
+  }
+
+  // Construir fieldsList em ordem dos orderIds pedidos, dedup por cacheKey.
+  const fieldsList = [];
+  const orderKey = new Map(); // orderId -> cacheKey
+  const seenKeys = new Set();
+  for (const id of orderIds) {
+    const row = byId.get(id);
+    if (!row) {
+      orderKey.set(id, null);
+      continue;
+    }
+    const addr = opsMapper.mapAddress(row);
+    const norm = normalizeAddress({
+      street: addr.street,
+      number: addr.number,
+      complement: addr.complement,
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      state: addr.state,
+      postalCode: "",
+    });
+    orderKey.set(id, norm.cacheKey);
+    if (seenKeys.has(norm.cacheKey)) continue;
+    seenKeys.add(norm.cacheKey);
+    if (fieldsList.length >= limit) continue;
+    fieldsList.push({
+      street: addr.street,
+      number: addr.number,
+      complement: addr.complement,
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      state: addr.state,
+      postalCode: "",
+    });
+  }
+
+  const resultsByKey = await geocoding.resolveMany(fieldsList, {
+    provider: opts.provider,
+    timeoutMs: opts.timeoutMs,
+    cache: opts.cache,
+  });
+
+  const perOrder = [];
+  let resolvedCount = 0;
+  let pendingCount = 0;
+  let unresolvedCount = 0;
+  let errorCount = 0;
+
+  for (const id of orderIds) {
+    const key = orderKey.get(id);
+    if (!key) {
+      perOrder.push({ orderId: id, status: "not_found", cacheKey: null });
+      continue;
+    }
+    const entry = resultsByKey.get(key);
+    // Se não estava na fatia processada, cai como pending explícito.
+    if (!entry) {
+      pendingCount++;
+      perOrder.push({ orderId: id, status: "pending", cacheKey: key });
+      continue;
+    }
+    const status = entry.status;
+    if (status === "resolved") resolvedCount++;
+    else if (status === "unresolved" || status === "skipped") unresolvedCount++;
+    else if (status === "pending") pendingCount++;
+    else if (status === "error") errorCount++;
+
+    perOrder.push({
+      orderId: id,
+      cacheKey: key,
+      status: status === "skipped" ? "unresolved" : status,
+      location:
+        status === "resolved"
+          ? {
+              latitude: entry.latitude ?? null,
+              longitude: entry.longitude ?? null,
+              locationType: entry.locationType || "",
+              precision: entry.precision || "",
+              placeId: entry.placeId || "",
+              matchMismatch: Boolean(entry.matchMismatch),
+            }
+          : null,
+      errorCode: entry.errorCode || null,
+    });
+  }
+
+  return {
+    summary: {
+      total: orderIds.length,
+      resolved: resolvedCount,
+      pending: pendingCount,
+      unresolved: unresolvedCount,
+      errors: errorCount,
+    },
+    results: perOrder,
+  };
+}
+
+module.exports = { listOrdersForMap, geocodeByOrderIds, fieldsFromOrder };
