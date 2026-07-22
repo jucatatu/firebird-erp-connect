@@ -54,7 +54,7 @@ function AuthenticatedLayout() {
   const fullName = profileQ.data?.full_name || user.email || "Usuário";
 
   return (
-    <AppShell fullName={fullName} role={role} isAdmin={isAdmin}>
+    <AppShell fullName={fullName} email={user.email ?? undefined} role={role} isAdmin={isAdmin}>
       <Outlet />
     </AppShell>
   );
