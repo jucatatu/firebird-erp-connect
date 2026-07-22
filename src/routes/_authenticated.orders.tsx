@@ -1,14 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, primaryRole } from "@/hooks/use-auth";
 import { useOrderDrafts, type OrderDraftStatus } from "@/hooks/use-drafts";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -16,171 +15,216 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { PlusCircle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StatusBadge } from "@/components/status-badge";
+import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
+import { EmptyState } from "@/components/empty-state";
+import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
+
+type StatusFilter = OrderDraftStatus | "all";
 
 export const Route = createFileRoute("/_authenticated/orders")({
   head: () => ({
     meta: [
       { title: "Pedidos — ERP" },
-      { name: "description", content: "Lista de rascunhos de pedidos internos." },
+      { name: "description", content: "Lista operacional de pedidos internos." },
       { name: "robots", content: "noindex,nofollow" },
     ],
+  }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: (search.status as StatusFilter | undefined) ?? "all",
   }),
   component: OrdersListPage,
 });
 
-const STATUS_LABEL: Record<OrderDraftStatus, string> = {
-  draft: "Rascunho",
-  pending_approval: "Aguardando aprovação",
-  approved: "Aprovado",
-  rejected: "Rejeitado",
-  sending: "Enviando",
-  sent: "Enviado",
-  send_failed: "Falha no envio",
-  cancelled: "Cancelado",
-};
+const TABS: { key: StatusFilter; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "draft", label: "Rascunhos" },
+  { key: "pending_approval", label: "Aguardando" },
+  { key: "approved", label: "Aprovados" },
+  { key: "sent", label: "Enviados" },
+  { key: "send_failed", label: "Falhas" },
+  { key: "rejected", label: "Rejeitados" },
+];
 
 function OrdersListPage() {
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
   const rolesQ = useMyRoles(user);
   const role = primaryRole(rolesQ.data);
+  const isAdmin = (rolesQ.data ?? []).includes("admin");
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<OrderDraftStatus | "all">("all");
-  const [companyId, setCompanyId] = useState<"1" | "3" | "all">("all");
-  const [mineOnly, setMineOnly] = useState(false);
+  const [company, setCompany] = useState<"all" | "1" | "3">("all");
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    if (role === "vendedor") setMineOnly(true);
-  }, [role]);
+  const status: StatusFilter = search.status ?? "all";
 
-  const drafts = useOrderDrafts({
+  const { data, isLoading, isError } = useOrderDrafts({
     status,
-    companyId: companyId === "all" ? "all" : (Number(companyId) as 1 | 3),
-    mineOnly,
+    companyId: company === "all" ? "all" : (Number(company) as 1 | 3),
+    mineOnly: role === "vendedor",
     myUserId: user?.id ?? null,
-    search,
+    search: query,
   });
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
-          <p className="text-sm text-muted-foreground">Rascunhos e envios ao ERP.</p>
-        </div>
-        <Button asChild>
-          <Link to="/orders/new">
-            <PlusCircle className="mr-2 h-4 w-4" /> Novo pedido
-          </Link>
-        </Button>
-      </div>
+  const rows = useMemo(() => data ?? [], [data]);
 
-      <Card>
-        <CardContent className="pt-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="md:col-span-2">
-              <Label>Buscar</Label>
-              <Input
-                placeholder="Título ou cliente"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as OrderDraftStatus | "all")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {(Object.keys(STATUS_LABEL) as OrderDraftStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Empresa</Label>
-              <Select value={companyId} onValueChange={(v) => setCompanyId(v as "1" | "3" | "all")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="1">Graal (1)</SelectItem>
-                  <SelectItem value="3">Grott (3)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {role !== "vendedor" && (
-              <div className="flex items-end gap-2">
-                <Checkbox
-                  id="mine"
-                  checked={mineOnly}
-                  onCheckedChange={(v) => setMineOnly(Boolean(v))}
-                />
-                <Label htmlFor="mine" className="mb-2">Somente meus pedidos</Label>
-              </div>
-            )}
+  return (
+    <div>
+      <PageHeader
+        title="Pedidos"
+        description="Todos os pedidos internos com filtros por status, empresa e busca."
+        actions={
+          (role === "vendedor" || isAdmin) && (
+            <Button asChild size="sm">
+              <Link to="/orders/new">
+                <PlusCircle className="mr-2 h-4 w-4" /> Novo pedido
+              </Link>
+            </Button>
+          )
+        }
+      />
+
+      <Card className="mb-4">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por título ou cliente"
+              className="pl-8"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={company} onValueChange={(v) => setCompany(v as "all" | "1" | "3")}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas empresas</SelectItem>
+                <SelectItem value="1">Graal (1)</SelectItem>
+                <SelectItem value="3">Grott (3)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-4">
-          {drafts.isLoading ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : drafts.isError ? (
-            <p className="text-sm text-destructive">Não foi possível carregar.</p>
-          ) : (drafts.data ?? []).length === 0 ? (
-            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Nenhum rascunho encontrado.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="py-2 pr-2">Título / Cliente</th>
-                    <th className="py-2 pr-2">Empresa</th>
-                    <th className="py-2 pr-2">Status</th>
-                    <th className="py-2 pr-2">Nº ERP</th>
-                    <th className="py-2 pr-2">Atualizado</th>
-                    <th className="py-2 pr-2 text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(drafts.data ?? []).map((d) => (
-                    <tr key={d.id} className="border-b last:border-0">
-                      <td className="py-2 pr-2">
-                        <div className="font-medium">{d.title || "(sem título)"}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {d.customer_name_snapshot || "—"}
+      <Tabs
+        value={status}
+        onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
+      >
+        <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+          {TABS.map((t) => (
+            <TabsTrigger
+              key={t.key}
+              value={t.key}
+              className="rounded-full border bg-surface px-3 py-1 text-xs data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              {t.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {isLoading ? (
+        <div className="rounded-md border bg-surface p-6 text-sm text-muted-foreground">
+          Carregando…
+        </div>
+      ) : isError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">
+          Não foi possível carregar os pedidos.
+        </div>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="Nenhum pedido encontrado"
+          description="Ajuste os filtros ou crie um novo pedido."
+          action={
+            (role === "vendedor" || isAdmin) && (
+              <Button asChild size="sm">
+                <Link to="/orders/new">Novo pedido</Link>
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="hidden overflow-hidden rounded-md border bg-surface md:block">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Identificação</th>
+                  <th className="px-4 py-2 text-left font-medium">Cliente</th>
+                  <th className="px-4 py-2 text-left font-medium">Empresa</th>
+                  <th className="px-4 py-2 text-left font-medium">Status</th>
+                  <th className="px-4 py-2 text-left font-medium">Atualizado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((d) => (
+                  <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
+                    <td className="px-4 py-2 align-top">
+                      <Link
+                        to="/orders/$draftId"
+                        params={{ draftId: d.id }}
+                        className="block"
+                      >
+                        <OrderIdentifier id={d.id} />
+                        <div className="mt-0.5 truncate text-sm font-medium text-foreground">
+                          {d.title || "(sem título)"}
                         </div>
-                      </td>
-                      <td className="py-2 pr-2">{d.company_id ?? "—"}</td>
-                      <td className="py-2 pr-2">
-                        <Badge variant="secondary">{STATUS_LABEL[d.status]}</Badge>
-                      </td>
-                      <td className="py-2 pr-2">{d.erp_order_number ?? "—"}</td>
-                      <td className="py-2 pr-2 text-xs text-muted-foreground">
-                        {new Date(d.updated_at).toLocaleString()}
-                      </td>
-                      <td className="py-2 pr-2 text-right">
-                        <Button asChild size="sm" variant="outline">
-                          <Link to="/orders/$draftId" params={{ draftId: d.id }}>Abrir</Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 align-top text-foreground/90">
+                      {d.customer_name_snapshot || "—"}
+                    </td>
+                    <td className="px-4 py-2 align-top text-foreground/80">
+                      {companyLabel(d.company_id)}
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <StatusBadge status={d.status} />
+                    </td>
+                    <td className="px-4 py-2 align-top text-xs text-muted-foreground">
+                      {new Date(d.updated_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile cards */}
+          <ul className="space-y-2 md:hidden">
+            {rows.map((d) => (
+              <li key={d.id}>
+                <Link
+                  to="/orders/$draftId"
+                  params={{ draftId: d.id }}
+                  className="block rounded-md border bg-surface p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <OrderIdentifier id={d.id} />
+                    <StatusBadge status={d.status} />
+                  </div>
+                  <div className="mt-1 truncate text-sm font-medium">
+                    {d.title || d.customer_name_snapshot || "(sem título)"}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {companyLabel(d.company_id)} · {new Date(d.updated_at).toLocaleDateString()}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
