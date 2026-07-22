@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Map as MapIcon, ClipboardList, MoreHorizontal, ShieldCheck, PlusCircle } from "lucide-react";
+import { Map as MapIcon, Truck, PackageX, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppRole } from "@/hooks/use-auth";
 
@@ -10,36 +10,13 @@ type Tab = {
   match?: (path: string) => boolean;
 };
 
-function tabsFor(role: AppRole | null, isAdmin: boolean): Tab[] {
-  const map: Tab = { to: "/", label: "Mapa", icon: MapIcon, match: (p) => p === "/" };
-  const pedidos: Tab = {
-    to: "/pedidos-venda",
-    label: "Pedidos",
-    icon: ClipboardList,
-    match: (p) => p.startsWith("/pedidos-venda") && !p.includes("/aprovacoes") && !p.includes("/novo"),
-  };
-  const novo: Tab = {
-    to: "/pedidos-venda/novo",
-    label: "Novo",
-    icon: PlusCircle,
-    match: (p) => p.startsWith("/pedidos-venda/novo"),
-  };
-  const aprovacoes: Tab = {
-    to: "/pedidos-venda/aprovacoes",
-    label: "Aprovar",
-    icon: ShieldCheck,
-    match: (p) => p.startsWith("/pedidos-venda/aprovacoes"),
-  };
-  const mais: Tab = {
-    to: "/settings/erp",
-    label: "Mais",
-    icon: MoreHorizontal,
-    match: (p) => p.startsWith("/settings"),
-  };
-  if (isAdmin) return [map, pedidos, aprovacoes, mais];
-  if (role === "aprovador") return [map, aprovacoes, pedidos, mais];
-  if (role === "vendedor") return [map, pedidos, novo, mais];
-  return [map, pedidos, mais];
+function tabsFor(_role: AppRole | null, _isAdmin: boolean): Tab[] {
+  return [
+    { to: "/", label: "Mapa", icon: MapIcon, match: (p) => p === "/" },
+    { to: "/entregas", label: "Entregas", icon: Truck, match: (p) => p.startsWith("/entregas") },
+    { to: "/recolhas", label: "Recolhas", icon: PackageX, match: (p) => p.startsWith("/recolhas") },
+    { to: "/settings/erp", label: "Mais", icon: MoreHorizontal, match: (p) => p.startsWith("/settings") || p.startsWith("/pedidos-venda") },
+  ];
 }
 
 export function BottomNav({ role, isAdmin }: { role: AppRole | null; isAdmin: boolean }) {

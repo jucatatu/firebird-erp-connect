@@ -10,7 +10,7 @@ import {
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
-import { useOperationStates } from "@/hooks/use-operations";
+import { useOperationStates, useProfiles } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import { resolveDeliveryTime } from "@/lib/delivery-time";
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff } from "lucide-react";
+import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -77,6 +77,7 @@ function MapHome() {
 
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
+  const profilesQ = useProfiles();
   const geocodeM = useGeocodeOrders();
   const qc = useQueryClient();
 
@@ -241,6 +242,12 @@ function MapHome() {
     [filterCounts, enrichedAll.length],
   );
 
+  const profileById = useMemo(() => {
+    const map = new Map<string, string>();
+    (profilesQ.data ?? []).forEach((p) => map.set(p.id, p.full_name ?? "Sem nome"));
+    return map;
+  }, [profilesQ.data]);
+
   const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
 
   useEffect(() => {
@@ -255,7 +262,9 @@ function MapHome() {
     setSelectedKey(null);
   }
 
-  // Auto-selecionar próximo pendente após ação
+  // Auto-selecionar próximo pendente após ação. Somente quando a operação
+  // realmente terminou — do contrário mantém o pedido aberto para permitir
+  // o passo seguinte (ex.: definir recolha após confirmar entrega).
   function selectNextPending(currentKey: string) {
     const pool = orders.filter(
       (e) => (e.status === "pending" || e.status === "in_progress") && e.key !== currentKey,
@@ -266,6 +275,14 @@ function MapHome() {
       return;
     }
     setSelectedKey(pool[0].key);
+  }
+
+  function handleAfterAction(newState: OperationState, currentKey: string) {
+    const done =
+      newState.operational_status === "delivered" ||
+      newState.operational_status === "pickup_completed" ||
+      newState.operational_status === "collected";
+    if (done) selectNextPending(currentKey);
   }
 
   return (
@@ -340,6 +357,7 @@ function MapHome() {
         <div className="flex-1 overflow-y-auto">
           <OrdersList
             orders={orders}
+              profileById={profileById}
             loading={ordersQ.isLoading || statesQ.isLoading}
             error={ordersQ.isError || Boolean(erpError)}
             errorMessage={erpError?.message}
@@ -386,6 +404,7 @@ function MapHome() {
           <div className="h-full overflow-y-auto bg-background pt-32">
             <OrdersList
               orders={orders}
+              profileById={profileById}
               loading={ordersQ.isLoading || statesQ.isLoading}
               error={ordersQ.isError || Boolean(erpError)}
               errorMessage={erpError?.message}
@@ -435,7 +454,7 @@ function MapHome() {
               operationDate={date}
               companyId={companyId ?? null}
               onClose={handleCloseDetail}
-              onAfterAction={() => selectNextPending(selected.key)}
+              onAfterAction={(newState) => handleAfterAction(newState, selected.key)}
             />
           )}
         </SheetContent>
@@ -446,6 +465,7 @@ function MapHome() {
 
 function OrdersList({
   orders,
+  profileById,
   loading,
   error,
   errorMessage,
@@ -453,6 +473,7 @@ function OrdersList({
   onSelect,
 }: {
   orders: EnrichedOrder[];
+  profileById?: Map<string, string>;
   loading: boolean;
   error: boolean;
   errorMessage?: string;
@@ -518,6 +539,14 @@ function OrdersList({
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
                   {OPERATIONAL_STATUS_LABEL[e.status]}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <User className="h-2.5 w-2.5" />
+                  {(() => {
+                    const id = e.state?.delivery_assignee_id;
+                    const nm = id ? profileById?.get(id) : null;
+                    return nm ?? <span className="italic">sem responsável</span>;
+                  })()}
                 </span>
                 {e.state?.operational_date && e.state.operational_date !== e.state.operation_date && (
                   <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-sky-800">

@@ -6,7 +6,8 @@ import {
   PlusCircle,
   ClipboardList,
   ShieldCheck,
-  CalendarClock,
+  Truck,
+  PackageX,
   Wrench,
   Users,
   Settings,
@@ -27,16 +28,17 @@ const GROUPS: Group[] = [
   {
     label: "Operação",
     items: [
-      { label: "Visão geral", to: "/", icon: LayoutDashboard },
-      { label: "Novo pedido", to: "/orders/new", icon: PlusCircle, roles: ["vendedor", "admin"] },
-      { label: "Pedidos", to: "/orders", icon: ClipboardList },
-      { label: "Aprovações", to: "/approvals", icon: ShieldCheck, roles: ["aprovador", "admin"] },
+      { label: "Mapa", to: "/", icon: LayoutDashboard },
+      { label: "Entregas", to: "/entregas", icon: Truck },
+      { label: "Recolhas", to: "/recolhas", icon: PackageX },
     ],
   },
   {
-    label: "Acompanhamento",
+    label: "Comercial",
     items: [
-      { label: "Operação do dia", to: "/operations", icon: CalendarClock },
+      { label: "Pedidos", to: "/pedidos-venda", icon: ClipboardList },
+      { label: "Novo pedido", to: "/pedidos-venda/novo", icon: PlusCircle, roles: ["vendedor", "admin"] },
+      { label: "Aprovações", to: "/pedidos-venda/aprovacoes", icon: ShieldCheck, roles: ["aprovador", "admin"] },
       { label: "Integração ERP", to: "/settings/erp", icon: Wrench, adminOnly: true },
     ],
   },
