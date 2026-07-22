@@ -196,6 +196,12 @@ export interface GetMapOrdersInput {
   companyId?: 1 | 3;
 }
 
+// POST /api/v1/map/geocode — dispara geocodificação server-side para IDs
+// internos de pedidos. O backend usa a chave Google (nunca o navegador).
+export interface GeocodeOrdersInput {
+  orderIds: number[];
+}
+
 // ── Normalização defensiva ───────────────────────────────────────────────
 // Toda UI consome `NormalizedMapOrder`. Uma linha malformada é marcada com
 // `malformed: true` e recebe defaults seguros — nunca derruba a página.
