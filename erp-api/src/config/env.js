@@ -85,6 +85,34 @@ const schema = z
           path: ["HMAC_SECRET"],
         });
       }
+      if (val.GEOCODING_PROVIDER === "fake") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "GEOCODING_PROVIDER=fake é proibido em produção. Configure 'google' com GOOGLE_GEOCODING_API_KEY.",
+          path: ["GEOCODING_PROVIDER"],
+        });
+      }
+      if (val.GEOCODING_PROVIDER === "google" && !val.GOOGLE_GEOCODING_API_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "GOOGLE_GEOCODING_API_KEY é obrigatória quando GEOCODING_PROVIDER=google.",
+          path: ["GOOGLE_GEOCODING_API_KEY"],
+        });
+      }
+    }
+    if (
+      val.NODE_ENV !== "production" &&
+      val.GEOCODING_PROVIDER === "google" &&
+      !val.GOOGLE_GEOCODING_API_KEY
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "GOOGLE_GEOCODING_API_KEY é obrigatória quando GEOCODING_PROVIDER=google (nenhum fallback silencioso para fake).",
+        path: ["GOOGLE_GEOCODING_API_KEY"],
+      });
     }
   });
 
