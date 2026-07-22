@@ -296,12 +296,14 @@ function OrdersList({
   orders,
   loading,
   error,
+  errorMessage,
   selectedId,
   onSelect,
 }: {
   orders: OrderRow[];
   loading: boolean;
   error: boolean;
+  errorMessage?: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -309,7 +311,7 @@ function OrdersList({
   if (error) {
     return (
       <div className="p-6 text-sm text-destructive">
-        Não foi possível consultar pedidos no ERP.{" "}
+        {errorMessage || "Não foi possível consultar pedidos no ERP."}{" "}
         <Link to="/settings/erp" className="underline">
           Ver diagnóstico
         </Link>
@@ -330,6 +332,7 @@ function OrdersList({
         const id = String(o.orderId ?? o.orderNumber ?? idx);
         const name = o.customerName || o.clientName || "(sem cliente)";
         const active = selectedId === id;
+        const src = o.location?.source;
         return (
           <li key={id}>
             <button
@@ -352,12 +355,95 @@ function OrdersList({
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 {o.period && <span>{o.period}</span>}
                 {o.phone && <span>· {o.phone}</span>}
+                {src === "pending" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-800">
+                    <Loader2 className="h-2.5 w-2.5" /> aguardando localização
+                  </span>
+                )}
+                {src === "unresolved" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                    <MapPinOff className="h-2.5 w-2.5" /> não localizado
+                  </span>
+                )}
+                {src === "cache" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-800">
+                    <MapPin className="h-2.5 w-2.5" /> mapeado
+                  </span>
+                )}
               </div>
             </button>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+function SummaryBar({
+  summary,
+  className,
+}: {
+  summary: { total: number; mapped: number; pending: number; unresolved: number };
+  className?: string;
+}) {
+  return (
+    <div className={cn("grid grid-cols-4 gap-1 text-center text-[10px]", className)}>
+      <div className="rounded-md bg-muted/50 py-1">
+        <div className="text-sm font-semibold tabular-nums">{summary.total}</div>
+        <div className="text-muted-foreground">Total</div>
+      </div>
+      <div className="rounded-md bg-emerald-50 py-1">
+        <div className="text-sm font-semibold tabular-nums text-emerald-700">
+          {summary.mapped}
+        </div>
+        <div className="text-emerald-700/80">Mapeados</div>
+      </div>
+      <div className="rounded-md bg-amber-50 py-1">
+        <div className="text-sm font-semibold tabular-nums text-amber-700">
+          {summary.pending}
+        </div>
+        <div className="text-amber-700/80">Pendentes</div>
+      </div>
+      <div className="rounded-md bg-muted py-1">
+        <div className="text-sm font-semibold tabular-nums text-muted-foreground">
+          {summary.unresolved}
+        </div>
+        <div className="text-muted-foreground">Não local.</div>
+      </div>
+    </div>
+  );
+}
+
+function GeocodeButton({
+  pending,
+  className,
+}: {
+  pending: number;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={!GEOCODE_TRIGGER_ENABLED}
+        className="w-full"
+        title={
+          GEOCODE_TRIGGER_ENABLED
+            ? undefined
+            : "Provider de geocodificação ainda não autorizado. Botão desabilitado por configuração."
+        }
+      >
+        <MapPin className="mr-2 h-3.5 w-3.5" />
+        Tentar localizar {pending} endereço{pending === 1 ? "" : "s"}
+      </Button>
+      {!GEOCODE_TRIGGER_ENABLED && (
+        <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
+          Ativação sujeita à liberação do provider de geocodificação. Nenhuma
+          chamada ao Google é feita nesta versão.
+        </p>
+      )}
+    </div>
   );
 }
 
