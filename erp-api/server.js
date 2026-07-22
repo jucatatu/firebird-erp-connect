@@ -5,8 +5,10 @@ require("dotenv").config();
 const { env } = require("./src/config/env");
 const { logger } = require("./src/config/logger");
 const { createApp } = require("./src/app");
+const { assertProviderConfig } = require("./src/modules/map/providers");
 
 function start() {
+  assertProviderConfig();
   const app = createApp();
 
   if (env.FIREBIRD_USER && env.FIREBIRD_USER.toLowerCase() === "sysdba") {
