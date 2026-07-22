@@ -44,7 +44,7 @@ import {
   useOperationMutations,
   useOperationNotes,
 } from "@/hooks/use-operations";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { OperationTimeline } from "./operation-timeline";
 import { cn } from "@/lib/utils";
 
@@ -83,10 +83,8 @@ export function OrderDetailSheet({
   const events = useOperationEvents(state?.id);
   const notes = useOperationNotes(state?.id);
   const onConflict = () => {
-    toast({
-      title: "Este pedido foi alterado por outro usuário",
+    toast.error("Este pedido foi alterado por outro usuário", {
       description: "Os dados serão atualizados automaticamente.",
-      variant: "destructive",
     });
   };
   const { ensure, applyStatus, reschedule, addNote } = useOperationMutations(
@@ -126,10 +124,8 @@ export function OrderDetailSheet({
       onAfterAction?.(res);
     } catch (err) {
       if (!(err instanceof OperationConflictError)) {
-        toast({
-          title: "Não foi possível aplicar a ação",
+        toast.error("Não foi possível aplicar a ação", {
           description: (err as Error)?.message ?? String(err),
-          variant: "destructive",
         });
       }
     }
@@ -150,10 +146,8 @@ export function OrderDetailSheet({
       onAfterAction?.(res);
     } catch (err) {
       if (!(err instanceof OperationConflictError)) {
-        toast({
-          title: "Não foi possível reagendar",
+        toast.error("Não foi possível reagendar", {
           description: (err as Error)?.message ?? String(err),
-          variant: "destructive",
         });
       }
     }
