@@ -120,7 +120,7 @@ function DraftDetailPage() {
     (draft.status === "draft" || draft.status === "rejected") && (isOwner || isAdmin);
   const canReopen = draft.status === "rejected" && (isOwner || isAdmin);
 
-  async function saveChanges() {
+  const saveChanges = async () => {
     try {
       await update.mutateAsync({
         id: draft.id,
@@ -135,9 +135,12 @@ function DraftDetailPage() {
         description: err instanceof Error ? err.message : "Erro desconhecido",
       });
     }
-  }
+  };
 
-  async function doTransition(newStatus: Parameters<typeof transition.mutateAsync>[0]["newStatus"], reason?: string) {
+  const doTransition = async (
+    newStatus: Parameters<typeof transition.mutateAsync>[0]["newStatus"],
+    reason?: string,
+  ) => {
     try {
       await transition.mutateAsync({ id: draft.id, newStatus, reason: reason ?? null });
       toast.success("Status atualizado");
@@ -146,7 +149,7 @@ function DraftDetailPage() {
         description: err instanceof Error ? err.message : "Erro desconhecido",
       });
     }
-  }
+  };
 
   return (
     <div>
