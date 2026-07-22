@@ -226,7 +226,8 @@ test("sucesso 201 com id orderNumber companyId status; GERA_COBRANCA=1 nas procs
   assert.equal(res.status, 201);
   assert.equal(res.body.success, true);
   assert.equal(res.body.order.id, 999);
-  assert.equal(res.body.order.orderNumber, 12345);
+  // N_PEDIDO = ID no ERP.
+  assert.equal(res.body.order.orderNumber, 999);
   assert.equal(res.body.order.companyId, 1);
   assert.equal(res.body.order.status, "LIBERADO");
   const completeCall = state.calls.find((c) =>
