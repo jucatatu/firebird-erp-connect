@@ -11,11 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
-import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
-import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated.orders.new'
-import { Route as AuthenticatedOrdersDraftIdRouteImport } from './routes/_authenticated.orders.$draftId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -26,86 +22,35 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedSettingsErpRoute =
   AuthenticatedSettingsErpRouteImport.update({
     id: '/settings/erp',
     path: '/settings/erp',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedOrdersNewRoute = AuthenticatedOrdersNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => AuthenticatedOrdersRoute,
-} as any)
-const AuthenticatedOrdersDraftIdRoute =
-  AuthenticatedOrdersDraftIdRouteImport.update({
-    id: '/$draftId',
-    path: '/$draftId',
-    getParentRoute: () => AuthenticatedOrdersRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/orders': typeof AuthenticatedOrdersRouteWithChildren
-  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/orders': typeof AuthenticatedOrdersRouteWithChildren
-  '/': typeof AuthenticatedIndexRoute
-  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
-  '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
-  '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/login'
-    | '/orders'
-    | '/orders/$draftId'
-    | '/orders/new'
-    | '/settings/erp'
+  fullPaths: '/' | '/login' | '/settings/erp'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/login'
-    | '/orders'
-    | '/'
-    | '/orders/$draftId'
-    | '/orders/new'
-    | '/settings/erp'
-  id:
-    | '__root__'
-    | '/_authenticated'
-    | '/login'
-    | '/_authenticated/orders'
-    | '/_authenticated/'
-    | '/_authenticated/orders/$draftId'
-    | '/_authenticated/orders/new'
-    | '/_authenticated/settings/erp'
+  to: '/' | '/login' | '/settings/erp'
+  id: '__root__' | '/_authenticated' | '/login' | '/_authenticated/settings/erp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -129,20 +74,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/orders': {
-      id: '/_authenticated/orders'
-      path: '/orders'
-      fullPath: '/orders'
-      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/settings/erp': {
       id: '/_authenticated/settings/erp'
       path: '/settings/erp'
@@ -150,45 +81,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/orders/new': {
-      id: '/_authenticated/orders/new'
-      path: '/new'
-      fullPath: '/orders/new'
-      preLoaderRoute: typeof AuthenticatedOrdersNewRouteImport
-      parentRoute: typeof AuthenticatedOrdersRoute
-    }
-    '/_authenticated/orders/$draftId': {
-      id: '/_authenticated/orders/$draftId'
-      path: '/$draftId'
-      fullPath: '/orders/$draftId'
-      preLoaderRoute: typeof AuthenticatedOrdersDraftIdRouteImport
-      parentRoute: typeof AuthenticatedOrdersRoute
-    }
   }
 }
 
-interface AuthenticatedOrdersRouteChildren {
-  AuthenticatedOrdersDraftIdRoute: typeof AuthenticatedOrdersDraftIdRoute
-  AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
-}
-
-const AuthenticatedOrdersRouteChildren: AuthenticatedOrdersRouteChildren = {
-  AuthenticatedOrdersDraftIdRoute: AuthenticatedOrdersDraftIdRoute,
-  AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
-}
-
-const AuthenticatedOrdersRouteWithChildren =
-  AuthenticatedOrdersRoute._addFileChildren(AuthenticatedOrdersRouteChildren)
-
 interface AuthenticatedRouteChildren {
-  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRouteWithChildren
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedOrdersRoute: AuthenticatedOrdersRouteWithChildren,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
 }
 
