@@ -1,13 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { MapView, type MapMarkerData } from "@/components/map-view";
-import { MapFilterChips } from "@/components/map-filter-chips";
-import { type MapLayerKey } from "@/lib/map-layers";
+import { OperationalFilters, type OperationalFilter } from "@/components/operation/operational-filters";
+import { OperationalCounters } from "@/components/operation/operational-counters";
+import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useMapOrders } from "@/hooks/use-erp";
+import { useOperationStates } from "@/hooks/use-operations";
+import { useNetworkStatus } from "@/hooks/use-network-status";
 import type { MapOrder } from "@/lib/erp.functions";
+import {
+  OPERATIONAL_STATUS_COLOR,
+  OPERATIONAL_STATUS_LABEL,
+  type OperationState,
+  type OperationalStatus,
+} from "@/lib/operations/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -15,13 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, Phone, ExternalLink, X, MapPinOff, Loader2 } from "lucide-react";
+import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Flag para habilitar o botão "Tentar localizar" quando o provider real do
-// geocoding for autorizado. Mantido como false (mensagem informativa apenas).
-const GEOCODE_TRIGGER_ENABLED =
-  import.meta.env.VITE_ERP_GEOCODE_ENABLED === "true";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -35,93 +39,176 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 type CompanyChoice = "all" | "1" | "3";
+type SortKey = "manual" | "customer" | "city" | "status" | "number";
 
-type OrderRow = MapOrder;
+interface EnrichedOrder {
+  order: MapOrder;
+  key: string;
+  erpId: number;
+  state: OperationState | null;
+  status: OperationalStatus;
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function orderKey(o: MapOrder, idx: number): string {
+  return String(o.orderId ?? o.orderNumber ?? idx);
 }
 
 function MapHome() {
   const [date, setDate] = useState<string>(today());
   const [company, setCompany] = useState<CompanyChoice>("all");
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState<Set<MapLayerKey>>(() => new Set<MapLayerKey>(["pedidos"]));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<OperationalFilter>("all");
+  const [sort, setSort] = useState<SortKey>("manual");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [detailOpen, setDetailOpen] = useState(false);
 
+  const online = useNetworkStatus();
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
-  const ordersQ = useMapOrders(
-    active.has("pedidos") ? { date, companyId } : null,
-  );
+
+  const ordersQ = useMapOrders({ date, companyId });
+  const statesQ = useOperationStates(date, companyId ?? null);
 
   const payload = ordersQ.data?.data ?? null;
-  const rawOrders: OrderRow[] = useMemo(() => payload?.orders ?? [], [payload]);
-  const summary = payload?.summary ?? { total: 0, mapped: 0, pending: 0, unresolved: 0 };
+  const rawOrders: MapOrder[] = useMemo(() => payload?.orders ?? [], [payload]);
+  const geoSummary = payload?.summary ?? { total: 0, mapped: 0, pending: 0, unresolved: 0 };
   const erpError = ordersQ.data && !ordersQ.data.ok ? ordersQ.data.error : null;
 
-  const orders = useMemo(() => {
-    if (!query.trim()) return rawOrders;
+  // Junta pedidos do ERP com estados operacionais locais por erp_order_id.
+  const enrichedAll: EnrichedOrder[] = useMemo(() => {
+    const stateByErpId = new Map<number, OperationState>();
+    (statesQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
+    return rawOrders.map((o, idx) => {
+      const erpId = Number(o.orderId ?? o.orderNumber ?? 0);
+      const state = stateByErpId.get(erpId) ?? null;
+      return {
+        order: o,
+        key: orderKey(o, idx),
+        erpId,
+        state,
+        status: state?.operational_status ?? "pending",
+      };
+    });
+  }, [rawOrders, statesQ.data]);
+
+  // Filtro por texto + status operacional
+  const filtered: EnrichedOrder[] = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rawOrders.filter((o) => {
-      const name = (o.customerName || o.clientName || "").toLowerCase();
-      const addr = (o.address || "").toLowerCase();
-      const num = String(o.orderNumber ?? o.orderId ?? "");
+    return enrichedAll.filter((e) => {
+      if (filter !== "all" && e.status !== filter) return false;
+      if (!q) return true;
+      const name = (e.order.customerName || e.order.clientName || "").toLowerCase();
+      const addr = (e.order.address || "").toLowerCase();
+      const num = String(e.order.orderNumber ?? e.order.orderId ?? "");
       return name.includes(q) || addr.includes(q) || num.includes(q);
     });
-  }, [rawOrders, query]);
+  }, [enrichedAll, query, filter]);
+
+  // Ordenação
+  const orders: EnrichedOrder[] = useMemo(() => {
+    const arr = [...filtered];
+    switch (sort) {
+      case "customer":
+        arr.sort((a, b) =>
+          (a.order.customerName || a.order.clientName || "").localeCompare(
+            b.order.customerName || b.order.clientName || "",
+          ),
+        );
+        break;
+      case "city":
+        arr.sort((a, b) => (a.order.address || "").localeCompare(b.order.address || ""));
+        break;
+      case "status":
+        arr.sort((a, b) => a.status.localeCompare(b.status));
+        break;
+      case "number":
+        arr.sort(
+          (a, b) =>
+            Number(a.order.orderNumber ?? a.order.orderId ?? 0) -
+            Number(b.order.orderNumber ?? b.order.orderId ?? 0),
+        );
+        break;
+      case "manual":
+      default:
+        arr.sort((a, b) => {
+          const sa = a.state?.sequence ?? Number.MAX_SAFE_INTEGER;
+          const sb = b.state?.sequence ?? Number.MAX_SAFE_INTEGER;
+          return sa - sb;
+        });
+    }
+    return arr;
+  }, [filtered, sort]);
 
   const markers: MapMarkerData[] = useMemo(() => {
-    if (!active.has("pedidos")) return [];
-    const raw = typeof window !== "undefined"
-      ? getComputedStyle(document.documentElement).getPropertyValue("--map-pedido").trim()
-      : "";
-    const fill = raw ? `oklch(${raw})` : "#ea6a2a";
     return orders
       .filter(
-        (o) =>
-          o.location?.source === "cache" &&
-          typeof o.location.latitude === "number" &&
-          typeof o.location.longitude === "number",
+        (e) =>
+          e.order.location?.source === "cache" &&
+          typeof e.order.location.latitude === "number" &&
+          typeof e.order.location.longitude === "number",
       )
-      .map((o, idx) => ({
-        id: String(o.orderId ?? o.orderNumber ?? idx),
-        lat: o.location!.latitude as number,
-        lng: o.location!.longitude as number,
-        color: fill,
-        label: o.customerName || o.clientName || "Pedido",
+      .map((e) => ({
+        id: e.key,
+        lat: e.order.location!.latitude as number,
+        lng: e.order.location!.longitude as number,
+        color: OPERATIONAL_STATUS_COLOR[e.status],
+        label: e.order.customerName || e.order.clientName || "Pedido",
       }));
-  }, [orders, active]);
+  }, [orders]);
 
-  const counts: Partial<Record<MapLayerKey, number>> = {
-    pedidos: active.has("pedidos") ? orders.length : 0,
-    higienizacao: 0,
-    entregues: 0,
-    liberados: 0,
-    recolhidos: 0,
-    avisar: 0,
-  };
+  // Contadores
+  const counters = useMemo(() => {
+    const base: Record<OperationalStatus, number> = {
+      pending: 0,
+      in_progress: 0,
+      delivered: 0,
+      collected: 0,
+      customer_will_call: 0,
+      not_found: 0,
+      rescheduled: 0,
+    };
+    enrichedAll.forEach((e) => {
+      base[e.status] += 1;
+    });
+    return { ...base, total: enrichedAll.length };
+  }, [enrichedAll]);
 
-  const selected = selectedId
-    ? orders.find((o, i) => String(o.orderId ?? o.orderNumber ?? i) === selectedId)
-    : null;
+  const filterCounts: Record<OperationalFilter, number> = useMemo(
+    () => ({
+      all: enrichedAll.length,
+      pending: counters.pending,
+      in_progress: counters.in_progress,
+      delivered: counters.delivered,
+      collected: counters.collected,
+      customer_will_call: counters.customer_will_call,
+      not_found: counters.not_found,
+      rescheduled: counters.rescheduled,
+    }),
+    [enrichedAll.length, counters],
+  );
+
+  const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
 
   useEffect(() => {
     if (selected) setDetailOpen(true);
   }, [selected]);
 
-  const pendingWithAddress = rawOrders.filter(
-    (o) => o.location?.source === "pending",
-  ).length;
-
-  const toggleLayer = (k: MapLayerKey) =>
-    setActive((s) => {
-      const n = new Set(s);
-      if (n.has(k)) n.delete(k);
-      else n.add(k);
-      return n;
-    });
+  // Auto-selecionar próximo pendente após ação
+  function selectNextPending(currentKey: string) {
+    const pool = orders.filter(
+      (e) => (e.status === "pending" || e.status === "in_progress") && e.key !== currentKey,
+    );
+    if (pool.length === 0) {
+      setSelectedKey(null);
+      setDetailOpen(false);
+      return;
+    }
+    setSelectedKey(pool[0].key);
+  }
 
   return (
     <div className="relative flex h-[calc(100vh-3.5rem)] w-full flex-col md:flex-row">
@@ -146,7 +233,7 @@ function MapHome() {
               </SelectContent>
             </Select>
           </div>
-          <MapFilterChips active={active} counts={counts} onToggle={toggleLayer} />
+          <OperationalFilters active={filter} counts={filterCounts} onChange={setFilter} />
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -156,19 +243,50 @@ function MapHome() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <SummaryBar summary={summary} className="mt-3" />
-          {pendingWithAddress > 0 && (
-            <GeocodeButton pending={pendingWithAddress} className="mt-2" />
+          <OperationalCounters counts={counters} className="mt-3" />
+          <div className="mt-2 grid grid-cols-3 gap-1 text-center text-[10px]">
+            <div className="rounded-md bg-emerald-50 py-1 text-emerald-700">
+              <div className="text-sm font-semibold tabular-nums">{geoSummary.mapped}</div>
+              <div>Mapeados</div>
+            </div>
+            <div className="rounded-md bg-amber-50 py-1 text-amber-700">
+              <div className="text-sm font-semibold tabular-nums">{geoSummary.pending}</div>
+              <div>Loc. pendentes</div>
+            </div>
+            <div className="rounded-md bg-muted py-1 text-muted-foreground">
+              <div className="text-sm font-semibold tabular-nums">{geoSummary.unresolved}</div>
+              <div>Não local.</div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground">Ordenar:</span>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              <SelectTrigger className="h-7 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manual">Ordem manual</SelectItem>
+                <SelectItem value="customer">Cliente</SelectItem>
+                <SelectItem value="city">Endereço</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="number">Nº do pedido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {!online && (
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+              <WifiOff className="h-3 w-3" /> Sem conexão — ações serão sincronizadas depois.
+            </div>
           )}
         </div>
         <div className="flex-1 overflow-y-auto">
           <OrdersList
             orders={orders}
-            loading={ordersQ.isLoading}
+            loading={ordersQ.isLoading || statesQ.isLoading}
             error={ordersQ.isError || Boolean(erpError)}
             errorMessage={erpError?.message}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
           />
         </div>
       </aside>
@@ -195,37 +313,35 @@ function MapHome() {
             </Select>
           </div>
           <div className="rounded-full border bg-surface/95 px-2 py-1.5 shadow-sm backdrop-blur">
-            <MapFilterChips active={active} counts={counts} onToggle={toggleLayer} />
+            <OperationalFilters active={filter} counts={filterCounts} onChange={setFilter} />
           </div>
+          {!online && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 shadow-sm">
+              <WifiOff className="h-3 w-3" /> Offline
+            </div>
+          )}
         </div>
 
         {mobileView === "map" ? (
-          <MapView markers={markers} onMarkerClick={setSelectedId} selectedId={selectedId} />
+          <MapView markers={markers} onMarkerClick={setSelectedKey} selectedId={selectedKey} />
         ) : (
           <div className="h-full overflow-y-auto bg-background pt-32">
             <OrdersList
               orders={orders}
-              loading={ordersQ.isLoading}
+              loading={ordersQ.isLoading || statesQ.isLoading}
               error={ordersQ.isError || Boolean(erpError)}
               errorMessage={erpError?.message}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+              selectedKey={selectedKey}
+              onSelect={setSelectedKey}
             />
           </div>
         )}
 
         {mobileView === "map" && markers.length === 0 && !ordersQ.isLoading && (
           <div className="pointer-events-none absolute inset-x-4 bottom-24 z-10 mx-auto max-w-md rounded-lg border bg-surface/95 p-3 text-center text-xs text-muted-foreground shadow-sm backdrop-blur md:bottom-4">
-            {!active.has("pedidos") ? (
-              "Ative uma camada para ver marcadores no mapa."
-            ) : rawOrders.length === 0 ? (
-              "Nenhum pedido encontrado para esta data."
-            ) : (
-              <>
-                {rawOrders.length} pedido{rawOrders.length === 1 ? "" : "s"} sem
-                coordenadas ainda. Aguardando localização — nenhum pino no mapa.
-              </>
-            )}
+            {rawOrders.length === 0
+              ? "Nenhum pedido encontrado para esta data."
+              : `${rawOrders.length} pedido${rawOrders.length === 1 ? "" : "s"} sem coordenadas ainda. Aguardando localização — nenhum pino no mapa.`}
           </div>
         )}
 
@@ -233,7 +349,7 @@ function MapHome() {
           <Button
             size="icon"
             variant={mobileView === "map" ? "default" : "outline"}
-            className="h-10 w-10 rounded-full shadow"
+            className="h-11 w-11 rounded-full shadow"
             onClick={() => setMobileView("map")}
             aria-label="Ver mapa"
           >
@@ -242,50 +358,27 @@ function MapHome() {
           <Button
             size="icon"
             variant={mobileView === "list" ? "default" : "outline"}
-            className="h-10 w-10 rounded-full shadow"
+            className="h-11 w-11 rounded-full shadow"
             onClick={() => setMobileView("list")}
             aria-label="Ver lista"
           >
             <List className="h-4 w-4" />
           </Button>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-10 w-10 rounded-full shadow"
-                aria-label="Buscar"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[70vh]">
-              <SheetHeader>
-                <SheetTitle>Buscar</SheetTitle>
-              </SheetHeader>
-              <Input
-                className="mt-3"
-                placeholder="Cliente, endereço ou nº"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <div className="mt-3 h-[calc(70vh-8rem)] overflow-y-auto">
-                <OrdersList
-                  orders={orders}
-                  loading={ordersQ.isLoading}
-                  error={ordersQ.isError}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </div>
 
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto md:ml-auto md:max-w-xl">
-          {selected && <OrderDetail order={selected} onClose={() => setDetailOpen(false)} />}
+        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto md:ml-auto md:max-w-xl">
+          {selected && (
+            <OrderDetailSheet
+              order={selected.order}
+              state={selected.state}
+              operationDate={date}
+              companyId={companyId ?? null}
+              onClose={() => setDetailOpen(false)}
+              onAfterAction={() => selectNextPending(selected.key)}
+            />
+          )}
         </SheetContent>
       </Sheet>
     </div>
@@ -297,14 +390,14 @@ function OrdersList({
   loading,
   error,
   errorMessage,
-  selectedId,
+  selectedKey,
   onSelect,
 }: {
-  orders: OrderRow[];
+  orders: EnrichedOrder[];
   loading: boolean;
   error: boolean;
   errorMessage?: string;
-  selectedId: string | null;
+  selectedKey: string | null;
   onSelect: (id: string) => void;
 }) {
   if (loading) return <div className="p-6 text-sm text-muted-foreground">Carregando pedidos…</div>;
@@ -322,29 +415,36 @@ function OrdersList({
   if (orders.length === 0) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
-        Nenhum pedido encontrado para esta data.
+        Nenhum pedido para os filtros atuais.
       </div>
     );
   }
   return (
     <ul className="divide-y">
-      {orders.map((o, idx) => {
-        const id = String(o.orderId ?? o.orderNumber ?? idx);
+      {orders.map((e) => {
+        const o = e.order;
         const name = o.customerName || o.clientName || "(sem cliente)";
-        const active = selectedId === id;
+        const active = selectedKey === e.key;
         const src = o.location?.source;
         return (
-          <li key={id}>
+          <li key={e.key}>
             <button
               type="button"
-              onClick={() => onSelect(id)}
+              onClick={() => onSelect(e.key)}
               className={cn(
                 "flex w-full flex-col items-start gap-1 px-4 py-3 text-left transition-colors hover:bg-muted/40",
                 active && "bg-accent/40",
               )}
             >
               <div className="flex w-full items-center justify-between gap-2">
-                <span className="truncate text-sm font-medium">{name}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: OPERATIONAL_STATUS_COLOR[e.status] }}
+                  />
+                  <span className="truncate text-sm font-medium">{name}</span>
+                </div>
                 <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
                   #{o.orderNumber ?? o.orderId ?? "—"}
                 </span>
@@ -352,21 +452,28 @@ function OrdersList({
               {o.address && (
                 <span className="line-clamp-2 text-xs text-muted-foreground">{o.address}</span>
               )}
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                {o.period && <span>{o.period}</span>}
-                {o.phone && <span>· {o.phone}</span>}
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                  {OPERATIONAL_STATUS_LABEL[e.status]}
+                </span>
+                {e.state?.operational_date && e.state.operational_date !== e.state.operation_date && (
+                  <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-sky-800">
+                    reag. {e.state.operational_date}
+                  </span>
+                )}
+                {o.period && <span>· {o.period}</span>}
                 {src === "pending" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-800">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
                     <Loader2 className="h-2.5 w-2.5" /> aguardando localização
                   </span>
                 )}
                 {src === "unresolved" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 font-medium text-muted-foreground">
                     <MapPinOff className="h-2.5 w-2.5" /> não localizado
                   </span>
                 )}
                 {src === "cache" && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-800">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800">
                     <MapPin className="h-2.5 w-2.5" /> mapeado
                   </span>
                 )}
@@ -376,186 +483,5 @@ function OrdersList({
         );
       })}
     </ul>
-  );
-}
-
-function SummaryBar({
-  summary,
-  className,
-}: {
-  summary: { total: number; mapped: number; pending: number; unresolved: number };
-  className?: string;
-}) {
-  return (
-    <div className={cn("grid grid-cols-4 gap-1 text-center text-[10px]", className)}>
-      <div className="rounded-md bg-muted/50 py-1">
-        <div className="text-sm font-semibold tabular-nums">{summary.total}</div>
-        <div className="text-muted-foreground">Total</div>
-      </div>
-      <div className="rounded-md bg-emerald-50 py-1">
-        <div className="text-sm font-semibold tabular-nums text-emerald-700">
-          {summary.mapped}
-        </div>
-        <div className="text-emerald-700/80">Mapeados</div>
-      </div>
-      <div className="rounded-md bg-amber-50 py-1">
-        <div className="text-sm font-semibold tabular-nums text-amber-700">
-          {summary.pending}
-        </div>
-        <div className="text-amber-700/80">Pendentes</div>
-      </div>
-      <div className="rounded-md bg-muted py-1">
-        <div className="text-sm font-semibold tabular-nums text-muted-foreground">
-          {summary.unresolved}
-        </div>
-        <div className="text-muted-foreground">Não local.</div>
-      </div>
-    </div>
-  );
-}
-
-function GeocodeButton({
-  pending,
-  className,
-}: {
-  pending: number;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={!GEOCODE_TRIGGER_ENABLED}
-        className="w-full"
-        title={
-          GEOCODE_TRIGGER_ENABLED
-            ? undefined
-            : "Provider de geocodificação ainda não autorizado. Botão desabilitado por configuração."
-        }
-      >
-        <MapPin className="mr-2 h-3.5 w-3.5" />
-        Tentar localizar {pending} endereço{pending === 1 ? "" : "s"}
-      </Button>
-      {!GEOCODE_TRIGGER_ENABLED && (
-        <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
-          Ativação sujeita à liberação do provider de geocodificação. Nenhuma
-          chamada ao Google é feita nesta versão.
-        </p>
-      )}
-    </div>
-  );
-}
-
-function OrderDetail({ order, onClose }: { order: OrderRow; onClose: () => void }) {
-  const name = order.customerName || order.clientName || "(sem cliente)";
-  const mapsUrl = order.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`
-    : null;
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            Pedido #{order.orderNumber ?? order.orderId ?? "—"}
-          </div>
-          <h2 className="truncate text-lg font-semibold">{name}</h2>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {order.address && (
-        <div className="rounded-md border p-3 text-sm">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Endereço</div>
-          <div>{order.address}</div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        {order.phone && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Telefone</div>
-            <div>{order.phone}</div>
-          </div>
-        )}
-        {order.period && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Período</div>
-            <div>{order.period}</div>
-          </div>
-        )}
-        {order.deliveryDate && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Entrega</div>
-            <div>{order.deliveryDate}</div>
-          </div>
-        )}
-        {order.companyId != null && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Empresa</div>
-            <div>{order.companyId === 3 ? "Grott" : order.companyId === 1 ? "Graal" : String(order.companyId)}</div>
-          </div>
-        )}
-      </div>
-
-      {Array.isArray(order.items) && order.items.length > 0 && (
-        <div>
-          <div className="mb-1 text-xs font-medium">Itens</div>
-          <ul className="divide-y rounded-md border text-sm">
-            {order.items.slice(0, 20).map((it, i) => (
-              <li key={i} className="px-3 py-2">
-                {typeof it === "object" && it && "description" in it
-                  ? String((it as { description: unknown }).description)
-                  : JSON.stringify(it)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {Array.isArray(order.equipment) && order.equipment.length > 0 && (
-        <div>
-          <div className="mb-1 text-xs font-medium">Equipamentos</div>
-          <ul className="divide-y rounded-md border text-sm">
-            {order.equipment.slice(0, 20).map((it, i) => (
-              <li key={i} className="px-3 py-2">
-                {typeof it === "object" && it && "description" in it
-                  ? String((it as { description: unknown }).description)
-                  : JSON.stringify(it)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {order.notes && (
-        <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-          {order.notes}
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        {mapsUrl && (
-          <Button asChild size="sm" variant="outline">
-            <a href={mapsUrl} target="_blank" rel="noreferrer">
-              <ExternalLink className="mr-2 h-4 w-4" /> Google Maps
-            </a>
-          </Button>
-        )}
-        {order.phone && (
-          <Button asChild size="sm" variant="outline">
-            <a href={`tel:${order.phone}`}>
-              <Phone className="mr-2 h-4 w-4" /> Ligar
-            </a>
-          </Button>
-        )}
-        <span className="text-[10px] text-muted-foreground">
-          Ações operacionais (Entregar / Recolha / Cliente irá avisar) serão liberadas quando o
-          backend correspondente estiver disponível.
-        </span>
-      </div>
-    </div>
   );
 }
