@@ -118,6 +118,12 @@ test("Bypass NÃO funciona em produção mesmo com DEV_BYPASS_AUTH=true", async 
   // Reset do módulo de env com NODE_ENV=production e bypass=true
   process.env.NODE_ENV = "production";
   process.env.DEV_BYPASS_AUTH = "true";
+  // Em produção o env schema exige provider real com chave — configuramos
+  // valores dummy só para o carregamento do módulo neste teste isolado.
+  const prevProvider = process.env.GEOCODING_PROVIDER;
+  const prevKey = process.env.GOOGLE_GEOCODING_API_KEY;
+  process.env.GEOCODING_PROVIDER = "google";
+  process.env.GOOGLE_GEOCODING_API_KEY = "test-dummy-key";
   // API_KEY e HMAC_SECRET já são longos o suficiente para produção
   const envPath = path.resolve(__dirname, "../src/config/env.js");
   delete require.cache[envPath];
@@ -127,6 +133,10 @@ test("Bypass NÃO funciona em produção mesmo com DEV_BYPASS_AUTH=true", async 
   // Restaura para não afetar outros testes que rodem depois
   process.env.NODE_ENV = "development";
   process.env.DEV_BYPASS_AUTH = "false";
+  if (prevProvider === undefined) delete process.env.GEOCODING_PROVIDER;
+  else process.env.GEOCODING_PROVIDER = prevProvider;
+  if (prevKey === undefined) delete process.env.GOOGLE_GEOCODING_API_KEY;
+  else process.env.GOOGLE_GEOCODING_API_KEY = prevKey;
   delete require.cache[envPath];
 });
 
