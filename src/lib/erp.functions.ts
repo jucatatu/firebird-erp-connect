@@ -196,6 +196,12 @@ export interface GetMapOrdersInput {
   companyId?: 1 | 3;
 }
 
+// POST /api/v1/map/geocode — dispara geocodificação server-side para IDs
+// internos de pedidos. O backend usa a chave Google (nunca o navegador).
+export interface GeocodeOrdersInput {
+  orderIds: number[];
+}
+
 // ── Normalização defensiva ───────────────────────────────────────────────
 // Toda UI consome `NormalizedMapOrder`. Uma linha malformada é marcada com
 // `malformed: true` e recebe defaults seguros — nunca derruba a página.
@@ -436,4 +442,33 @@ export const getMapOrders = createServerFn({ method: "GET" })
         details?: JsonValue;
       } | null;
     };
+  });
+
+export const geocodeOrders = createServerFn({ method: "POST" })
+  .inputValidator((input: GeocodeOrdersInput) => {
+    if (!input || !Array.isArray(input.orderIds)) {
+      throw new Error("orderIds obrigatório (array de inteiros).");
+    }
+    // Sanitiza: apenas inteiros positivos, remove nulos/duplicados.
+    const seen = new Set<number>();
+    const clean: number[] = [];
+    for (const raw of input.orderIds) {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) continue;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      clean.push(n);
+    }
+    if (clean.length === 0) {
+      throw new Error("orderIds vazio após sanitização.");
+    }
+    return { orderIds: clean };
+  })
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    return callErp<JsonValue>({
+      method: "POST",
+      path: "/api/v1/map/geocode",
+      body: { orderIds: data.orderIds } as unknown as JsonValue,
+    });
   });

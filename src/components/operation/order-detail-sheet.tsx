@@ -31,6 +31,7 @@ import {
   CalendarClock,
   StickyNote,
   Loader2,
+  MapPin,
 } from "lucide-react";
 import type {
   NormalizedEquipment,
@@ -48,6 +49,8 @@ import {
   useOperationMutations,
   useOperationNotes,
 } from "@/hooks/use-operations";
+import { useGeocodeOrders } from "@/hooks/use-erp";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { OperationTimeline } from "./operation-timeline";
 import { cn } from "@/lib/utils";
@@ -97,6 +100,38 @@ export function OrderDetailSheet({
     companyId,
     onConflict,
   );
+  const geocodeM = useGeocodeOrders();
+  const qc = useQueryClient();
+
+  const locSource = order.location?.source;
+  const hasCoords =
+    Number.isFinite(order.location?.latitude) &&
+    Number.isFinite(order.location?.longitude);
+  // Elegível para retry: pending/error/unresolved COM endereço e sem
+  // coordenadas. NOT_GEOCODABLE ou já resolvido não mostram o botão.
+  const canRetryGeocode =
+    !hasCoords &&
+    Boolean(addressText) &&
+    erpId > 0 &&
+    (locSource === "pending" || locSource === "unresolved");
+
+  async function retryGeocode() {
+    try {
+      const res = await geocodeM.mutateAsync({ orderIds: [erpId] });
+      if (!res?.ok) {
+        toast.error("Não foi possível localizar o endereço", {
+          description: res?.error?.message ?? undefined,
+        });
+        return;
+      }
+      await qc.invalidateQueries({ queryKey: ["erp", "map", "orders", operationDate] });
+      toast.success("Localização atualizada");
+    } catch (err) {
+      toast.error("Falha ao atualizar localização", {
+        description: (err as Error)?.message ?? String(err),
+      });
+    }
+  }
 
   const [confirm, setConfirm] = useState<ActionKey | null>(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
@@ -281,6 +316,24 @@ export function OrderDetailSheet({
             <a href={`tel:${order.phone}`}>
               <Phone className="mr-2 h-4 w-4" /> Ligar
             </a>
+          </Button>
+        )}
+        {canRetryGeocode && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={retryGeocode}
+            disabled={geocodeM.isPending}
+          >
+            {geocodeM.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Localizando…
+              </>
+            ) : (
+              <>
+                <MapPin className="mr-2 h-4 w-4" /> Tentar localizar
+              </>
+            )}
           </Button>
         )}
       </div>
