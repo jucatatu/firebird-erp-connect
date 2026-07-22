@@ -50,6 +50,7 @@ function describeProvider() {
         ? true
         : Boolean(env.GOOGLE_GEOCODING_API_KEY),
     keyPresent: Boolean(env.GOOGLE_GEOCODING_API_KEY),
+    pm2Instance: process.env.NODE_APP_INSTANCE ?? null,
   };
 }
 

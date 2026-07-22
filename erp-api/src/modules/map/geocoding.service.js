@@ -83,7 +83,9 @@ async function resolveOne(fields, provider, opts = {}) {
     // Hit direto no cache?
     const cached = await cache.get(norm.cacheKey);
     if (cached && (cached.status === "resolved" || cached.status === "unresolved")) {
-      return cached;
+      // Idempotência: não chamamos provider, não incrementamos attempts,
+      // não substituímos providerResolvedAt e não gravamos no cache.
+      return { ...cached, source: "cache" };
     }
 
     if (!norm.geocodable) {
@@ -102,10 +104,10 @@ async function resolveOne(fields, provider, opts = {}) {
         status: "skipped",
         errorCode: "NOT_GEOCODABLE",
         attempts: (cached && cached.attempts) || 0,
-        lastProviderAt: null,
+        providerResolvedAt: (cached && cached.providerResolvedAt) || null,
       };
       await cache.upsert(norm.cacheKey, entry);
-      return { cacheKey: norm.cacheKey, ...entry };
+      return { cacheKey: norm.cacheKey, ...entry, source: "unresolved" };
     }
 
     // Claim cross-request.
@@ -142,10 +144,11 @@ async function resolveOne(fields, provider, opts = {}) {
           status: "unresolved",
           errorCode: "ZERO_RESULTS",
           attempts,
-          lastProviderAt: Date.now(),
+          // Não é uma resolução válida — mantém providerResolvedAt anterior.
+          providerResolvedAt: (cached && cached.providerResolvedAt) || null,
         };
         await cache.upsert(norm.cacheKey, entry);
-        return { cacheKey: norm.cacheKey, ...entry };
+        return { cacheKey: norm.cacheKey, ...entry, source: "unresolved" };
       }
 
       // Erro conhecido do provider (REQUEST_DENIED, TIMEOUT, NETWORK_ERROR,
@@ -168,10 +171,11 @@ async function resolveOne(fields, provider, opts = {}) {
           status: "error",
           errorCode: result.errorCode || "PROVIDER_ERROR",
           attempts,
-          lastProviderAt: Date.now(),
+          // Erro do provider não é resolução — preserva providerResolvedAt.
+          providerResolvedAt: (cached && cached.providerResolvedAt) || null,
         };
         await cache.upsert(norm.cacheKey, entry);
-        return { cacheKey: norm.cacheKey, ...entry };
+        return { cacheKey: norm.cacheKey, ...entry, source: "error" };
       }
 
       // País ≠ BR → tratamos como unresolved e sinalizamos.
@@ -191,10 +195,10 @@ async function resolveOne(fields, provider, opts = {}) {
           status: "unresolved",
           errorCode: "NON_BR_RESULT",
           attempts,
-          lastProviderAt: Date.now(),
+          providerResolvedAt: (cached && cached.providerResolvedAt) || null,
         };
         await cache.upsert(norm.cacheKey, entry);
-        return { cacheKey: norm.cacheKey, ...entry };
+        return { cacheKey: norm.cacheKey, ...entry, source: "unresolved" };
       }
 
       const mismatch = detectMismatch({
@@ -221,10 +225,10 @@ async function resolveOne(fields, provider, opts = {}) {
         status: "resolved",
         errorCode: "",
         attempts,
-        lastProviderAt: Date.now(),
+        providerResolvedAt: new Date().toISOString(),
       };
       await cache.upsert(norm.cacheKey, entry);
-      return { cacheKey: norm.cacheKey, ...entry };
+      return { cacheKey: norm.cacheKey, ...entry, source: "provider" };
     } catch (err) {
       logger.warn(
         { cacheKey: norm.cacheKey, err: err && err.message },
@@ -245,10 +249,10 @@ async function resolveOne(fields, provider, opts = {}) {
         status: "error",
         errorCode: "PROVIDER_ERROR",
         attempts,
-        lastProviderAt: Date.now(),
+        providerResolvedAt: (cached && cached.providerResolvedAt) || null,
       };
       await cache.upsert(norm.cacheKey, entry);
-      return { cacheKey: norm.cacheKey, ...entry };
+      return { cacheKey: norm.cacheKey, ...entry, source: "error" };
     } finally {
       await cache.releaseClaim(norm.cacheKey);
     }

@@ -1,12 +1,27 @@
 #!/usr/bin/env node
 "use strict";
 /**
- * Inspeciona o cache de geocodificação para o endereço de um pedido.
- * Uso: node scripts/inspect-geocoding-cache.js <orderId>
+ * Inspeciona o cache de geocodificação DENTRO DO PRÓPRIO PROCESSO deste
+ * script. IMPORTANTE:
  *
- * Consulta o Firebird para montar o endereço canônico, calcula o cacheKey
- * e imprime o que existe no cache in-memory do processo atual (limitado
- * pelo escopo: cache in-memory não persiste entre processos).
+ *   • Cada execução deste script cria um processo Node novo.
+ *   • Esse processo tem seu próprio heap, seu próprio singleton e seu
+ *     próprio `Map` de cache — SEMPRE começa vazio.
+ *   • Rodar `node scripts/inspect-geocoding-cache.js` (mesmo via
+ *     `pm2 exec ...`) NÃO acessa o cache da instância da API que já
+ *     está rodando no PM2. É outro processo, outra memória.
+ *
+ * Para inspecionar o cache real da API em execução use o endpoint
+ * autenticado GET /api/v1/health/geocoding/cache/:orderId, protegido
+ * pela flag GEOCODING_DIAGNOSTICS_ENABLED.
+ *
+ * Este script é útil apenas para:
+ *   - consultar o pedido no Firebird;
+ *   - montar o endereço canônico;
+ *   - calcular o cacheKey (invariante compartilhada com o servidor);
+ *   - conferir provider/configuração do processo deste script.
+ *
+ * Uso: node scripts/inspect-geocoding-cache.js <orderId>
  */
 const path = require("path");
 try { require("dotenv").config({ path: path.resolve(__dirname, "..", ".env") }); } catch {}
@@ -37,8 +52,11 @@ if (!Number.isInteger(orderId) || orderId <= 0) {
   const cache = getCache();
   const entry = await cache.get(norm.cacheKey);
   console.log(JSON.stringify({
+    cacheScope: "current_script_process_only",
+    sharedWithRunningApi: false,
     cacheKind: cache.kind,
     pid: process.pid,
+    pm2Instance: process.env.NODE_APP_INSTANCE ?? null,
     provider: describeProvider(),
     canonical: norm.canonical,
     cacheKey: norm.cacheKey,
@@ -52,11 +70,12 @@ if (!Number.isInteger(orderId) || orderId <= 0) {
           precision: entry.precision || null,
           locationType: entry.locationType || null,
           attempts: entry.attempts || 0,
-          updatedAt: entry.updatedAt || null,
+          providerResolvedAt: entry.providerResolvedAt || null,
+          updatedAt: entry.updatedAt ? new Date(entry.updatedAt).toISOString() : null,
         }
       : null,
     note:
-      "Cache é in-memory por processo. Se você rodar este script fora do processo PM2 do erp-api, verá cache VAZIO — isso é esperado. Use GET /api/v1/health/geocoding para conferir o PID do servidor.",
+      "Este script roda em um processo Node INDEPENDENTE. Nunca compartilha memória com a instância da API em execução (PM2 ou não). Para consultar o cache real do servidor use GET /api/v1/health/geocoding/cache/:orderId com GEOCODING_DIAGNOSTICS_ENABLED=true.",
   }, null, 2));
   process.exit(0);
 })().catch((err) => { console.error("[fatal]", err?.stack || err); process.exit(3); });

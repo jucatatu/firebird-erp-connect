@@ -12,5 +12,10 @@ router.get("/", controller.getHealth);
 // Autenticado (com bypass local em dev)
 router.get("/erp", authMiddleware, controller.getErpHealth);
 router.get("/geocoding", authMiddleware, controller.getGeocodingHealth);
+router.get(
+  "/geocoding/cache/:orderId",
+  authMiddleware,
+  controller.getGeocodingCacheDiagnostic,
+);
 
 module.exports = router;
