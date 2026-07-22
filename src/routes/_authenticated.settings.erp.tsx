@@ -1,12 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
+import { useMyRoles } from "@/hooks/use-auth";
 import {
   useErpDatabaseHealth,
   useErpHealth,
   useListOrdersMutation,
 } from "@/hooks/use-erp";
 
-export const Route = createFileRoute("/settings/erp")({
+export const Route = createFileRoute("/_authenticated/settings/erp")({
   head: () => ({
     meta: [
       { title: "Diagnóstico ERP — Firebird Integration" },
@@ -117,6 +120,13 @@ function useTimedQuery<T>(startedAt: number | undefined, isFetching: boolean) {
 }
 
 function ErpDiagnosticsPage() {
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+  const rolesQ = useMyRoles(user);
+  const isAdmin = (rolesQ.data ?? []).includes("admin");
+
   const health = useErpHealth();
   const dbHealth = useErpDatabaseHealth();
 
@@ -152,6 +162,20 @@ function ErpDiagnosticsPage() {
   const ordersList = (result?.ok && result.data?.orders) || [];
   const graalCount = ordersList.filter((o) => Number(pick(o, "companyId")) === 1).length;
   const grottCount = ordersList.filter((o) => Number(pick(o, "companyId")) === 3).length;
+
+  if (!rolesQ.isLoading && !isAdmin) {
+    return (
+      <div className="mx-auto max-w-lg py-12 text-center">
+        <h1 className="text-lg font-semibold">Acesso restrito</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Esta página é exclusiva de administradores.
+        </p>
+        <Link to="/" className="mt-4 inline-block text-sm underline">
+          Voltar
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-6 py-8">

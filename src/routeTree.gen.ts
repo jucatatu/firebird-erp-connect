@@ -9,68 +9,196 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as SettingsErpRouteImport } from './routes/settings.erp'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated.orders'
+import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
+import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated.orders.new'
+import { Route as AuthenticatedOrdersDraftIdRouteImport } from './routes/_authenticated.orders.$draftId'
 
-const IndexRoute = IndexRouteImport.update({
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const SettingsErpRoute = SettingsErpRouteImport.update({
-  id: '/settings/erp',
-  path: '/settings/erp',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsErpRoute =
+  AuthenticatedSettingsErpRouteImport.update({
+    id: '/settings/erp',
+    path: '/settings/erp',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOrdersNewRoute = AuthenticatedOrdersNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AuthenticatedOrdersRoute,
+} as any)
+const AuthenticatedOrdersDraftIdRoute =
+  AuthenticatedOrdersDraftIdRouteImport.update({
+    id: '/$draftId',
+    path: '/$draftId',
+    getParentRoute: () => AuthenticatedOrdersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/login': typeof LoginRoute
+  '/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
+  '/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/login': typeof LoginRoute
+  '/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/': typeof AuthenticatedIndexRoute
+  '/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
+  '/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/settings/erp': typeof SettingsErpRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_authenticated/orders': typeof AuthenticatedOrdersRouteWithChildren
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/orders/$draftId': typeof AuthenticatedOrdersDraftIdRoute
+  '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
+  '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings/erp'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/orders'
+    | '/orders/$draftId'
+    | '/orders/new'
+    | '/settings/erp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings/erp'
-  id: '__root__' | '/' | '/settings/erp'
+  to:
+    | '/login'
+    | '/orders'
+    | '/'
+    | '/orders/$draftId'
+    | '/orders/new'
+    | '/settings/erp'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/orders'
+    | '/_authenticated/'
+    | '/_authenticated/orders/$draftId'
+    | '/_authenticated/orders/new'
+    | '/_authenticated/settings/erp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  SettingsErpRoute: typeof SettingsErpRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/erp': {
-      id: '/settings/erp'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/orders': {
+      id: '/_authenticated/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/erp': {
+      id: '/_authenticated/settings/erp'
       path: '/settings/erp'
       fullPath: '/settings/erp'
-      preLoaderRoute: typeof SettingsErpRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/orders/new': {
+      id: '/_authenticated/orders/new'
+      path: '/new'
+      fullPath: '/orders/new'
+      preLoaderRoute: typeof AuthenticatedOrdersNewRouteImport
+      parentRoute: typeof AuthenticatedOrdersRoute
+    }
+    '/_authenticated/orders/$draftId': {
+      id: '/_authenticated/orders/$draftId'
+      path: '/$draftId'
+      fullPath: '/orders/$draftId'
+      preLoaderRoute: typeof AuthenticatedOrdersDraftIdRouteImport
+      parentRoute: typeof AuthenticatedOrdersRoute
     }
   }
 }
 
+interface AuthenticatedOrdersRouteChildren {
+  AuthenticatedOrdersDraftIdRoute: typeof AuthenticatedOrdersDraftIdRoute
+  AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
+}
+
+const AuthenticatedOrdersRouteChildren: AuthenticatedOrdersRouteChildren = {
+  AuthenticatedOrdersDraftIdRoute: AuthenticatedOrdersDraftIdRoute,
+  AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
+}
+
+const AuthenticatedOrdersRouteWithChildren =
+  AuthenticatedOrdersRoute._addFileChildren(AuthenticatedOrdersRouteChildren)
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRouteWithChildren
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedOrdersRoute: AuthenticatedOrdersRouteWithChildren,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  SettingsErpRoute: SettingsErpRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
