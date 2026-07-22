@@ -203,11 +203,13 @@ export function useTransitionDraft() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: { id: string; newStatus: OrderDraftStatus; reason?: string | null }) => {
-      const { data, error } = await supabase.rpc("update_order_draft_status", {
-        _draft_id: args.id,
-        _new_status: args.newStatus,
-        _reason: args.reason ?? null,
-      });
+      const payload: {
+        _draft_id: string;
+        _new_status: OrderDraftStatus;
+        _reason?: string;
+      } = { _draft_id: args.id, _new_status: args.newStatus };
+      if (args.reason) payload._reason = args.reason;
+      const { data, error } = await supabase.rpc("update_order_draft_status", payload);
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["order_draft", args.id] });
       qc.invalidateQueries({ queryKey: ["order_draft_events", args.id] });
