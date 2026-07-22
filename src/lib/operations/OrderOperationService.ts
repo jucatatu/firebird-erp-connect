@@ -10,6 +10,7 @@ import {
   type OrderSnapshotInput,
   type SnapshotField,
 } from "./types";
+import type { OperationAction } from "./state-machine";
 
 /**
  * Interface pública das ações operacionais. Deve permanecer independente
@@ -25,6 +26,19 @@ export interface OrderOperationService {
     status: OperationalStatus;
     expectedVersion: number;
   }): Promise<OperationState>;
+  transition(input: {
+    stateId: string;
+    action: OperationAction;
+    expectedVersion: number;
+    payload?: Record<string, unknown>;
+  }): Promise<OperationState>;
+  assignOperator(input: {
+    stateId: string;
+    role: "delivery" | "pickup";
+    userId: string;
+    expectedVersion: number;
+  }): Promise<OperationState>;
+  listProfiles(): Promise<Array<{ id: string; full_name: string | null }>>;
   reschedule(input: {
     stateId: string;
     newDate: string;
