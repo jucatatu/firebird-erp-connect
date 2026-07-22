@@ -47,6 +47,12 @@ function createFakeProvider(opts = {}) {
     if (flat.includes("unresolved")) {
       return { status: "ZERO_RESULTS" };
     }
+    if (flat.includes("request-denied")) {
+      return { status: "ERROR", errorCode: "REQUEST_DENIED" };
+    }
+    if (flat.includes("provider-timeout")) {
+      return { status: "ERROR", errorCode: "TIMEOUT" };
+    }
 
     let locationType = "ROOFTOP";
     if (flat.includes("approximate")) locationType = "APPROXIMATE";
