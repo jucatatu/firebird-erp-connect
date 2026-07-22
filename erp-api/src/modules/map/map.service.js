@@ -6,6 +6,8 @@ const opsMapper = require("../operations/operations.mapper");
 const { normalizeAddress } = require("./geocoding-normalize");
 const { getCache } = require("./geocoding-cache");
 const geocoding = require("./geocoding.service");
+const { logger } = require("../../config/logger");
+const { env } = require("../../config/env");
 
 /**
  * Adapta o endereço do contrato Operations para os campos que o normalize
@@ -140,6 +142,19 @@ async function listOrdersForMap({ date, companyId }) {
  */
 async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
   const rows = await mapRepository.findOrdersAddressesByIds(orderIds);
+  logger.info(
+    {
+      geocode: {
+        provider: env.GEOCODING_PROVIDER,
+        providerKey: env.GOOGLE_GEOCODING_API_KEY ? "configured" : "missing",
+        cache: getCache().kind,
+        pid: process.pid,
+        requestedIds: orderIds,
+        foundIds: rows.map((r) => Number(opsMapper.pick(r, "ID_ORDENS_VENDA"))).filter(Number.isFinite),
+      },
+    },
+    "map.geocode: request received",
+  );
   // rowByOrderId
   const byId = new Map();
   for (const row of rows) {
@@ -168,6 +183,17 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
       postalCode: "",
     });
     orderKey.set(id, norm.cacheKey);
+    logger.info(
+      {
+        geocode: {
+          orderId: id,
+          cacheKey: norm.cacheKey,
+          canonical: norm.canonical,
+          geocodable: norm.geocodable,
+        },
+      },
+      "map.geocode: canonical built",
+    );
     if (seenKeys.has(norm.cacheKey)) continue;
     seenKeys.add(norm.cacheKey);
     if (fieldsList.length >= limit) continue;
@@ -187,6 +213,24 @@ async function geocodeByOrderIds({ orderIds, limit }, opts = {}) {
     timeoutMs: opts.timeoutMs,
     cache: opts.cache,
   });
+  for (const [key, entry] of resultsByKey.entries()) {
+    logger.info(
+      {
+        geocode: {
+          cacheKey: key,
+          status: entry.status,
+          errorCode: entry.errorCode || null,
+          hasCoords:
+            typeof entry.latitude === "number" && typeof entry.longitude === "number",
+          matchedCountry: entry.matchedCountry || null,
+          matchedCity: entry.matchedCity || null,
+          matchedState: entry.matchedState || null,
+          precision: entry.precision || null,
+        },
+      },
+      "map.geocode: provider result",
+    );
+  }
 
   const perOrder = [];
   let resolvedCount = 0;
