@@ -10,12 +10,14 @@ import {
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
-import { useOperationStates, useProfiles } from "@/hooks/use-operations";
+import { useOperationStates, usePickupStatesForDate, useProfiles } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import { resolveDeliveryTime } from "@/lib/delivery-time";
 import {
-  OPERATIONAL_STATUS_COLOR,
+  ATTENTION_RED,
+  pickupPeriodAbbrev,
+  publicStatusColor,
   publicStatusLabel,
   type OperationState,
   type OperationalStatus,
@@ -30,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User } from "lucide-react";
+import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User, Info, Truck, PackageX } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -53,6 +56,9 @@ interface EnrichedOrder {
   erpId: number;
   state: OperationState | null;
   status: OperationalStatus;
+  opType: "delivery" | "pickup";
+  /** Só para pickups: data agendada usada como referência de atraso. */
+  scheduledDate?: string | null;
 }
 
 function today() {
