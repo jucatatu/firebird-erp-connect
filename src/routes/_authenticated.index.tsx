@@ -618,6 +618,110 @@ function LegendRow({ color, label }: { color: string; label: string }) {
   );
 }
 
+function MapPreviewCard({
+  entry,
+  profileById,
+  onClose,
+  onOpenDetails,
+}: {
+  entry: EnrichedOrder;
+  profileById: Map<string, string>;
+  onClose: () => void;
+  onOpenDetails: () => void;
+}) {
+  const o = entry.order;
+  const isPickup = entry.opType === "pickup";
+  const scheduled = entry.state?.pickup_scheduled_date ?? null;
+  const overdue = isPickup && scheduled != null && scheduled < today();
+  const color = overdue ? ATTENTION_RED : publicStatusColor(entry.status);
+  const assigneeId = isPickup
+    ? entry.state?.pickup_assignee_id
+    : entry.state?.delivery_assignee_id;
+  const assigneeName = assigneeId ? profileById.get(assigneeId) : null;
+  const period = pickupPeriodAbbrev(entry.state?.pickup_scheduled_time);
+  return (
+    <div className="pointer-events-auto absolute inset-x-3 bottom-24 z-20 mx-auto max-w-md rounded-xl border bg-surface p-3 shadow-xl md:bottom-6 md:left-auto md:right-6 md:mx-0">
+      <div className="flex items-start gap-2">
+        <span
+          aria-hidden
+          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span>#{o.orderNumber}</span>
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+              style={{ backgroundColor: color }}
+            >
+              {overdue ? "Recolha atrasada" : publicStatusLabel(entry.status)}
+            </span>
+          </div>
+          <div className="truncate text-sm font-semibold">{o.customerName}</div>
+          {o.address.formatted && (
+            <div className="line-clamp-2 text-xs text-muted-foreground">
+              {o.address.formatted}
+            </div>
+          )}
+          <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {isPickup ? (
+              <>
+                <div>
+                  <span className="block text-[10px] uppercase">Recolha</span>
+                  <span className="font-medium text-foreground">
+                    {scheduled ? formatShortDate(scheduled) : "—"}
+                    {period ? ` · ${period}` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] uppercase">Responsável</span>
+                  <span className="font-medium text-foreground">
+                    {assigneeName ?? "Sem responsável"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="block text-[10px] uppercase">Entrega</span>
+                  <span className="font-medium text-foreground">
+                    {o.deliveryDate ? formatShortDate(o.deliveryDate) : "—"}
+                    {o.deliveryTime ? ` · ${o.deliveryTime}` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] uppercase">Responsável</span>
+                  <span className="font-medium text-foreground">
+                    {assigneeName ?? "Sem responsável"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 shrink-0"
+          onClick={onClose}
+          aria-label="Fechar"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <Button onClick={onOpenDetails} className="mt-3 h-10 w-full text-sm font-semibold">
+        Ver detalhes
+      </Button>
+    </div>
+  );
+}
+
+function formatShortDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 function OrdersList({
   orders,
   profileById,
