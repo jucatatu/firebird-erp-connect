@@ -12,7 +12,22 @@ function eventInfo(e: OperationEvent) {
     case "rescheduled": return { title: "Reagendado", icon: CalendarClock };
     case "note_added": return { title: "Observação adicionada", icon: StickyNote };
     case "corrected": return { title: "Correção administrativa", icon: Wrench };
-    default: return { title: e.event_type, icon: FileEdit };
+    case "delivery_assigned": return { title: "Entregador atribuído", icon: Play };
+    case "delivery_assignee_changed": return { title: "Entregador alterado", icon: Play };
+    case "delivery_started": return { title: "Entrega iniciada", icon: Play };
+    case "delivery_confirmed": return { title: "Entrega concluída", icon: CheckCircle2 };
+    case "delivery_customer_not_found": return { title: "Cliente não localizado", icon: MapPinOff };
+    case "delivery_rescheduled": return { title: "Entrega reagendada", icon: CalendarClock };
+    case "customer_will_contact": return { title: "Cliente irá avisar", icon: Bell };
+    case "pickup_scheduled": return { title: "Recolha agendada", icon: CalendarClock };
+    case "pickup_rescheduled": return { title: "Recolha reagendada", icon: CalendarClock };
+    case "pickup_assigned": return { title: "Responsável da recolha atribuído", icon: Play };
+    case "pickup_assignee_changed": return { title: "Responsável da recolha alterado", icon: Play };
+    case "pickup_started": return { title: "Recolha iniciada", icon: Play };
+    case "pickup_customer_not_found": return { title: "Cliente não localizado (recolha)", icon: MapPinOff };
+    case "pickup_confirmed": return { title: "Recolha concluída", icon: PackageX };
+    case "operation_completed": return { title: "Operação concluída", icon: CheckCircle2 };
+    default: return { title: "Atualização", icon: FileEdit };
   }
 }
 
