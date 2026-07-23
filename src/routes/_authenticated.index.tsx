@@ -495,6 +495,33 @@ function MapHome() {
           )}
         </div>
 
+        
+        <div className="absolute right-3 bottom-24 z-10 md:bottom-4 md:right-16">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-9 w-9 rounded-full bg-surface/95 shadow-sm backdrop-blur"
+                aria-label="Ver legenda"
+                title="Ver legenda"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" side="top" className="w-56 space-y-1.5 p-3 text-xs">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Legenda
+              </div>
+              <LegendRow color="#d99a22" label="Pendente" />
+              <LegendRow color="#16a34a" label="Recolha agendada" />
+              <LegendRow color="#f59e0b" label="Cliente irá avisar" />
+              <LegendRow color="#6b7280" label="Concluído" />
+              <LegendRow color="#dc2626" label="Atrasada" />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {mobileView === "map" ? (
           <MapView markers={markers} onMarkerClick={setSelectedKey} selectedId={selectedKey} />
         ) : (
@@ -556,6 +583,16 @@ function MapHome() {
           )}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+
+function LegendRow({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      <span>{label}</span>
     </div>
   );
 }
