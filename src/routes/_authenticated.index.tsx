@@ -10,12 +10,14 @@ import {
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
-import { useOperationStates, useProfiles } from "@/hooks/use-operations";
+import { useOperationStates, usePickupStatesForDate, useProfiles } from "@/hooks/use-operations";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import { resolveDeliveryTime } from "@/lib/delivery-time";
 import {
-  OPERATIONAL_STATUS_COLOR,
+  ATTENTION_RED,
+  pickupPeriodAbbrev,
+  publicStatusColor,
   publicStatusLabel,
   type OperationState,
   type OperationalStatus,
@@ -30,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User } from "lucide-react";
+import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User, Info, Truck, PackageX } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/")({
@@ -53,10 +56,42 @@ interface EnrichedOrder {
   erpId: number;
   state: OperationState | null;
   status: OperationalStatus;
+  opType: "delivery" | "pickup";
+  /** Só para pickups: data agendada usada como referência de atraso. */
+  scheduledDate?: string | null;
 }
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+
+function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
+  const snap = (s.snapshot ?? {}) as Record<string, unknown>;
+  const address = typeof snap.address === "string" ? snap.address : "";
+  return {
+    key: `state-${s.id}`,
+    erpOrderId: Number(s.erp_order_id),
+    orderNumber: String(s.erp_order_number ?? s.erp_order_id),
+    companyId: s.company_id,
+    customerName: typeof snap.customerName === "string" ? snap.customerName : "(sem dados do ERP)",
+    phone: typeof snap.phone === "string" ? snap.phone : null,
+    address: {
+      formatted: address, street: address, number: "", complement: "",
+      district: "", city: "", state: "",
+    },
+    observations: null, erpStatus: null,
+    deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
+    returnDate: null,
+    period: typeof snap.period === "string" ? snap.period : null,
+    deliveryTime: null,
+    items: [], equipments: [],
+    location: {
+      latitude: null, longitude: null, locationType: "", precision: "",
+      placeId: "", matchMismatch: false, source: "unresolved", cacheKey: "",
+    },
+    malformed: false, raw: {},
+  };
 }
 
 function MapHome() {
@@ -77,6 +112,7 @@ function MapHome() {
 
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
+  const pickupsQ = usePickupStatesForDate(date, companyId ?? null);
   const profilesQ = useProfiles();
   const geocodeM = useGeocodeOrders();
   const qc = useQueryClient();
@@ -101,21 +137,47 @@ function MapHome() {
     [rawOrders],
   );
 
-  // Junta pedidos do ERP com estados operacionais locais por erp_order_id.
+  // Mapa unificado: combina duas agendas na mesma data:
+  //   1) ENTREGAS: pedidos do ERP com previsão para `date`.
+  //   2) RECOLHAS: estados operacionais cujo pickup_scheduled_date === date,
+  //      mesmo que a entrega tenha ocorrido em outro dia.
+  // Um pedido pode aparecer nas duas listas (entrega e recolha no mesmo dia)
+  // — desambiguado por `opType` para não sobrepor marcadores idênticos.
   const enrichedAll: EnrichedOrder[] = useMemo(() => {
     const stateByErpId = new Map<number, OperationState>();
     (statesQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
-    return normalizedOrders.map((n) => {
+    (pickupsQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
+    const orderByErpId = new Map<number, NormalizedMapOrder>();
+    normalizedOrders.forEach((n) => orderByErpId.set(n.erpOrderId, n));
+
+    const deliveries: EnrichedOrder[] = normalizedOrders.map((n) => {
       const state = stateByErpId.get(n.erpOrderId) ?? null;
       return {
         order: n,
-        key: n.key,
+        key: `d:${n.key}`,
         erpId: n.erpOrderId,
         state,
         status: state?.operational_status ?? "pending",
+        opType: "delivery",
       };
     });
-  }, [normalizedOrders, statesQ.data]);
+
+    const pickups: EnrichedOrder[] = (pickupsQ.data ?? []).map((s) => {
+      const erpId = Number(s.erp_order_id);
+      const order = orderByErpId.get(erpId) ?? fallbackOrderFromState(s);
+      return {
+        order,
+        key: `p:${s.id}`,
+        erpId,
+        state: s,
+        status: s.operational_status,
+        opType: "pickup",
+        scheduledDate: s.pickup_scheduled_date,
+      };
+    });
+
+    return [...deliveries, ...pickups];
+  }, [normalizedOrders, statesQ.data, pickupsQ.data]);
 
   // ── Auto-geocoding: dispara POST /api/v1/map/geocode para os pedidos
   // pending que ainda não foram tentados nesta sessão. Uma única vez por
@@ -168,7 +230,23 @@ function MapHome() {
   const filtered: EnrichedOrder[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     return enrichedAll.filter((e) => {
-      if (filter !== "all" && filterOfStatus(e.status) !== filter) return false;
+      // Concluídos ficam ocultos por padrão — só aparecem no filtro explícito.
+      const bucket = filterOfStatus(e.status);
+      if (filter === "completed") {
+        if (bucket !== "completed") return false;
+      } else {
+        if (bucket === "completed") return false;
+        if (filter === "deliveries" && e.opType !== "delivery") return false;
+        if (filter === "pickups" && e.opType !== "pickup") return false;
+        if (filter === "customer_will_call" && bucket !== "customer_will_call") return false;
+        // "all": remove duplicata delivery↔pickup do mesmo pedido — prioriza pickup.
+        if (filter === "all" && e.opType === "delivery") {
+          const hasPickupOnDate = (pickupsQ.data ?? []).some(
+            (s) => Number(s.erp_order_id) === e.erpId,
+          );
+          if (hasPickupOnDate) return false;
+        }
+      }
       if (!q) return true;
       return (
         e.order.customerName.toLowerCase().includes(q) ||
@@ -176,7 +254,7 @@ function MapHome() {
         e.order.orderNumber.toLowerCase().includes(q)
       );
     });
-  }, [enrichedAll, query, filter]);
+  }, [enrichedAll, query, filter, pickupsQ.data]);
 
   // Ordenação
   const orders: EnrichedOrder[] = useMemo(() => {
@@ -212,28 +290,47 @@ function MapHome() {
       // Marcadores dependem APENAS de coordenada válida. Lista/detalhe/ações
       // operacionais ignoram `location` — a fonte de verdade é `address`.
       .filter((e) => isMappable(e.order))
-      .map((e) => ({
-        id: e.key,
-        lat: e.order.location.latitude as number,
-        lng: e.order.location.longitude as number,
-        color: OPERATIONAL_STATUS_COLOR[e.status],
-        label: e.order.customerName,
-        orderNumber: e.order.orderNumber,
-        // Prioriza o novo campo `deliveryTime` (backend v1.4.2+); cai
-        // para a parte de hora de expectedDelivery/deliveryDate. Nunca
-        // usa `period`, nunca inventa "Sem horário" no mapa.
-        deliveryTime: resolveDeliveryTime(e.order),
-      }));
+      .map((e) => {
+        const overdue =
+          e.opType === "pickup" &&
+          e.scheduledDate != null &&
+          e.scheduledDate < today();
+        const color = overdue ? ATTENTION_RED : publicStatusColor(e.status);
+        // Marcador de recolha usa o período (MANHÃ/TARDE) em vez do
+        // horário da entrega — nunca mistura os dois.
+        const timeOrPeriod =
+          e.opType === "pickup"
+            ? pickupPeriodAbbrev(e.state?.pickup_scheduled_time) ?? ""
+            : resolveDeliveryTime(e.order);
+        return {
+          id: e.key,
+          lat: e.order.location.latitude as number,
+          lng: e.order.location.longitude as number,
+          color,
+          label: e.order.customerName,
+          orderNumber: e.order.orderNumber,
+          deliveryTime: timeOrPeriod,
+        };
+      });
   }, [orders]);
 
   // Contadores por bucket funcional (Pendente, Em entrega, ...).
   const filterCounts = useMemo(() => {
-    const base: Partial<Record<OperationalFilter, number>> = {};
+    const base: Partial<Record<OperationalFilter, number>> = {
+      all: 0,
+      deliveries: 0,
+      pickups: 0,
+      customer_will_call: 0,
+      completed: 0,
+    };
     enrichedAll.forEach((e) => {
       const bucket = filterOfStatus(e.status);
-      base[bucket] = (base[bucket] ?? 0) + 1;
+      if (bucket === "completed") base.completed = (base.completed ?? 0) + 1;
+      else base.all = (base.all ?? 0) + 1;
+      if (e.opType === "delivery" && bucket !== "completed") base.deliveries = (base.deliveries ?? 0) + 1;
+      if (e.opType === "pickup" && bucket !== "completed") base.pickups = (base.pickups ?? 0) + 1;
+      if (bucket === "customer_will_call") base.customer_will_call = (base.customer_will_call ?? 0) + 1;
     });
-    base.all = enrichedAll.length;
     return base;
   }, [enrichedAll]);
 
@@ -398,6 +495,33 @@ function MapHome() {
           )}
         </div>
 
+        
+        <div className="absolute right-3 bottom-24 z-10 md:bottom-4 md:right-16">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-9 w-9 rounded-full bg-surface/95 shadow-sm backdrop-blur"
+                aria-label="Ver legenda"
+                title="Ver legenda"
+              >
+                <Info className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" side="top" className="w-56 space-y-1.5 p-3 text-xs">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Legenda
+              </div>
+              <LegendRow color="#d99a22" label="Pendente" />
+              <LegendRow color="#16a34a" label="Recolha agendada" />
+              <LegendRow color="#f59e0b" label="Cliente irá avisar" />
+              <LegendRow color="#6b7280" label="Concluído" />
+              <LegendRow color="#dc2626" label="Atrasada" />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {mobileView === "map" ? (
           <MapView markers={markers} onMarkerClick={setSelectedKey} selectedId={selectedKey} />
         ) : (
@@ -463,6 +587,16 @@ function MapHome() {
   );
 }
 
+
+function LegendRow({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 function OrdersList({
   orders,
   profileById,
@@ -520,7 +654,7 @@ function OrdersList({
                   <span
                     aria-hidden
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: OPERATIONAL_STATUS_COLOR[e.status] }}
+                    style={{ backgroundColor: publicStatusColor(e.status) }}
                   />
                   <span className="truncate text-sm font-medium">{o.customerName}</span>
                   {o.malformed && (

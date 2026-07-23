@@ -15,6 +15,19 @@ export function useOperationStates(operationDate: string, companyId?: number | n
   });
 }
 
+/**
+ * Estados cujo `pickup_scheduled_date` bate com a data. Usado pelo mapa
+ * para exibir recolhas agendadas nesta data — mesmo quando a entrega
+ * ocorreu em outro dia. Reusa cache + invalidação da mesma família.
+ */
+export function usePickupStatesForDate(pickupDate: string, companyId?: number | null) {
+  return useQuery({
+    queryKey: ["operation-states", "pickup-date", pickupDate, companyId ?? "all"],
+    queryFn: () => operationService.listPickupsForDate({ pickupDate, companyId }),
+    staleTime: 5_000,
+  });
+}
+
 export function useOperationEvents(stateId: string | null | undefined) {
   return useQuery({
     queryKey: ["operation-events", stateId],

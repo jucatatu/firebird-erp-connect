@@ -10,6 +10,7 @@ import {
 import {
   publicStatusLabel,
   publicStatusColor,
+  pickupPeriodLabel,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
@@ -250,6 +251,12 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
   };
 }
 
+function formatBrDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}`;
+}
+
 function PickupItem({
   order,
   state,
@@ -306,8 +313,9 @@ function PickupItem({
           </span>
           {scheduled && (
             <span className={cn("inline-flex items-center gap-1", overdue && "text-red-700")}>
-              <CalendarClock className="h-3 w-3" /> {scheduled}
-              {state.pickup_scheduled_time ? ` ${state.pickup_scheduled_time}` : ""}
+              <CalendarClock className="h-3 w-3" /> {formatBrDate(scheduled)}
+              {pickupPeriodLabel(state.pickup_scheduled_time) &&
+                ` — ${pickupPeriodLabel(state.pickup_scheduled_time)}`}
             </span>
           )}
           <span className="inline-flex items-center gap-1">

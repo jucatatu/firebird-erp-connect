@@ -46,6 +46,7 @@ import type {
 import {
   OperationConflictError,
   publicStatusLabel,
+  pickupPeriodLabel,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
@@ -294,17 +295,15 @@ export function OrderDetailSheet({
 
   async function performSchedulePickup() {
     if (!pickupDate) return;
-    const periodLabel =
-      pickupPeriod === "manha" ? "Manhã" : pickupPeriod === "tarde" ? "Tarde" : "Dia todo";
-    // Persistimos o período no campo textual `pickup_note` (sem migração
-    // nova) e enviamos também `period` no payload para evolução futura.
-    const noteWithPeriod = pickupNote
-      ? `Período: ${periodLabel} — ${pickupNote}`
-      : `Período: ${periodLabel}`;
+    // Persiste o período no campo estruturado `pickup_scheduled_time`
+    // (coluna text existente) enviando-o como `scheduledTime`. O RPC
+    // atual grava esse valor em pickup_scheduled_time diretamente — sem
+    // migração e sem misturar com o pickup_note (que é observação livre).
     const res = await performTransition("schedule_pickup", {
       scheduledDate: pickupDate,
+      scheduledTime: pickupPeriod,
       period: pickupPeriod,
-      note: noteWithPeriod,
+      note: pickupNote || null,
     });
     setPickupOpen(false);
     setDefineOpen(false);
@@ -470,10 +469,12 @@ export function OrderDetailSheet({
           />
         )}
         {state?.pickup_scheduled_date && (
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-sky-700">
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-700">
             <CalendarClock className="h-3.5 w-3.5" />
             Recolha agendada:{" "}
-            {state.pickup_scheduled_date}
+            {formatBrDate(state.pickup_scheduled_date)}
+            {pickupPeriodLabel(state.pickup_scheduled_time) &&
+              ` — ${pickupPeriodLabel(state.pickup_scheduled_time)}`}
             {state.pickup_note ? ` · ${state.pickup_note}` : ""}
           </div>
         )}
@@ -909,6 +910,13 @@ function AssignRow({
       </Popover>
     </div>
   );
+}
+
+
+function formatBrDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}`;
 }
 
 function PrimaryCTA({
