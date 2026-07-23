@@ -16,7 +16,7 @@ import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder }
 import { resolveDeliveryTime } from "@/lib/delivery-time";
 import {
   OPERATIONAL_STATUS_COLOR,
-  OPERATIONAL_STATUS_LABEL,
+  publicStatusLabel,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
@@ -538,7 +538,7 @@ function OrdersList({
               )}
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
-                  {OPERATIONAL_STATUS_LABEL[e.status]}
+                  {publicStatusLabel(e.status)}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <User className="h-2.5 w-2.5" />

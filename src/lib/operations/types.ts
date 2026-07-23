@@ -156,3 +156,63 @@ export const OPERATIONAL_STATUS_COLOR: Record<OperationalStatus, string> = {
   pickup_in_progress: "#7c3aed",         // roxo
   pickup_completed: "#16a34a",           // verde
 };
+
+/**
+ * Rótulos SIMPLIFICADOS para o entregador. A máquina de estados interna
+ * é preservada, mas a UI só expõe 5 buckets funcionais.
+ *   🟡 Pendente · 🔵 Entregue · 🟢 Recolha agendada · 🟠 Cliente irá avisar · ⚫ Concluído
+ */
+export type PublicOperationalStatus =
+  | "pending"
+  | "delivered"
+  | "pickup_scheduled"
+  | "customer_will_call"
+  | "completed";
+
+export const PUBLIC_STATUS_LABEL: Record<PublicOperationalStatus, string> = {
+  pending: "Pendente",
+  delivered: "Entregue",
+  pickup_scheduled: "Recolha agendada",
+  customer_will_call: "Cliente irá avisar",
+  completed: "Concluído",
+};
+
+export const PUBLIC_STATUS_COLOR: Record<PublicOperationalStatus, string> = {
+  pending: "#eab308",          // amarelo
+  delivered: "#2563eb",        // azul
+  pickup_scheduled: "#16a34a", // verde
+  customer_will_call: "#ea6a2a", // laranja
+  completed: "#111827",        // preto/grafite
+};
+
+export function toPublicStatus(s: OperationalStatus): PublicOperationalStatus {
+  switch (s) {
+    case "pending":
+    case "in_progress":
+    case "not_found":
+    case "rescheduled":
+      return "pending";
+    case "delivered":
+      return "delivered";
+    case "awaiting_pickup_definition":
+    case "awaiting_customer_contact":
+    case "customer_will_call":
+      return "customer_will_call";
+    case "pickup_scheduled":
+    case "pickup_in_progress":
+      return "pickup_scheduled";
+    case "collected":
+    case "pickup_completed":
+      return "completed";
+    default:
+      return "pending";
+  }
+}
+
+export function publicStatusLabel(s: OperationalStatus): string {
+  return PUBLIC_STATUS_LABEL[toPublicStatus(s)];
+}
+
+export function publicStatusColor(s: OperationalStatus): string {
+  return PUBLIC_STATUS_COLOR[toPublicStatus(s)];
+}

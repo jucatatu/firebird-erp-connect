@@ -8,8 +8,8 @@ import {
   type NormalizedMapOrder,
 } from "@/lib/erp.functions";
 import {
-  OPERATIONAL_STATUS_COLOR,
-  OPERATIONAL_STATUS_LABEL,
+  publicStatusLabel,
+  publicStatusColor,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useAuthSession } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/recolhas")({
   head: () => ({
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/recolhas")({
 });
 
 type CompanyChoice = "all" | "1" | "3";
+type AssigneeFilter = "all" | "mine" | "none" | string;
 
 const PICKUP_STATUSES = new Set<OperationalStatus>([
   "awaiting_pickup_definition",
@@ -57,9 +59,11 @@ function RecolhasPage() {
   // linhas correspondentes (pedidos que já geraram estado local).
   const [date, setDate] = useState(today());
   const [company, setCompany] = useState<CompanyChoice>("all");
+  const [assignee, setAssignee] = useState<AssigneeFilter>("all");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [openSeq, setOpenSeq] = useState(0);
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
+  const { user } = useAuthSession();
 
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
@@ -83,6 +87,13 @@ function RecolhasPage() {
   const list = useMemo(() => {
     return (statesQ.data ?? [])
       .filter((s) => PICKUP_STATUSES.has(s.operational_status))
+      .filter((s) => {
+        const aId = s.pickup_assignee_id ?? s.delivery_assignee_id ?? null;
+        if (assignee === "all") return true;
+        if (assignee === "none") return !aId;
+        if (assignee === "mine") return !!user && aId === user.id;
+        return aId === assignee;
+      })
       .map((s) => {
         const order =
           orderByErp.get(Number(s.erp_order_id)) ??
@@ -97,7 +108,16 @@ function RecolhasPage() {
         if (overdueA !== overdueB) return overdueA - overdueB;
         return da.localeCompare(db);
       });
-  }, [statesQ.data, orderByErp, today0]);
+  }, [statesQ.data, orderByErp, today0, assignee, user]);
+
+  const assignees = useMemo(() => {
+    const ids = new Set<string>();
+    (statesQ.data ?? []).forEach((s) => {
+      const id = s.pickup_assignee_id ?? s.delivery_assignee_id;
+      if (id) ids.add(id);
+    });
+    return Array.from(ids).map((id) => ({ id, name: profileById.get(id) ?? "Usuário" }));
+  }, [statesQ.data, profileById]);
 
   const selected = openKey ? list.find((e) => e.order.key === openKey) : null;
 
@@ -117,6 +137,17 @@ function RecolhasPage() {
               <SelectItem value="all">Todas</SelectItem>
               <SelectItem value="1">Graal</SelectItem>
               <SelectItem value="3">Grott</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={assignee} onValueChange={(v) => setAssignee(v as AssigneeFilter)}>
+            <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {user && <SelectItem value="mine">Meus pedidos</SelectItem>}
+              <SelectItem value="none">Sem responsável</SelectItem>
+              {assignees.map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -253,7 +284,7 @@ function PickupItem({
             <span
               aria-hidden
               className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: OPERATIONAL_STATUS_COLOR[status] }}
+              style={{ backgroundColor: publicStatusColor(status) }}
             />
             <span className="truncate font-medium">{order.customerName}</span>
             {overdue && (
@@ -271,7 +302,7 @@ function PickupItem({
         )}
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           <span className="rounded-full bg-muted px-1.5 py-0.5 font-medium text-foreground">
-            {OPERATIONAL_STATUS_LABEL[status]}
+            {publicStatusLabel(status)}
           </span>
           {scheduled && (
             <span className={cn("inline-flex items-center gap-1", overdue && "text-red-700")}>

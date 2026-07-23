@@ -85,7 +85,7 @@ export function operationContext(status: OperationalStatus): "delivery" | "picku
 
 export const ACTION_LABEL: Record<OperationAction, string> = {
   start_delivery: "Iniciar entrega",
-  confirm_delivery: "Confirmar entrega",
+  confirm_delivery: "Entregar",
   delivery_not_found: "Cliente não localizado",
   reschedule_delivery: "Reagendar entrega",
   customer_will_contact: "Cliente avisará",
