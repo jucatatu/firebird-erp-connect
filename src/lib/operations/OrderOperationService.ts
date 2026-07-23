@@ -42,6 +42,16 @@ export interface OrderOperationService {
     operationDate: string;
     companyId?: number | null;
   }): Promise<OperationState[]>;
+  /**
+   * Estados operacionais cujo `pickup_scheduled_date` bate com a data
+   * fornecida — necessário para o mapa unificado (entregas + recolhas)
+   * mostrar recolhas agendadas mesmo quando a entrega ocorreu em outro
+   * dia. Não filtra por status: quem consome decide o que exibir.
+   */
+  listPickupsForDate(input: {
+    pickupDate: string;
+    companyId?: number | null;
+  }): Promise<OperationState[]>;
   listEvents(stateId: string): Promise<OperationEvent[]>;
   listNotes(stateId: string): Promise<OperationNote[]>;
 }
@@ -198,6 +208,17 @@ export const LocalOrderOperationService: OrderOperationService = {
       );
     if (companyId != null) q = q.eq("company_id", companyId);
     const res = await q.order("sequence", { ascending: true, nullsFirst: false });
+    if (res.error) throw res.error;
+    return (res.data ?? []) as OperationState[];
+  },
+
+  async listPickupsForDate({ pickupDate, companyId }) {
+    let q = db
+      .from("operation_states")
+      .select("*")
+      .eq("pickup_scheduled_date", pickupDate);
+    if (companyId != null) q = q.eq("company_id", companyId);
+    const res = await q;
     if (res.error) throw res.error;
     return (res.data ?? []) as OperationState[];
   },
