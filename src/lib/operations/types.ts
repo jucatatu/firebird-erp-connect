@@ -158,32 +158,43 @@ export const OPERATIONAL_STATUS_COLOR: Record<OperationalStatus, string> = {
 };
 
 /**
- * Rótulos SIMPLIFICADOS para o entregador. A máquina de estados interna
- * é preservada, mas a UI só expõe 5 buckets funcionais.
- *   🟡 Pendente · 🔵 Entregue · 🟢 Recolha agendada · 🟠 Cliente irá avisar · ⚫ Concluído
+ * Buckets públicos exibidos ao entregador. A máquina de estados interna
+ * é preservada, mas a UI só expõe 5 buckets funcionais:
+ *   Ouro Pendente
+ *   Laranja Definir recolha  (transitório — resolvido pelo modal pós-entrega)
+ *   Verde Recolha agendada
+ *   Ambar Cliente irá avisar
+ *   Cinza Concluído
+ *
+ * `Entregue` NÃO é um bucket final — após a entrega, o pedido segue para
+ * (a) Concluído (sem equipamento), (b) Recolha agendada, ou (c) Cliente
+ * irá avisar. Vermelho é reservado a atenção (recolha atrasada, erro).
  */
 export type PublicOperationalStatus =
   | "pending"
-  | "delivered"
+  | "awaiting_definition"
   | "pickup_scheduled"
   | "customer_will_call"
   | "completed";
 
 export const PUBLIC_STATUS_LABEL: Record<PublicOperationalStatus, string> = {
   pending: "Pendente",
-  delivered: "Entregue",
+  awaiting_definition: "Definir recolha",
   pickup_scheduled: "Recolha agendada",
   customer_will_call: "Cliente irá avisar",
   completed: "Concluído",
 };
 
 export const PUBLIC_STATUS_COLOR: Record<PublicOperationalStatus, string> = {
-  pending: "#eab308",          // amarelo
-  delivered: "#2563eb",        // azul
-  pickup_scheduled: "#16a34a", // verde
-  customer_will_call: "#ea6a2a", // laranja
-  completed: "#111827",        // preto/grafite
+  pending: "#d99a22",              // ouro
+  awaiting_definition: "#ea6a2a",  // laranja
+  pickup_scheduled: "#16a34a",     // verde
+  customer_will_call: "#f59e0b",   // âmbar
+  completed: "#6b7280",            // cinza
 };
+
+/** Vermelho reservado a alertas (recolha atrasada, erro). */
+export const ATTENTION_RED = "#dc2626";
 
 export function toPublicStatus(s: OperationalStatus): PublicOperationalStatus {
   switch (s) {
@@ -193,8 +204,11 @@ export function toPublicStatus(s: OperationalStatus): PublicOperationalStatus {
     case "rescheduled":
       return "pending";
     case "delivered":
-      return "delivered";
+      // Sem equipamento retornável já é terminal → Concluído.
+      // Com equipamento retornável o backend leva a awaiting_pickup_definition.
+      return "completed";
     case "awaiting_pickup_definition":
+      return "awaiting_definition";
     case "awaiting_customer_contact":
     case "customer_will_call":
       return "customer_will_call";
@@ -215,4 +229,46 @@ export function publicStatusLabel(s: OperationalStatus): string {
 
 export function publicStatusColor(s: OperationalStatus): string {
   return PUBLIC_STATUS_COLOR[toPublicStatus(s)];
+}
+
+// ── Período de recolha (Manhã/Tarde/Dia todo) ────────────────────────────
+// Persistimos o token estruturado em `pickup_scheduled_time` (coluna text
+// existente). Não usamos `pickup_note` para o período. Legado: registros
+// anteriores podem ter "HH:mm" gravado — exibimos tal como veio, exceto
+// "00:00" (placeholder de input time removido).
+
+export type PickupPeriod = "manha" | "tarde" | "dia_todo";
+
+export const PICKUP_PERIOD_LABEL: Record<PickupPeriod, string> = {
+  manha: "Manhã",
+  tarde: "Tarde",
+  dia_todo: "Dia todo",
+};
+
+export const PICKUP_PERIOD_ABBREV: Record<PickupPeriod, string> = {
+  manha: "MANHÃ",
+  tarde: "TARDE",
+  dia_todo: "DIA TODO",
+};
+
+export function isPickupPeriod(v: unknown): v is PickupPeriod {
+  return v === "manha" || v === "tarde" || v === "dia_todo";
+}
+
+/** Rótulo humano do período (aceita token ou HH:mm legado). */
+export function pickupPeriodLabel(v: string | null | undefined): string | null {
+  if (!v) return null;
+  if (isPickupPeriod(v)) return PICKUP_PERIOD_LABEL[v];
+  const trimmed = v.trim();
+  if (!trimmed || trimmed === "00:00") return null;
+  return trimmed;
+}
+
+/** Abreviação para marcador do mapa. */
+export function pickupPeriodAbbrev(v: string | null | undefined): string | null {
+  if (!v) return null;
+  if (isPickupPeriod(v)) return PICKUP_PERIOD_ABBREV[v];
+  const trimmed = v.trim();
+  if (!trimmed || trimmed === "00:00") return null;
+  return trimmed;
 }
