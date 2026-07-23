@@ -29,11 +29,14 @@ export function getAllowedOperationalActions(ctx: AllowedContext): OperationActi
   switch (status) {
     case "pending":
     case "rescheduled":
-      return ["start_delivery", "delivery_not_found", "reschedule_delivery"];
+      // "Iniciar entrega" nunca é exposta ao usuário: a UI chama
+      // `confirm_delivery` diretamente e o cliente encadeia
+      // start_delivery → confirm_delivery em bastidores.
+      return ["confirm_delivery", "delivery_not_found", "reschedule_delivery"];
     case "in_progress":
       return ["confirm_delivery", "delivery_not_found", "reschedule_delivery"];
     case "not_found":
-      return ["start_delivery", "reschedule_delivery"];
+      return ["confirm_delivery", "reschedule_delivery"];
     case "awaiting_pickup_definition":
       return ["schedule_pickup", "customer_will_contact"];
     case "awaiting_customer_contact":
