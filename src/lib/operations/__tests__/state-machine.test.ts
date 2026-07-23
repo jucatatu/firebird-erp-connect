@@ -7,16 +7,26 @@ import {
 } from "../state-machine";
 
 describe("state-machine allowed actions", () => {
-  it("pending permite start_delivery, delivery_not_found, reschedule_delivery", () => {
+  it("pending expõe confirm_delivery direto (sem Iniciar entrega)", () => {
     const acts = getAllowedOperationalActions({
       status: "pending",
       hasReturnableEquipment: false,
     });
-    expect(acts).toEqual(["start_delivery", "delivery_not_found", "reschedule_delivery"]);
+    expect(acts).toEqual(["confirm_delivery", "delivery_not_found", "reschedule_delivery"]);
+    expect(acts).not.toContain("start_delivery");
   });
 
-  it("pending NÃO permite confirm_delivery", () => {
-    expect(canTransition("pending", "confirm_delivery")).toBe(false);
+  it("start_delivery nunca aparece em nenhum estado (é interno)", () => {
+    const statuses = [
+      "pending","in_progress","rescheduled","not_found",
+      "awaiting_pickup_definition","awaiting_customer_contact",
+      "pickup_scheduled","pickup_in_progress",
+      "delivered","pickup_completed","collected","customer_will_call",
+    ] as const;
+    for (const s of statuses) {
+      const acts = getAllowedOperationalActions({ status: s, hasReturnableEquipment: true });
+      expect(acts).not.toContain("start_delivery");
+    }
   });
 
   it("in_progress permite confirm_delivery, delivery_not_found, reschedule_delivery", () => {

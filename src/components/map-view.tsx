@@ -29,9 +29,6 @@ export const MULTIPLE_ORDER_MAX_ZOOM = 14;
 /** Compat: usado por consumidores antigos, mantém-se como o teto de um pedido. */
 export const MAX_AUTO_ZOOM = SINGLE_ORDER_ZOOM;
 
-/** Cor dourada única do marcador (padrão do sistema antigo). */
-const MARKER_GOLD = "#d99a22";
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -263,8 +260,9 @@ export function MapView({
       const opts: LabelOverlayOpts = {
         orderNumber: m.orderNumber ?? m.label ?? "—",
         deliveryTime: m.deliveryTime ?? null,
-        // Dourado único para todos os marcadores (padrão do sistema antigo).
-        color: MARKER_GOLD,
+        // Cor por status público (Ouro/Verde/Amarelo/Cinza/Vermelho) —
+        // definida por quem monta o marker; nunca há fallback dourado.
+        color: m.color || "#6b7280",
         selected: selectedId === m.id,
       };
       let ov = existing.get(m.id);

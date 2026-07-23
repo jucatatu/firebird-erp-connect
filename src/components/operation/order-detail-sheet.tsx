@@ -55,7 +55,7 @@ import {
   getAllowedOperationalActions,
   type OperationAction,
 } from "@/lib/operations/state-machine";
-import { hasReturnableEquipment } from "@/lib/operations/equipment";
+import { hasPickupRequiredEquipment } from "@/lib/operations/equipment";
 import {
   useOperationEvents,
   useOperationMutations,
@@ -144,7 +144,7 @@ export function OrderDetailSheet({
 
   const currentStatus: OperationalStatus = state?.operational_status ?? "pending";
   const hasReturnable =
-    state?.has_returnable_equipment ?? hasReturnableEquipment(order);
+    state?.has_returnable_equipment ?? hasPickupRequiredEquipment(order);
 
   const allowedActions = useMemo(
     () => getAllowedOperationalActions({ status: currentStatus, hasReturnableEquipment: hasReturnable }),
@@ -222,7 +222,7 @@ export function OrderDetailSheet({
       customerName: order.customerName,
       address: addressText || null,
       phone: order.phone,
-      hasReturnableEquipment: hasReturnableEquipment(order),
+      hasReturnableEquipment: hasPickupRequiredEquipment(order),
     });
     return created.id;
   }
@@ -239,10 +239,27 @@ export function OrderDetailSheet({
   ) {
     try {
       const id = await ensureStateId();
+      // Auto-chain: "Entregar" a partir de pendente/reagendado/não localizado
+      // dispara internamente start_delivery → confirm_delivery. O usuário
+      // nunca vê "Iniciar entrega" nem o estado transitório.
+      let expected = state?.version ?? 1;
+      if (
+        action === "confirm_delivery" &&
+        (currentStatus === "pending" ||
+          currentStatus === "rescheduled" ||
+          currentStatus === "not_found")
+      ) {
+        const started = await transition.mutateAsync({
+          stateId: id,
+          action: "start_delivery",
+          expectedVersion: expected,
+        });
+        expected = started.version;
+      }
       const res = await transition.mutateAsync({
         stateId: id,
         action,
-        expectedVersion: state?.version ?? 1,
+        expectedVersion: expected,
         payload,
       });
       onAfterAction?.(res);

@@ -1,44 +1,64 @@
 import { describe, it, expect } from "vitest";
-import { hasReturnableEquipment, needsPickup } from "../equipment";
+import {
+  hasPickupRequiredEquipment,
+  hasReturnableEquipment,
+  isPickupRequiredType,
+  needsPickup,
+} from "../equipment";
 
-describe("hasReturnableEquipment", () => {
+describe("hasPickupRequiredEquipment", () => {
   it("é falso quando não há equipments", () => {
-    expect(hasReturnableEquipment({})).toBe(false);
-    expect(hasReturnableEquipment({ equipments: [] })).toBe(false);
-    expect(hasReturnableEquipment(null)).toBe(false);
-    expect(hasReturnableEquipment(undefined)).toBe(false);
+    expect(hasPickupRequiredEquipment({})).toBe(false);
+    expect(hasPickupRequiredEquipment({ equipments: [] })).toBe(false);
+    expect(hasPickupRequiredEquipment(null)).toBe(false);
+    expect(hasPickupRequiredEquipment(undefined)).toBe(false);
   });
 
-  it("é verdadeiro quando pelo menos um equipment tem quantidade > 0", () => {
+  it("chopeira (elétrica/gelo/comum) abre recolha", () => {
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Chopeira", quantity: 1 }] })).toBe(true);
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "CHOPEIRA ELETRICA", quantity: 1 }] })).toBe(true);
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Chopeira Gelo", quantity: 1 }] })).toBe(true);
+  });
+
+  it("cilindro de CO2 abre recolha", () => {
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Cilindro CO2", quantity: 1 }] })).toBe(true);
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "CO2", quantity: 1 }] })).toBe(true);
+  });
+
+  it("barril NÃO abre recolha", () => {
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "BARRIL 30L", quantity: 1 }] })).toBe(false);
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Barril 50L", quantity: 2 }] })).toBe(false);
+  });
+
+  it("growler NÃO abre recolha", () => {
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Growler", quantity: 1 }] })).toBe(false);
+  });
+
+  it("mistura: barril + chopeira → abre recolha", () => {
     expect(
-      hasReturnableEquipment({
-        equipments: [{ type: "Chopeira", quantity: 1 }],
-      }),
-    ).toBe(true);
-    expect(
-      hasReturnableEquipment({
+      hasPickupRequiredEquipment({
         equipments: [
-          { type: "Chopeira", quantity: 0 },
-          { type: "Torre", quantity: 2 },
+          { type: "BARRIL 30L", quantity: 1 },
+          { type: "Chopeira", quantity: 1 },
         ],
       }),
     ).toBe(true);
   });
 
-  it("é falso quando todos equipments têm quantidade 0", () => {
-    expect(
-      hasReturnableEquipment({
-        equipments: [{ type: "Chopeira", quantity: 0 }],
-      }),
-    ).toBe(false);
+  it("chopeira com quantidade 0 não conta", () => {
+    expect(hasPickupRequiredEquipment({ equipments: [{ type: "Chopeira", quantity: 0 }] })).toBe(false);
   });
 
-  it("barril/growler listados apenas em items não geram pickup", () => {
-    // items é ignorado — a função só olha equipments
-    expect(hasReturnableEquipment({ equipments: [] })).toBe(false);
+  it("isPickupRequiredType classifica corretamente", () => {
+    expect(isPickupRequiredType("Chopeira")).toBe(true);
+    expect(isPickupRequiredType("Cilindro CO2")).toBe(true);
+    expect(isPickupRequiredType("BARRIL 30L")).toBe(false);
+    expect(isPickupRequiredType("Growler")).toBe(false);
+    expect(isPickupRequiredType(null)).toBe(false);
   });
 
-  it("needsPickup é alias direto", () => {
-    expect(needsPickup).toBe(hasReturnableEquipment);
+  it("aliases hasReturnableEquipment e needsPickup apontam para a mesma função", () => {
+    expect(hasReturnableEquipment).toBe(hasPickupRequiredEquipment);
+    expect(needsPickup).toBe(hasPickupRequiredEquipment);
   });
 });
