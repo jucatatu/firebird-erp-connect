@@ -83,6 +83,7 @@ function MapHome() {
 
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
+  const pickupsQ = usePickupStatesForDate(date, companyId ?? null);
   const profilesQ = useProfiles();
   const geocodeM = useGeocodeOrders();
   const qc = useQueryClient();
@@ -107,21 +108,47 @@ function MapHome() {
     [rawOrders],
   );
 
-  // Junta pedidos do ERP com estados operacionais locais por erp_order_id.
+  // Mapa unificado: combina duas agendas na mesma data:
+  //   1) ENTREGAS: pedidos do ERP com previsão para `date`.
+  //   2) RECOLHAS: estados operacionais cujo pickup_scheduled_date === date,
+  //      mesmo que a entrega tenha ocorrido em outro dia.
+  // Um pedido pode aparecer nas duas listas (entrega e recolha no mesmo dia)
+  // — desambiguado por `opType` para não sobrepor marcadores idênticos.
   const enrichedAll: EnrichedOrder[] = useMemo(() => {
     const stateByErpId = new Map<number, OperationState>();
     (statesQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
-    return normalizedOrders.map((n) => {
+    (pickupsQ.data ?? []).forEach((s) => stateByErpId.set(Number(s.erp_order_id), s));
+    const orderByErpId = new Map<number, NormalizedMapOrder>();
+    normalizedOrders.forEach((n) => orderByErpId.set(n.erpOrderId, n));
+
+    const deliveries: EnrichedOrder[] = normalizedOrders.map((n) => {
       const state = stateByErpId.get(n.erpOrderId) ?? null;
       return {
         order: n,
-        key: n.key,
+        key: `d:${n.key}`,
         erpId: n.erpOrderId,
         state,
         status: state?.operational_status ?? "pending",
+        opType: "delivery",
       };
     });
-  }, [normalizedOrders, statesQ.data]);
+
+    const pickups: EnrichedOrder[] = (pickupsQ.data ?? []).map((s) => {
+      const erpId = Number(s.erp_order_id);
+      const order = orderByErpId.get(erpId) ?? fallbackOrderFromState(s);
+      return {
+        order,
+        key: `p:${s.id}`,
+        erpId,
+        state: s,
+        status: s.operational_status,
+        opType: "pickup",
+        scheduledDate: s.pickup_scheduled_date,
+      };
+    });
+
+    return [...deliveries, ...pickups];
+  }, [normalizedOrders, statesQ.data, pickupsQ.data]);
 
   // ── Auto-geocoding: dispara POST /api/v1/map/geocode para os pedidos
   // pending que ainda não foram tentados nesta sessão. Uma única vez por
@@ -174,7 +201,23 @@ function MapHome() {
   const filtered: EnrichedOrder[] = useMemo(() => {
     const q = query.trim().toLowerCase();
     return enrichedAll.filter((e) => {
-      if (filter !== "all" && filterOfStatus(e.status) !== filter) return false;
+      // Concluídos ficam ocultos por padrão — só aparecem no filtro explícito.
+      const bucket = filterOfStatus(e.status);
+      if (filter === "completed") {
+        if (bucket !== "completed") return false;
+      } else {
+        if (bucket === "completed") return false;
+        if (filter === "deliveries" && e.opType !== "delivery") return false;
+        if (filter === "pickups" && e.opType !== "pickup") return false;
+        if (filter === "customer_will_call" && bucket !== "customer_will_call") return false;
+        // "all": remove duplicata delivery↔pickup do mesmo pedido — prioriza pickup.
+        if (filter === "all" && e.opType === "delivery") {
+          const hasPickupOnDate = (pickupsQ.data ?? []).some(
+            (s) => Number(s.erp_order_id) === e.erpId,
+          );
+          if (hasPickupOnDate) return false;
+        }
+      }
       if (!q) return true;
       return (
         e.order.customerName.toLowerCase().includes(q) ||
@@ -182,7 +225,7 @@ function MapHome() {
         e.order.orderNumber.toLowerCase().includes(q)
       );
     });
-  }, [enrichedAll, query, filter]);
+  }, [enrichedAll, query, filter, pickupsQ.data]);
 
   // Ordenação
   const orders: EnrichedOrder[] = useMemo(() => {
@@ -218,28 +261,47 @@ function MapHome() {
       // Marcadores dependem APENAS de coordenada válida. Lista/detalhe/ações
       // operacionais ignoram `location` — a fonte de verdade é `address`.
       .filter((e) => isMappable(e.order))
-      .map((e) => ({
-        id: e.key,
-        lat: e.order.location.latitude as number,
-        lng: e.order.location.longitude as number,
-        color: OPERATIONAL_STATUS_COLOR[e.status],
-        label: e.order.customerName,
-        orderNumber: e.order.orderNumber,
-        // Prioriza o novo campo `deliveryTime` (backend v1.4.2+); cai
-        // para a parte de hora de expectedDelivery/deliveryDate. Nunca
-        // usa `period`, nunca inventa "Sem horário" no mapa.
-        deliveryTime: resolveDeliveryTime(e.order),
-      }));
+      .map((e) => {
+        const overdue =
+          e.opType === "pickup" &&
+          e.scheduledDate != null &&
+          e.scheduledDate < today();
+        const color = overdue ? ATTENTION_RED : publicStatusColor(e.status);
+        // Marcador de recolha usa o período (MANHÃ/TARDE) em vez do
+        // horário da entrega — nunca mistura os dois.
+        const timeOrPeriod =
+          e.opType === "pickup"
+            ? pickupPeriodAbbrev(e.state?.pickup_scheduled_time) ?? ""
+            : resolveDeliveryTime(e.order);
+        return {
+          id: e.key,
+          lat: e.order.location.latitude as number,
+          lng: e.order.location.longitude as number,
+          color,
+          label: e.order.customerName,
+          orderNumber: e.order.orderNumber,
+          deliveryTime: timeOrPeriod,
+        };
+      });
   }, [orders]);
 
   // Contadores por bucket funcional (Pendente, Em entrega, ...).
   const filterCounts = useMemo(() => {
-    const base: Partial<Record<OperationalFilter, number>> = {};
+    const base: Partial<Record<OperationalFilter, number>> = {
+      all: 0,
+      deliveries: 0,
+      pickups: 0,
+      customer_will_call: 0,
+      completed: 0,
+    };
     enrichedAll.forEach((e) => {
       const bucket = filterOfStatus(e.status);
-      base[bucket] = (base[bucket] ?? 0) + 1;
+      if (bucket === "completed") base.completed = (base.completed ?? 0) + 1;
+      else base.all = (base.all ?? 0) + 1;
+      if (e.opType === "delivery" && bucket !== "completed") base.deliveries = (base.deliveries ?? 0) + 1;
+      if (e.opType === "pickup" && bucket !== "completed") base.pickups = (base.pickups ?? 0) + 1;
+      if (bucket === "customer_will_call") base.customer_will_call = (base.customer_will_call ?? 0) + 1;
     });
-    base.all = enrichedAll.length;
     return base;
   }, [enrichedAll]);
 
