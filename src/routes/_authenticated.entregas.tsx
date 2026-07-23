@@ -8,7 +8,6 @@ import {
   type NormalizedMapOrder,
 } from "@/lib/erp.functions";
 import {
-  OPERATIONAL_STATUS_COLOR,
   publicStatusLabel,
   publicStatusColor,
   type OperationState,
