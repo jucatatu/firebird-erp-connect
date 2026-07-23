@@ -16,7 +16,7 @@ import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder }
 import { resolveDeliveryTime } from "@/lib/delivery-time";
 import {
   OPERATIONAL_STATUS_COLOR,
-  OPERATIONAL_STATUS_LABEL,
+  publicStatusLabel,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
