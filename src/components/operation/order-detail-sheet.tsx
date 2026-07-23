@@ -23,7 +23,6 @@ import {
 import {
   ExternalLink,
   Phone,
-  X,
   Play,
   CheckCircle2,
   Bell,
@@ -45,8 +44,8 @@ import type {
   NormalizedMapOrder,
 } from "@/lib/erp.functions";
 import {
-  OPERATIONAL_STATUS_LABEL,
   OperationConflictError,
+  publicStatusLabel,
   type OperationState,
   type OperationalStatus,
 } from "@/lib/operations/types";
@@ -195,7 +194,7 @@ export function OrderDetailSheet({
   const [reason, setReason] = useState("");
   const [pickupOpen, setPickupOpen] = useState(false);
   const [pickupDate, setPickupDate] = useState(operationDate);
-  const [pickupTime, setPickupTime] = useState("");
+  const [pickupPeriod, setPickupPeriod] = useState<"manha" | "tarde" | "dia_todo">("manha");
   const [pickupNote, setPickupNote] = useState("");
   const [pickupAssignee, setPickupAssignee] = useState<string>("");
   // Modal de definição pós-entrega para chopeira
@@ -295,15 +294,22 @@ export function OrderDetailSheet({
 
   async function performSchedulePickup() {
     if (!pickupDate) return;
+    const periodLabel =
+      pickupPeriod === "manha" ? "Manhã" : pickupPeriod === "tarde" ? "Tarde" : "Dia todo";
+    // Persistimos o período no campo textual `pickup_note` (sem migração
+    // nova) e enviamos também `period` no payload para evolução futura.
+    const noteWithPeriod = pickupNote
+      ? `Período: ${periodLabel} — ${pickupNote}`
+      : `Período: ${periodLabel}`;
     const res = await performTransition("schedule_pickup", {
       scheduledDate: pickupDate,
-      scheduledTime: pickupTime || undefined,
-      note: pickupNote || undefined,
+      period: pickupPeriod,
+      note: noteWithPeriod,
     });
     setPickupOpen(false);
     setDefineOpen(false);
     setPickupNote("");
-    setPickupTime("");
+    setPickupPeriod("manha");
     // Atribuir responsável opcional pelo mesmo fluxo
     if (res && pickupAssignee) {
       try {
@@ -394,7 +400,7 @@ export function OrderDetailSheet({
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
             <span>Pedido #{orderNumber}</span>
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-              {OPERATIONAL_STATUS_LABEL[currentStatus]}
+              {publicStatusLabel(currentStatus)}
             </span>
             {hasReturnable && (
               <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">
@@ -407,9 +413,6 @@ export function OrderDetailSheet({
             <div className="text-xs text-muted-foreground">Horário previsto: {order.deliveryTime}</div>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
-          <X className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Endereço + botões rápidos */}
@@ -470,9 +473,8 @@ export function OrderDetailSheet({
           <div className="mt-1 flex items-center gap-1.5 text-xs text-sky-700">
             <CalendarClock className="h-3.5 w-3.5" />
             Recolha agendada:{" "}
-            {state.pickup_scheduled_time
-              ? `${state.pickup_scheduled_date} às ${state.pickup_scheduled_time}`
-              : state.pickup_scheduled_date}
+            {state.pickup_scheduled_date}
+            {state.pickup_note ? ` · ${state.pickup_note}` : ""}
           </div>
         )}
       </div>
@@ -676,18 +678,39 @@ export function OrderDetailSheet({
         <DialogContent>
           <DialogHeader><DialogTitle>Agendar recolha</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium">Data *</label>
-                <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs font-medium">Hora</label>
-                <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
+            <div>
+              <label className="text-xs font-medium">Data *</label>
+              <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium">Período *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ["manha", "Manhã"],
+                  ["tarde", "Tarde"],
+                  ["dia_todo", "Dia todo"],
+                ] as const).map(([val, lbl]) => {
+                  const active = pickupPeriod === val;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setPickupPeriod(val)}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-sm transition",
+                        active
+                          ? "border-primary bg-primary/10 font-semibold text-primary"
+                          : "border-border hover:bg-muted/40",
+                      )}
+                    >
+                      {lbl}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium">Observação</label>
+              <label className="text-xs font-medium">Observação (opcional)</label>
               <Textarea value={pickupNote} onChange={(e) => setPickupNote(e.target.value)} rows={2} />
             </div>
             <div>
