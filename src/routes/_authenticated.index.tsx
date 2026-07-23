@@ -65,6 +65,35 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+
+function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
+  const snap = (s.snapshot ?? {}) as Record<string, unknown>;
+  const address = typeof snap.address === "string" ? snap.address : "";
+  return {
+    key: `state-${s.id}`,
+    erpOrderId: Number(s.erp_order_id),
+    orderNumber: String(s.erp_order_number ?? s.erp_order_id),
+    companyId: s.company_id,
+    customerName: typeof snap.customerName === "string" ? snap.customerName : "(sem dados do ERP)",
+    phone: typeof snap.phone === "string" ? snap.phone : null,
+    address: {
+      formatted: address, street: address, number: "", complement: "",
+      district: "", city: "", state: "",
+    },
+    observations: null, erpStatus: null,
+    deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
+    returnDate: null,
+    period: typeof snap.period === "string" ? snap.period : null,
+    deliveryTime: null,
+    items: [], equipments: [],
+    location: {
+      latitude: null, longitude: null, locationType: "", precision: "",
+      placeId: "", matchMismatch: false, source: "unresolved", cacheKey: "",
+    },
+    malformed: false, raw: {},
+  };
+}
+
 function MapHome() {
   const [date, setDate] = useState<string>(today());
   const [company, setCompany] = useState<CompanyChoice>("all");
@@ -588,7 +617,7 @@ function OrdersList({
                   <span
                     aria-hidden
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: OPERATIONAL_STATUS_COLOR[e.status] }}
+                    style={{ backgroundColor: publicStatusColor(e.status) }}
                   />
                   <span className="truncate text-sm font-medium">{o.customerName}</span>
                   {o.malformed && (
