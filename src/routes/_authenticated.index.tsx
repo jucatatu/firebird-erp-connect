@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User, Info, Truck, PackageX } from "lucide-react";
+import { Calendar, List, MapPin, Search, MapPinOff, Loader2, WifiOff, User, Info, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -106,6 +106,8 @@ function MapHome() {
   // Contador que força remount do sheet ao reabrir o mesmo pedido —
   // corrige o bug em que o mesmo marcador não reabria após fechar.
   const [openSeq, setOpenSeq] = useState(0);
+  // Card operacional exibido ao tocar num marcador (antes de abrir o sheet).
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
 
   const online = useNetworkStatus();
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
@@ -346,6 +348,7 @@ function MapHome() {
   }, [profilesQ.data]);
 
   const selected = selectedKey ? orders.find((e) => e.key === selectedKey) : null;
+  const preview = previewKey ? orders.find((e) => e.key === previewKey) : null;
 
   useEffect(() => {
     if (selected) {
@@ -523,7 +526,13 @@ function MapHome() {
         </div>
 
         {mobileView === "map" ? (
-          <MapView markers={markers} onMarkerClick={setSelectedKey} selectedId={selectedKey} />
+          <MapView
+            markers={markers}
+            onMarkerClick={(id) => {
+              setPreviewKey(id);
+            }}
+            selectedId={previewKey ?? selectedKey}
+          />
         ) : (
           <div className="h-full overflow-y-auto bg-background pt-32">
             <OrdersList
@@ -536,6 +545,18 @@ function MapHome() {
               onSelect={setSelectedKey}
             />
           </div>
+        )}
+
+        {preview && mobileView === "map" && (
+          <MapPreviewCard
+            entry={preview}
+            profileById={profileById}
+            onClose={() => setPreviewKey(null)}
+            onOpenDetails={() => {
+              setSelectedKey(preview.key);
+              setPreviewKey(null);
+            }}
+          />
         )}
 
         {mobileView === "map" && markers.length === 0 && !ordersQ.isLoading && (
