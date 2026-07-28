@@ -106,6 +106,11 @@ function buildSnapshot(input: OrderSnapshotInput): Record<string, unknown> {
     orderNumber: input.erpOrderNumber ?? null,
     deliveryDate: src.deliveryDate ?? null,
     period: src.period ?? null,
+    deliveryTime: src.deliveryTime ?? null,
+    latitude: src.latitude ?? null,
+    longitude: src.longitude ?? null,
+    items: src.items ?? null,
+    equipments: src.equipments ?? null,
   };
   const out: Record<string, unknown> = {};
   for (const f of SNAPSHOT_FIELDS) {
