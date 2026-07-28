@@ -79,6 +79,7 @@ function today() {
 
 
 function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const snap = (s.snapshot ?? {}) as Record<string, unknown>;
   const address = typeof snap.address === "string" ? snap.address : "";
   const lat = typeof snap.latitude === "number" ? snap.latitude : null;
