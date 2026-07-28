@@ -7,7 +7,10 @@ import {
   matchesHistorySearch,
   parseMapWindow,
   windowStartIso,
+  mergeSnapshot,
+  windowStartMs,
 } from "../history";
+import type { MapWindow as MapWindowT } from "../history";
 import type { OperationState } from "../types";
 
 const NOW = new Date("2026-07-30T12:00:00Z").getTime();
@@ -115,5 +118,73 @@ describe("persistência permanente e janela de exibição", () => {
     expect(parseMapWindow(999)).toBe(7);
     expect(mapWindowLabel(1)).toBe("1 dia");
     expect(mapWindowLabel("always")).toBe("Sempre");
+  });
+});
+
+describe("validação final — configuração, congelamento e fuso", () => {
+  it("configuração ausente / JSON inválido / negativo / zero usa 7 dias", () => {
+    expect(parseMapWindow(undefined)).toBe(7);
+    expect(parseMapWindow(null)).toBe(7);
+    expect(parseMapWindow({})).toBe(7);
+    expect(parseMapWindow("abc")).toBe(7);
+    expect(parseMapWindow(-5)).toBe(7);
+    expect(parseMapWindow(0)).toBe(7);
+    expect(parseMapWindow(7.5)).toBe(7);
+    expect(parseMapWindow(999)).toBe(7);
+    expect(parseMapWindow("30")).toBe(30);
+  });
+
+  it("snapshot ANTES da conclusão é atualizado com dados mais recentes", () => {
+    const before = { customerName: "NOME ANTIGO", address: "" };
+    const out = mergeSnapshot(
+      before,
+      { customerName: "NOME ATUAL", address: "Rua B, 20", items: [{ id: 1 }] },
+      false,
+    );
+    expect(out.customerName).toBe("NOME ATUAL");
+    expect(out.address).toBe("Rua B, 20");
+    expect(out.items).toHaveLength(1);
+  });
+
+  it("snapshot APÓS a conclusão nunca é sobrescrito, só completado", () => {
+    const frozen = { customerName: "CLIENTE NA ENTREGA", address: "Rua A, 100", items: [] };
+    const out = mergeSnapshot(
+      frozen,
+      { customerName: "CLIENTE RENOMEADO NO ERP", address: "Outro endereço", items: [{ id: 9 }] },
+      true,
+    );
+    expect(out.customerName).toBe("CLIENTE NA ENTREGA");
+    expect(out.address).toBe("Rua A, 100");
+    expect(out.items).toEqual([{ id: 9 }]); // lacuna preenchida
+  });
+
+  it("valores vazios nunca apagam dados existentes", () => {
+    const out = mergeSnapshot({ phone: "5199" }, { phone: null, address: "" }, false);
+    expect(out.phone).toBe("5199");
+    expect(out.address).toBeUndefined();
+  });
+
+  it("janela inclusiva por dia local: hoje é dia 1", () => {
+    const noon = new Date("2026-07-30T12:00:00").getTime();
+    const local = (d: number, h = 10) => {
+      const x = new Date(noon);
+      x.setDate(x.getDate() - d);
+      x.setHours(h, 0, 0, 0);
+      return x.toISOString();
+    };
+    const w = (iso: string, win: MapWindowT = 7) =>
+      isWithinCompletedWindow(state({ delivered_at: iso }), win, noon);
+    expect(w(local(0))).toBe(true); // hoje
+    expect(w(local(6))).toBe(true); // 6 dias atrás → 7º dia
+    expect(w(local(7))).toBe(false); // 8º dia → oculto
+    expect(w(local(0, 0), 1)).toBe(true); // 00:00 de hoje com janela de 1 dia
+    expect(w(local(1, 23), 1)).toBe(false); // 23:00 de ontem com janela de 1 dia
+  });
+
+  it("Sempre não limita nem apaga registros", () => {
+    const old = state({ delivered_at: daysAgo(3650) });
+    expect(isWithinCompletedWindow(old, "always", NOW)).toBe(true);
+    expect(windowStartIso("always", NOW)).toBeNull();
+    expect(matchesHistorySearch(old, "8444")).toBe(true);
   });
 });
