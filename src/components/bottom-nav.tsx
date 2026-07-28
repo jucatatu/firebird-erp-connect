@@ -15,7 +15,7 @@ function tabsFor(_role: AppRole | null, _isAdmin: boolean): Tab[] {
     { to: "/", label: "Mapa", icon: MapIcon, match: (p) => p === "/" },
     { to: "/entregas", label: "Entregas", icon: Truck, match: (p) => p.startsWith("/entregas") },
     { to: "/recolhas", label: "Recolhas", icon: PackageX, match: (p) => p.startsWith("/recolhas") },
-    { to: "/settings/erp", label: "Mais", icon: MoreHorizontal, match: (p) => p.startsWith("/settings") || p.startsWith("/pedidos-venda") },
+    { to: "/settings/mapa", label: "Mais", icon: MoreHorizontal, match: (p) => p.startsWith("/settings") || p.startsWith("/pedidos-venda") },
   ];
 }
 
