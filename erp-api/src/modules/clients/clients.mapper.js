@@ -25,8 +25,15 @@ const {
  */
 const ACCENT_CLASSES = "AEIOUCN";
 
+/** Remove acentos do termo digitado antes do folding (NFD + strip). */
+function stripAccents(value) {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function foldToLikePattern(term) {
-  const upper = String(term)
+  const upper = stripAccents(term)
     .toUpperCase()
     .replace(/[%_]/g, " ") // neutraliza coringas vindos do usuário
     .trim();
