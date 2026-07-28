@@ -27,7 +27,7 @@ test("cursor inválido, forjado ou com campos extras é rejeitado", () => {
 test("folding trata termo acentuado e não acentuado igualmente", () => {
   assert.equal(foldToLikePattern("elétrica"), foldToLikePattern("eletrica"));
   assert.equal(foldToLikePattern("eletrica"), "%_L_TR___%");
-  assert.deepEqual(buildQPatterns("CP50"), ["%CP50%"]);
+  assert.deepEqual(buildQPatterns("CP50"), ["%CP50%", "%_P50%"]);
 });
 
 test("coringas digitados pelo usuário são neutralizados", () => {
