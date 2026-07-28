@@ -284,22 +284,17 @@ export const LocalOrderOperationService: OrderOperationService = {
   async enrichSnapshot({ stateId, snapshot }) {
     const cur = await db
       .from("operation_states")
-      .select("snapshot")
+      .select("snapshot, delivered_at, pickup_completed_at")
       .eq("id", stateId)
       .maybeSingle();
     if (cur.error) throw cur.error;
     const existing = (cur.data?.snapshot ?? {}) as Record<string, unknown>;
-    const merged: Record<string, unknown> = { ...existing };
-    // Não destrutivo: só preenche o que ainda não foi congelado.
-    for (const [k, v] of Object.entries(snapshot)) {
-      if (v === undefined || v === null || v === "") continue;
-      if (Array.isArray(v) && v.length === 0) continue;
-      const prev = merged[k];
-      const prevEmpty =
-        prev === undefined || prev === null || prev === "" ||
-        (Array.isArray(prev) && prev.length === 0);
-      if (prevEmpty) merged[k] = v;
-    }
+    // Congelado a partir da 1ª conclusão (delivered_at / pickup_completed_at).
+    // Antes disso o snapshot é rascunho e pode ser atualizado pelo ERP.
+    const frozen =
+      cur.data?.delivered_at != null || cur.data?.pickup_completed_at != null;
+    const { mergeSnapshot } = await import("./history");
+    const merged = mergeSnapshot(existing, snapshot, frozen);
     const res = await db
       .from("operation_states")
       .update({ snapshot: merged })
@@ -308,15 +303,20 @@ export const LocalOrderOperationService: OrderOperationService = {
   },
 
   async getMapWindow() {
-    const res = await db
-      .from("app_settings")
-      .select("value")
-      .eq("key", "map_completed_window_days")
-      .maybeSingle();
-    if (res.error) throw res.error;
-    const raw = (res.data?.value ?? {}) as { days?: unknown };
     const { parseMapWindow } = await import("./history");
-    return parseMapWindow(raw.days);
+    try {
+      const res = await db
+        .from("app_settings")
+        .select("value")
+        .eq("key", "map_completed_window_days")
+        .maybeSingle();
+      // Erro de consulta, chave ausente ou JSON fora do formato → fallback 7 dias.
+      if (res.error) return parseMapWindow(undefined);
+      const raw = (res.data?.value ?? {}) as { days?: unknown };
+      return parseMapWindow(raw?.days);
+    } catch {
+      return parseMapWindow(undefined);
+    }
   },
 
   async setMapWindow(window) {
