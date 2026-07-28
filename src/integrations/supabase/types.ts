@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       operation_events: {
         Row: {
           actor_id: string | null
@@ -92,6 +116,8 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_assigned_at: string | null
           delivery_assigned_by: string | null
           delivery_assignee_id: string | null
@@ -105,6 +131,8 @@ export type Database = {
           pickup_assigned_at: string | null
           pickup_assigned_by: string | null
           pickup_assignee_id: string | null
+          pickup_completed_at: string | null
+          pickup_completed_by: string | null
           pickup_note: string | null
           pickup_scheduled_date: string | null
           pickup_scheduled_time: string | null
@@ -119,6 +147,8 @@ export type Database = {
           company_id?: number | null
           created_at?: string
           created_by?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
           delivery_assigned_at?: string | null
           delivery_assigned_by?: string | null
           delivery_assignee_id?: string | null
@@ -132,6 +162,8 @@ export type Database = {
           pickup_assigned_at?: string | null
           pickup_assigned_by?: string | null
           pickup_assignee_id?: string | null
+          pickup_completed_at?: string | null
+          pickup_completed_by?: string | null
           pickup_note?: string | null
           pickup_scheduled_date?: string | null
           pickup_scheduled_time?: string | null
@@ -146,6 +178,8 @@ export type Database = {
           company_id?: number | null
           created_at?: string
           created_by?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
           delivery_assigned_at?: string | null
           delivery_assigned_by?: string | null
           delivery_assignee_id?: string | null
@@ -159,6 +193,8 @@ export type Database = {
           pickup_assigned_at?: string | null
           pickup_assigned_by?: string | null
           pickup_assignee_id?: string | null
+          pickup_completed_at?: string | null
+          pickup_completed_by?: string | null
           pickup_note?: string | null
           pickup_scheduled_date?: string | null
           pickup_scheduled_time?: string | null
@@ -381,6 +417,8 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_assigned_at: string | null
           delivery_assigned_by: string | null
           delivery_assignee_id: string | null
@@ -394,6 +432,8 @@ export type Database = {
           pickup_assigned_at: string | null
           pickup_assigned_by: string | null
           pickup_assignee_id: string | null
+          pickup_completed_at: string | null
+          pickup_completed_by: string | null
           pickup_note: string | null
           pickup_scheduled_date: string | null
           pickup_scheduled_time: string | null
@@ -422,6 +462,8 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_assigned_at: string | null
           delivery_assigned_by: string | null
           delivery_assignee_id: string | null
@@ -435,6 +477,8 @@ export type Database = {
           pickup_assigned_at: string | null
           pickup_assigned_by: string | null
           pickup_assignee_id: string | null
+          pickup_completed_at: string | null
+          pickup_completed_by: string | null
           pickup_note: string | null
           pickup_scheduled_date: string | null
           pickup_scheduled_time: string | null
@@ -463,6 +507,8 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_assigned_at: string | null
           delivery_assigned_by: string | null
           delivery_assignee_id: string | null
@@ -476,6 +522,8 @@ export type Database = {
           pickup_assigned_at: string | null
           pickup_assigned_by: string | null
           pickup_assignee_id: string | null
+          pickup_completed_at: string | null
+          pickup_completed_by: string | null
           pickup_note: string | null
           pickup_scheduled_date: string | null
           pickup_scheduled_time: string | null
@@ -515,6 +563,8 @@ export type Database = {
           company_id: number | null
           created_at: string
           created_by: string
+          delivered_at: string | null
+          delivered_by: string | null
           delivery_assigned_at: string | null
           delivery_assigned_by: string | null
           delivery_assignee_id: string | null
@@ -528,6 +578,8 @@ export type Database = {
           pickup_assigned_at: string | null
           pickup_assigned_by: string | null
           pickup_assignee_id: string | null
+          pickup_completed_at: string | null
+          pickup_completed_by: string | null
           pickup_note: string | null
           pickup_scheduled_date: string | null
           pickup_scheduled_time: string | null
