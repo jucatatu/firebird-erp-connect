@@ -209,7 +209,7 @@ test("erro do banco nunca vaza SQL, tabela ou stack", async () => {
 });
 
 test("aspas simples no termo não quebram nem injetam SQL", async () => {
-  const res = await get("/api/v1/products?q=chopp'+OR+1=1+--");
+  const res = await get("/api/v1/products?q=chopp%2527+OR+1=1+--");
   assert.equal(res.status, 200);
   const q = state.queries.filter((s) => /FROM PRODUTOS pr/i.test(s.sql)).pop();
   assert.ok(!/OR 1=1/i.test(q.sql), q.sql);
