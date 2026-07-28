@@ -79,7 +79,6 @@ function today() {
 
 
 function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const snap = (s.snapshot ?? {}) as Record<string, unknown>;
   const address = typeof snap.address === "string" ? snap.address : "";
   const lat = typeof snap.latitude === "number" ? snap.latitude : null;
@@ -115,6 +114,49 @@ function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
 }
 
 function MapHome() {
+  return <MapHomeInner />;
+}
+
+/**
+ * Escopo do filtro "Concluídos": janela configurada (padrão) ou histórico
+ * completo. Nunca afeta retenção — só a visibilidade no mapa.
+ */
+function CompletedScopeToggle({
+  scope,
+  onChange,
+  window: w,
+}: {
+  scope: "window" | "all";
+  onChange: (s: "window" | "all") => void;
+  window: MapWindow;
+}) {
+  return (
+    <div className="mt-2 flex items-center gap-1 text-[11px]">
+      <button
+        type="button"
+        onClick={() => onChange("window")}
+        className={cn(
+          "rounded-full border px-2 py-1 transition-colors",
+          scope === "window" ? "bg-primary text-primary-foreground" : "bg-surface",
+        )}
+      >
+        Período configurado ({mapWindowLabel(w).toLowerCase()})
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("all")}
+        className={cn(
+          "rounded-full border px-2 py-1 transition-colors",
+          scope === "all" ? "bg-primary text-primary-foreground" : "bg-surface",
+        )}
+      >
+        Todos os concluídos
+      </button>
+    </div>
+  );
+}
+
+function MapHomeInner() {
   const [date, setDate] = useState<string>(today());
   const [company, setCompany] = useState<CompanyChoice>("all");
   const [query, setQuery] = useState("");
