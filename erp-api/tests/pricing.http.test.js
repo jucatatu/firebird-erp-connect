@@ -227,7 +227,7 @@ test("tentativa de SQL Injection é rejeitada e nunca chega ao banco", async () 
   const payloads = [
     "1%20OR%201%3D1",
     "1%3B%20DROP%20TABLE%20PRECO",
-    "1'%20--",
+    "1%27%20--",
     "1%20UNION%20SELECT%20VALOR%20FROM%20PRECO",
   ];
   for (const p of payloads) {
