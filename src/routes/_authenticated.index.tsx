@@ -106,7 +106,7 @@ function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
     location: {
       latitude: lat, longitude: lng, locationType: "", precision: "",
       placeId: "", matchMismatch: false,
-      source: lat != null && lng != null ? "snapshot" : "unresolved",
+      source: lat != null && lng != null ? "cache" : "unresolved",
       cacheKey: "",
     },
     malformed: false, raw: {},
