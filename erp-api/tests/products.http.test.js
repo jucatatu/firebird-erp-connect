@@ -127,8 +127,8 @@ test("busca com acento e sem acento produz o mesmo padrão de folding", async ()
   state.queries = [];
   await get(`/api/v1/products?q=${encodeURIComponent("elétrica")}`);
   const comAcento = state.queries.filter((q) => /FROM PRODUTOS pr/i.test(q.sql)).pop();
-  assert.ok(semAcento.params.includes("%_L_TR_C_%"));
-  assert.ok(comAcento.params.includes("%_L_TR_C_%"));
+  assert.ok(semAcento.params.includes("%_L_TR___%"));
+  assert.ok(comAcento.params.includes("%_L_TR___%"));
 });
 
 test("limite é respeitado e a consulta nunca varre a tabela inteira", async () => {
