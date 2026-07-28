@@ -6,6 +6,7 @@ import type {
 } from "@/lib/operations/types";
 import { OperationConflictError } from "@/lib/operations/types";
 import type { OperationAction } from "@/lib/operations/state-machine";
+import { DEFAULT_MAP_WINDOW, type MapWindow } from "@/lib/operations/history";
 
 export function useOperationStates(operationDate: string, companyId?: number | null) {
   return useQuery({
@@ -49,6 +50,48 @@ export function useProfiles() {
     queryKey: ["operation-profiles"],
     queryFn: () => operationService.listProfiles(),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * Operações concluídas persistidas no banco operacional, dentro da janela
+ * configurada. Independe do ERP — é a fonte permanente do histórico.
+ */
+export function useCompletedStates(window: MapWindow, companyId?: number | null) {
+  return useQuery({
+    queryKey: ["operation-states", "completed", String(window), companyId ?? "all"],
+    queryFn: () => operationService.listCompleted({ window, companyId }),
+    staleTime: 10_000,
+  });
+}
+
+/** Configuração GLOBAL (app_settings) da janela de exibição no mapa. */
+export function useMapWindow() {
+  return useQuery({
+    queryKey: ["app-settings", "map-window"],
+    queryFn: () => operationService.getMapWindow(),
+    staleTime: 60_000,
+    placeholderData: DEFAULT_MAP_WINDOW,
+  });
+}
+
+export function useSetMapWindow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (w: MapWindow) => operationService.setMapWindow(w),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["app-settings", "map-window"] });
+      qc.invalidateQueries({ queryKey: ["operation-states"] });
+    },
+  });
+}
+
+/** Busca histórica no banco operacional (não depende da consulta diária). */
+export function useHistorySearch(term: string, companyId?: number | null, enabled = true) {
+  return useQuery({
+    queryKey: ["operation-states", "history", term, companyId ?? "all"],
+    queryFn: () => operationService.searchStates({ term, companyId }),
+    enabled: enabled && term.trim().length >= 2,
   });
 }
 
