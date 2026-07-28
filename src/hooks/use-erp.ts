@@ -6,9 +6,13 @@ import {
   pingErpHealth,
   getMapOrders,
   geocodeOrders,
+  searchErpProducts,
+  listErpEquipmentTypes,
   type ListOrdersInput,
   type GetMapOrdersInput,
   type GeocodeOrdersInput,
+  type SearchProductsInput,
+  type ListEquipmentTypesInput,
 } from "@/lib/erp.functions";
 
 /** Ping público /api/v1/health da API Node. */
@@ -72,5 +76,36 @@ export function useGeocodeOrders() {
   const fn = useServerFn(geocodeOrders);
   return useMutation({
     mutationFn: (input: GeocodeOrdersInput) => fn({ data: input }),
+  });
+}
+
+/** GET /api/v1/products — catálogo somente leitura do ERP. Exige termo de busca. */
+export function useErpProducts(input: SearchProductsInput | null) {
+  const fn = useServerFn(searchErpProducts);
+  return useQuery({
+    queryKey: [
+      "erp",
+      "products",
+      input?.q ?? "",
+      input?.companyId ?? "all",
+      input?.active ?? "any",
+      input?.cursor ?? "",
+    ],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input && input.q.trim().length >= 3),
+    staleTime: 60_000,
+  });
+}
+
+/** GET /api/v1/equipment-types — catálogo pequeno, carregado inteiro. */
+export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
+  const fn = useServerFn(listErpEquipmentTypes);
+  return useQuery({
+    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
+    queryFn: () => fn({ data: input ?? {} }),
+    staleTime: 60_000,
   });
 }
