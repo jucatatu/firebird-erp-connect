@@ -293,3 +293,113 @@ assume-se que a procedure ou as triggers fazem isso. O dump precisa provar.
 **Manter como está:** transação única, idempotência com hash de payload,
 `GERA_COBRANCA=1`, `CAD_USER=2`, resolução oficial de empresa. Nada disso deve
 ser reaberto na Sprint 7.
+---
+
+# Sprint 6.1 — Descoberta final: triggers e procedures
+
+> **Escopo:** descoberta. Nenhum endpoint, service, repository, controller,
+> migração, procedure, trigger ou teste foi criado. Nenhuma estrutura existente
+> foi alterada. **Nenhuma escrita foi realizada no Firebird** — todo SQL do
+> mecanismo de introspecção passa pelo guard de `scripts/lib/introspect.js`,
+> que recusa qualquer comando que não comece com `SELECT` e bloqueia palavras
+> de escrita/DDL.
+
+## 6.1.0 Situação factual
+
+O ambiente onde este agente executa **não tem rota de rede até o Firebird**
+(o banco fica no servidor Windows da operação). Por isso o código-fonte das
+triggers e das procedures não pode ser lido daqui: ele existe apenas dentro do
+catálogo do banco produtivo.
+
+Documentar esse código de memória ou por inferência seria violar a regra
+"não assumir hipóteses". A entrega desta Sprint é, portanto, o **mecanismo que
+produz o documento final com o código-fonte real**, executado por quem tem
+acesso ao banco, mais a estrutura do relatório já pronta para receber os fatos.
+
+## 6.1.1 O que executar (uma linha)
+
+```
+cd erp-api
+node scripts/inspect-order-source.js --out docs/ORDER-CREATION-SOURCE.md
+```
+
+Saída: `docs/ORDER-CREATION-SOURCE.md`, um relatório Markdown completo e
+autocontido. Sem `--out`, imprime no console.
+
+O script `scripts/inspect-order-creation.js` (Sprint 6) continua válido para o
+resumo interativo; `inspect-order-source.js` é o entregável documental.
+
+## 6.1.2 O que o relatório gerado contém
+
+| Seção gerada | Item do briefing 6.1 | Fonte no catálogo |
+| --- | --- | --- |
+| **1. Triggers** — por tabela: nome, BEFORE/AFTER, INSERT/UPDATE/DELETE, posição, ativa/inativa, objetos referenciados e **código-fonte integral** | 1 | `RDB$TRIGGERS`, `RDB$DEPENDENCIES` |
+| **2. Procedures** — nome, parâmetros IN, parâmetros OUT, dependências e **código-fonte integral**, com **resolução recursiva**: toda procedure chamada por outra entra na fila e também é dumpada | 2 | `RDB$PROCEDURES`, `RDB$PROCEDURE_PARAMETERS`, `RDB$DEPENDENCIES` |
+| **3. Numeração** — generators relevantes + valor atual, e uma tabela com **todas as linhas de trigger/procedure que citam `N_PEDIDO`**, seguida de conclusão automática (generator vs `MAX()+1`) | 3 | `RDB$GENERATORS`, `GEN_ID(x, 0)` (leitura sem incremento) |
+| **4. Campos automáticos** — por tabela: coluna, obrigatoriedade, `DEFAULT` (de coluna e de domínio), coluna calculada e **qual trigger atribui `NEW.<coluna>`**; fecha com a lista de obrigatórias que o chamador precisa fornecer | 4 | `RDB$RELATION_FIELDS`, `RDB$FIELDS`, fonte das triggers |
+| **5. Dependências** — tabelas adicionais referenciadas pelas procedures/triggers e tabelas com FK para `ORDENS_VENDA`; declara explicitamente quando não há nenhuma | 5 | `RDB$DEPENDENCIES`, `RDB$RELATION_CONSTRAINTS` |
+
+Ponto de partida da varredura de procedures: `SP_CAD_ORDEM_VENDA_COMPLETO`,
+`SP_CAD_ORDEM_VENDA`, `SP_CAD_ITENS_ORDENS_VENDA`, `SP_CAD_EQUIP_ORDENS_VENDA`
+mais tudo que casa com `%ORDEN%`, `%ORDEM%`, `%PEDIDO%`, `%ITENS%`, `%EQUIP%`.
+A partir daí a fila cresce sozinha por `RDB$DEPENDENCIES`, cobrindo procedures
+usadas **indiretamente** (o item 2 do briefing).
+
+### Classificação automática de comportamento
+
+Para cada trigger e procedure o relatório imprime uma linha
+"comportamento observado na fonte", detectando na própria fonte: uso de
+`GEN_ID`, referência a `N_PEDIDO`, `MAX(N_PEDIDO)+1`, movimentação de
+estoque/saldo, geração de cobrança/comanda/financeiro, histórico/auditoria,
+`EXCEPTION` de validação, cálculo de totais, carimbo de data/hora e atribuição
+de `ID_STATUS`. É leitura da fonte real — não inferência sobre o que "deveria"
+existir. A explicação resumida exigida pelo briefing sai dessa linha somada ao
+bloco de código logo abaixo.
+
+## 6.1.3 Numeração de `N_PEDIDO` — estado da confirmação
+
+Confirmado por código em produção (Sprints anteriores): `ID_ORDENS_VENDA` vem
+de generator lido com `GEN_ID(GEN_ORDENS_VENDA_ID, 0)` dentro de
+`SP_CAD_ORDEM_VENDA`, e `N_PEDIDO` é atribuído pelo ERP — a API apenas o relê
+após a chamada, na mesma transação.
+
+**Ainda não confirmado, e resolvido pela seção 3 do relatório gerado:** qual
+objeto atribui `N_PEDIDO` (trigger BEFORE INSERT, a procedure, ou default de
+coluna), qual generator ele consome e em que momento da transação. O script
+imprime as linhas literais que tocam `N_PEDIDO`, o que torna a resposta
+verificável em vez de opinativa. Enquanto isso não estiver anexado, **o risco
+R2 permanece aberto e a Sprint 7 não deve começar**.
+
+## 6.1.4 Sequência real da criação — o que já é fato
+
+A sequência executada hoje pela API está descrita em §7 deste documento e é
+comprovada por código em produção. O que o relatório da 6.1 acrescenta é a
+**camada interna** de cada passo: quais triggers disparam entre a chamada da
+procedure e o commit, e em que ordem (`RDB$TRIGGER_SEQUENCE`). A ordem
+completa só pode ser afirmada com o dump em mãos.
+
+## 6.1.5 Riscos identificados nesta Sprint
+
+| # | Risco | Gravidade |
+| --- | --- | --- |
+| R9 | Código-fonte de triggers/procedures indisponível fora do servidor da operação — qualquer decisão da Sprint 7 tomada agora é hipótese | **alta** |
+| R10 | Triggers inativas (`RDB$TRIGGER_INACTIVE = 1`) podem existir e mascarar regras que o ERP legado assume ativas em outra instalação | média |
+| R11 | Procedures chamadas indiretamente podem tocar tabelas fora do grafo de FK — por isso a varredura é recursiva por dependência, não por nome | média |
+| R12 | Colunas com `DEFAULT` no **domínio** (não na coluna) passam despercebidas em inspeções superficiais; o relatório lê as duas origens | baixa |
+
+## 6.1.6 Declaração de conformidade
+
+- Nenhum endpoint, service, repository, controller, migração, trigger,
+  procedure ou teste foi criado.
+- Nenhuma estrutura existente foi alterada.
+- Nenhum `INSERT`, `UPDATE`, `DELETE` ou execução de procedure que modifique
+  dados foi emitido — o guard read-only rejeita esses comandos por construção,
+  e o teste `nenhum script de introspecção contém SQL de escrita` cobre o novo
+  script.
+- **Nenhuma escrita foi realizada no Firebird.**
+
+## 6.1.7 Entrega pendente (bloqueante da Sprint 7)
+
+Rodar a linha de 6.1.1 no servidor Windows e anexar
+`docs/ORDER-CREATION-SOURCE.md`. Com esse arquivo, fecho aqui as seções §1–§6
+com o código-fonte real e a sequência definitiva de execução.
