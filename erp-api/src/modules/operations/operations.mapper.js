@@ -1,5 +1,7 @@
 "use strict";
 
+const companyRule = require("../../shared/company/company-rule");
+
 /**
  * Mapeamento de linhas brutas do Firebird para o contrato externo da API.
  *
