@@ -14,7 +14,7 @@ function onlyDigits(value) {
  * Mascara CPF (11 dígitos) ou CNPJ (14 dígitos), preservando apenas os
  * primeiros e últimos dígitos.
  *   CPF   → "123.***.***-00"
- *   CNPJ  → "12.***.***/****-00"
+ *   CNPJ  → "12.xxx.xxx-00" (grupos centrais mascarados)
  * Outros comprimentos → mantém 2 primeiros e 2 últimos.
  * Vazio/nulo → null.
  */
