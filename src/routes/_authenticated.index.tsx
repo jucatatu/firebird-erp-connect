@@ -10,7 +10,19 @@ import {
 import { OperationalCounters } from "@/components/operation/operational-counters";
 import { OrderDetailSheet } from "@/components/operation/order-detail-sheet";
 import { useGeocodeOrders, useMapOrders } from "@/hooks/use-erp";
-import { useOperationStates, usePickupStatesForDate, useProfiles } from "@/hooks/use-operations";
+import {
+  useCompletedStates,
+  useMapWindow,
+  useOperationStates,
+  usePickupStatesForDate,
+  useProfiles,
+} from "@/hooks/use-operations";
+import {
+  dedupeBy,
+  isWithinCompletedWindow,
+  mapWindowLabel,
+  type MapWindow,
+} from "@/lib/operations/history";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { isMappable, normalizeMapOrder, type MapOrder, type NormalizedMapOrder } from "@/lib/erp.functions";
 import { resolveDeliveryTime } from "@/lib/delivery-time";
@@ -69,6 +81,8 @@ function today() {
 function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
   const snap = (s.snapshot ?? {}) as Record<string, unknown>;
   const address = typeof snap.address === "string" ? snap.address : "";
+  const lat = typeof snap.latitude === "number" ? snap.latitude : null;
+  const lng = typeof snap.longitude === "number" ? snap.longitude : null;
   return {
     key: `state-${s.id}`,
     erpOrderId: Number(s.erp_order_id),
@@ -84,11 +98,16 @@ function fallbackOrderFromState(s: OperationState): NormalizedMapOrder {
     deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
     returnDate: null,
     period: typeof snap.period === "string" ? snap.period : null,
-    deliveryTime: null,
-    items: [], equipments: [],
+    deliveryTime: typeof snap.deliveryTime === "string" ? snap.deliveryTime : null,
+    items: Array.isArray(snap.items) ? (snap.items as NormalizedMapOrder["items"]) : [],
+    equipments: Array.isArray(snap.equipments)
+      ? (snap.equipments as NormalizedMapOrder["equipments"])
+      : [],
     location: {
-      latitude: null, longitude: null, locationType: "", precision: "",
-      placeId: "", matchMismatch: false, source: "unresolved", cacheKey: "",
+      latitude: lat, longitude: lng, locationType: "", precision: "",
+      placeId: "", matchMismatch: false,
+      source: lat != null && lng != null ? "snapshot" : "unresolved",
+      cacheKey: "",
     },
     malformed: false, raw: {},
   };
@@ -108,6 +127,8 @@ function MapHome() {
   const [openSeq, setOpenSeq] = useState(0);
   // Card operacional exibido ao tocar num marcador (antes de abrir o sheet).
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  // Escopo do filtro "Concluídos": janela configurada ou histórico completo.
+  const [completedScope, setCompletedScope] = useState<"window" | "all">("window");
 
   const online = useNetworkStatus();
   const companyId = company === "all" ? undefined : (Number(company) as 1 | 3);
@@ -115,6 +136,14 @@ function MapHome() {
   const ordersQ = useMapOrders({ date, companyId });
   const statesQ = useOperationStates(date, companyId ?? null);
   const pickupsQ = usePickupStatesForDate(date, companyId ?? null);
+  const mapWindowQ = useMapWindow();
+  const mapWindow: MapWindow = mapWindowQ.data ?? 7;
+  // 3ª fonte do mapa: operações já concluídas persistidas no banco
+  // operacional. Independem do ERP retornar o pedido na data.
+  const completedQ = useCompletedStates(
+    completedScope === "all" ? "always" : mapWindow,
+    companyId ?? null,
+  );
   const profilesQ = useProfiles();
   const geocodeM = useGeocodeOrders();
   const qc = useQueryClient();
@@ -178,8 +207,28 @@ function MapHome() {
       };
     });
 
-    return [...deliveries, ...pickups];
-  }, [normalizedOrders, statesQ.data, pickupsQ.data]);
+    // 3) HISTÓRICO PERMANENTE: concluídos vindos do banco operacional.
+    const history: EnrichedOrder[] = (completedQ.data ?? []).map((s) => {
+      const erpId = Number(s.erp_order_id);
+      const order = orderByErpId.get(erpId) ?? fallbackOrderFromState(s);
+      const isPickupOp = s.pickup_completed_at != null;
+      return {
+        order,
+        key: `${isPickupOp ? "p" : "d"}:hist-${s.id}`,
+        erpId,
+        state: s,
+        status: s.operational_status,
+        opType: isPickupOp ? "pickup" : "delivery",
+        scheduledDate: s.pickup_scheduled_date,
+      };
+    });
+
+    // Deduplicação: estado/pedido do dia tem prioridade sobre o histórico.
+    return dedupeBy(
+      [...deliveries, ...pickups, ...history],
+      (e) => `${e.erpId}:${e.opType}`,
+    );
+  }, [normalizedOrders, statesQ.data, pickupsQ.data, completedQ.data]);
 
   // ── Auto-geocoding: dispara POST /api/v1/map/geocode para os pedidos
   // pending que ainda não foram tentados nesta sessão. Uma única vez por
@@ -236,6 +285,9 @@ function MapHome() {
       const bucket = filterOfStatus(e.status);
       if (filter === "completed") {
         if (bucket !== "completed") return false;
+        // Janela de exibição — nunca exclui registros, apenas oculta.
+        if (completedScope === "window" && !isWithinCompletedWindow(e.state, mapWindow))
+          return false;
       } else {
         if (bucket === "completed") return false;
         if (filter === "deliveries" && e.opType !== "delivery") return false;
@@ -256,7 +308,7 @@ function MapHome() {
         e.order.orderNumber.toLowerCase().includes(q)
       );
     });
-  }, [enrichedAll, query, filter, pickupsQ.data]);
+  }, [enrichedAll, query, filter, pickupsQ.data, completedScope, mapWindow]);
 
   // Ordenação
   const orders: EnrichedOrder[] = useMemo(() => {
