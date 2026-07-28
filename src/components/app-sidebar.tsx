@@ -11,6 +11,7 @@ import {
   Wrench,
   Users,
   Settings,
+  BookOpen,
 } from "lucide-react";
 
 type Item = {
@@ -40,6 +41,7 @@ const GROUPS: Group[] = [
       { label: "Novo pedido", to: "/pedidos-venda/novo", icon: PlusCircle, roles: ["vendedor", "admin"] },
       { label: "Aprovações", to: "/pedidos-venda/aprovacoes", icon: ShieldCheck, roles: ["aprovador", "admin"] },
       { label: "Integração ERP", to: "/settings/erp", icon: Wrench, adminOnly: true },
+      { label: "Catálogo", to: "/settings/catalogo", icon: BookOpen, adminOnly: true },
     ],
   },
   {
