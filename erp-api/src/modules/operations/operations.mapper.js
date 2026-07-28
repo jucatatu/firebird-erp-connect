@@ -160,13 +160,12 @@ function mapClientName(row) {
  * e o próximo nível de fallback é avaliado.
  */
 function resolveCompanyId(row) {
-  const ordem = toNullableInt(pick(row, "ORDEM_ID_EMPRESA"));
-  if (ordem === 1 || ordem === 3) return ordem;
-  const cliente = toNullableInt(pick(row, "CLIENTE_ID_EMPRESA"));
-  if (cliente === 1 || cliente === 3) return cliente;
-  const grupo = toNullableString(pick(row, "GRUPO_CLIENTE_DESCRICAO"));
-  if (grupo && /grott/i.test(grupo)) return 3;
-  return 1;
+  // Delega à implementação única em shared/company/company-rule.js.
+  return companyRule.resolveCompanyId({
+    explicitCompanyId: toNullableInt(pick(row, "ORDEM_ID_EMPRESA")),
+    clientCompanyId: toNullableInt(pick(row, "CLIENTE_ID_EMPRESA")),
+    groupDescription: toNullableString(pick(row, "GRUPO_CLIENTE_DESCRICAO")),
+  });
 }
 
 function mapItemRow(row) {
