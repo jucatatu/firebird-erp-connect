@@ -35,3 +35,11 @@ test("coringas digitados pelo usuário são neutralizados", () => {
     assert.equal(p.slice(1, -1).includes("%"), false);
   }
 });
+
+test("aspas simples e comentário SQL permanecem apenas como VALOR do padrão", () => {
+  const patterns = buildQPatterns("chopp' OR 1=1 --");
+  assert.ok(patterns.every((p) => p.startsWith("%") && p.endsWith("%")));
+  assert.ok(patterns[0].includes("'"));
+  // O padrão é sempre passado como parâmetro; nada aqui é concatenado em SQL.
+  assert.ok(patterns.every((p) => !p.includes(";")));
+});

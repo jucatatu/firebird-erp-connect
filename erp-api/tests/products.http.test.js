@@ -208,7 +208,7 @@ test("erro do banco nunca vaza SQL, tabela ou stack", async () => {
   assert.equal(res.body.error.code, "PRODUCT_QUERY_FAILED");
 });
 
-test("aspas simples no termo não quebram nem injetam SQL", async () => {
+test("termo com sintaxe de injeção nunca entra na SQL, só em parâmetro", async () => {
   const res = await get("/api/v1/products?q=chopp%2527+OR+1=1+--");
   assert.equal(res.status, 200);
   const q = state.queries.filter((s) => /FROM PRODUTOS pr/i.test(s.sql)).pop();
