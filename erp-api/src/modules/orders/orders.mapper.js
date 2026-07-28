@@ -1,6 +1,7 @@
 "use strict";
 
 const { LIMITS } = require("./orders.validator");
+const companyRule = require("../../shared/company/company-rule");
 
 /**
  * ID_USER fixado internamente para toda ordem criada pela integração.
