@@ -17,6 +17,7 @@ const ordersRoutes = require("./modules/orders/orders.routes");
 const clientsRoutes = require("./modules/clients/clients.routes");
 const productsRoutes = require("./modules/products/products.routes");
 const equipmentTypesRoutes = require("./modules/equipment-types/equipment-types.routes");
+const pricingRoutes = require("./modules/pricing/pricing.routes");
 const mapRoutes = require("./modules/map/map.routes");
 
 function createApp() {
@@ -58,6 +59,7 @@ function createApp() {
   v1.use("/clients", clientsRoutes);
   v1.use("/products", productsRoutes);
   v1.use("/equipment-types", equipmentTypesRoutes);
+  v1.use("/pricing", pricingRoutes);
   v1.use("/map", mapRoutes);
   app.use("/api/v1", v1);
 
