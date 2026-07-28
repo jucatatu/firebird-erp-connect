@@ -115,11 +115,14 @@ inferido como se fosse cadastro.
 - **Pagamentos**: falta confirmar a diferença semântica entre
   `FORMA_PAGAMENTO` e `FPGTO`, qual coluna de `CLIENTES` guarda a forma padrão
   e qual guarda o prazo, e a regra específica de boleto.
-- **Produtos**: nenhuma busca implementada.
-- **Equipamentos**: ainda não há confirmação de categoria estruturada que
-  separe chopeira / cilindro / barril retornável. O frontend continua usando
-  heurística por descrição; isso é temporário e não deve ser tratado como
-  regra oficial.
+- **Produtos**: resolvido na Sprint 3 (v1.6.0) — `GET /api/v1/products` e
+  `GET /api/v1/products/:productId`, somente leitura e sem preços. Ver
+  `docs/CATALOG-READONLY.md`.
+- **Equipamentos**: `GET /api/v1/equipment-types` entregue na Sprint 3, mas a
+  lacuna permanece: não há categoria estruturada que separe chopeira /
+  cilindro / barril retornável. A API devolve `category: null` e
+  `returnable: null` em vez de inferir por descrição. O frontend continua
+  usando heurística; isso é temporário e não é regra oficial.
 - **`npm audit`** não pôde ser executado no ambiente de build (o proxy de
   registro usado aqui não expõe o endpoint de auditoria). Rode
   `npm audit` no servidor Windows antes do deploy.
