@@ -592,6 +592,13 @@ function MapHomeInner() {
           </div>
           <div className="rounded-full border bg-surface/95 px-2 py-1.5 shadow-sm backdrop-blur">
             <OperationalFilters active={filter} counts={filterCounts} onChange={setFilter} />
+            {filter === "completed" && (
+              <CompletedScopeToggle
+                scope={completedScope}
+                onChange={setCompletedScope}
+                window={mapWindow}
+              />
+            )}
           </div>
           {!online && (
             <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 shadow-sm">
