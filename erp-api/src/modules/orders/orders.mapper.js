@@ -1,6 +1,7 @@
 "use strict";
 
 const { LIMITS } = require("./orders.validator");
+const companyRule = require("../../shared/company/company-rule");
 
 /**
  * ID_USER fixado internamente para toda ordem criada pela integração.
@@ -43,10 +44,12 @@ function toDateOrNull(v) {
  * Retorna sempre 1 ou 3.
  */
 function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
-  if (payloadCompanyId === 1 || payloadCompanyId === 3) return payloadCompanyId;
-  if (clientCompanyId === 1 || clientCompanyId === 3) return clientCompanyId;
-  if (typeof groupName === "string" && /grott/i.test(groupName)) return 3;
-  return 1;
+  // Delega à implementação única em shared/company/company-rule.js.
+  return companyRule.resolveCompanyId({
+    explicitCompanyId: payloadCompanyId === 1 || payloadCompanyId === 3 ? payloadCompanyId : null,
+    clientCompanyId: clientCompanyId === 1 || clientCompanyId === 3 ? clientCompanyId : null,
+    groupDescription: groupName,
+  });
 }
 
 /**
