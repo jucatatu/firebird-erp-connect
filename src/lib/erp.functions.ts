@@ -478,3 +478,113 @@ export const geocodeOrders = createServerFn({ method: "POST" })
       body: { orderIds: data.orderIds } as unknown as JsonValue,
     });
   });
+
+// ── Catálogo somente leitura do ERP (v1.6.0) ─────────────────────────────
+
+export interface ErpProduct {
+  id: number | null;
+  code: string | null;
+  description: string | null;
+  unit?: { id: number | null; code: string | null; description: string | null } | null;
+  group?: { id: number | null; description: string | null } | null;
+  companyId: number | null;
+  active: boolean | null;
+  blocked: boolean | null;
+  discontinued: boolean | null;
+}
+
+export interface ErpProductsPayload {
+  count: number;
+  limit: number;
+  nextCursor: string | null;
+  products: ErpProduct[];
+}
+
+export interface ErpEquipmentType {
+  id: number | null;
+  code: string | null;
+  description: string | null;
+  companyId: number | null;
+  active: boolean | null;
+  category: string | null;
+  returnable: boolean | null;
+}
+
+export interface ErpEquipmentTypesPayload {
+  count: number;
+  scanned: number;
+  limit: number;
+  truncated: boolean;
+  equipmentTypes: ErpEquipmentType[];
+}
+
+export interface SearchProductsInput {
+  /** Termo de busca (3 a 60 caracteres). Obrigatório: a API exige ao menos um filtro. */
+  q: string;
+  companyId?: 1 | 3;
+  active?: boolean;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface ErpEnvelope<T> {
+  ok: boolean;
+  status: number;
+  data: T | null;
+  error: { code: string; message: string; retryable: boolean; details?: JsonValue } | null;
+}
+
+export const searchErpProducts = createServerFn({ method: "POST" })
+  .inputValidator((input: SearchProductsInput) => {
+    const q = typeof input?.q === "string" ? input.q.trim() : "";
+    if (q.length < 3 || q.length > 60) {
+      throw new Error("Informe de 3 a 60 caracteres na busca.");
+    }
+    if (input.companyId !== undefined && input.companyId !== 1 && input.companyId !== 3) {
+      throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
+    }
+    const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 50) : 20;
+    const cursor = typeof input.cursor === "string" && input.cursor.trim() !== "" ? input.cursor.trim() : undefined;
+    return { q, companyId: input.companyId, active: input.active, limit, cursor };
+  })
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
+    if (data.companyId) query.companyId = String(data.companyId);
+    if (typeof data.active === "boolean") query.active = String(data.active);
+    if (data.cursor) query.cursor = data.cursor;
+    const res = await callErp<JsonValue>({
+      method: "GET",
+      path: "/api/v1/products",
+      query,
+    });
+    return res as unknown as ErpEnvelope<ErpProductsPayload>;
+  });
+
+export interface ListEquipmentTypesInput {
+  q?: string;
+  active?: boolean;
+  limit?: number;
+}
+
+export const listErpEquipmentTypes = createServerFn({ method: "POST" })
+  .inputValidator((input: ListEquipmentTypesInput | undefined) => {
+    const raw = typeof input?.q === "string" ? input.q.trim() : "";
+    if (raw !== "" && (raw.length < 2 || raw.length > 60)) {
+      throw new Error("A busca deve ter de 2 a 60 caracteres.");
+    }
+    const limit = Number.isFinite(input?.limit) ? Math.min(Math.max(Number(input?.limit), 1), 200) : 200;
+    return { q: raw === "" ? undefined : raw, active: input?.active, limit };
+  })
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    const query: Record<string, string> = { limit: String(data.limit) };
+    if (data.q) query.q = data.q;
+    if (typeof data.active === "boolean") query.active = String(data.active);
+    const res = await callErp<JsonValue>({
+      method: "GET",
+      path: "/api/v1/equipment-types",
+      query,
+    });
+    return res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
+  });

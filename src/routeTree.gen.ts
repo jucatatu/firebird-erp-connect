@@ -20,6 +20,7 @@ import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_au
 import { Route as ApiPublicTmpResetAdminRouteImport } from './routes/api/public/tmp-reset-admin'
 import { Route as AuthenticatedSettingsMapaRouteImport } from './routes/_authenticated.settings.mapa'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
+import { Route as AuthenticatedSettingsCatalogoRouteImport } from './routes/_authenticated.settings.catalogo'
 import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_authenticated.pedidos-venda.novo'
 import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
 import { Route as AuthenticatedPedidosVendaDraftIdRouteImport } from './routes/_authenticated.pedidos-venda.$draftId'
@@ -82,6 +83,12 @@ const AuthenticatedSettingsErpRoute =
     path: '/settings/erp',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsCatalogoRoute =
+  AuthenticatedSettingsCatalogoRouteImport.update({
+    id: '/settings/catalogo',
+    path: '/settings/catalogo',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPedidosVendaNovoRoute =
   AuthenticatedPedidosVendaNovoRouteImport.update({
     id: '/pedidos-venda/novo',
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
+  '/settings/catalogo': typeof AuthenticatedSettingsCatalogoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
   '/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
+  '/settings/catalogo': typeof AuthenticatedSettingsCatalogoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
   '/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/_authenticated/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
+  '/_authenticated/settings/catalogo': typeof AuthenticatedSettingsCatalogoRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
   '/_authenticated/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
+    | '/settings/catalogo'
     | '/settings/erp'
     | '/settings/mapa'
     | '/api/public/tmp-reset-admin'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
+    | '/settings/catalogo'
     | '/settings/erp'
     | '/settings/mapa'
     | '/api/public/tmp-reset-admin'
@@ -203,6 +215,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pedidos-venda/$draftId'
     | '/_authenticated/pedidos-venda/aprovacoes'
     | '/_authenticated/pedidos-venda/novo'
+    | '/_authenticated/settings/catalogo'
     | '/_authenticated/settings/erp'
     | '/_authenticated/settings/mapa'
     | '/api/public/tmp-reset-admin'
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsErpRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/catalogo': {
+      id: '/_authenticated/settings/catalogo'
+      path: '/settings/catalogo'
+      fullPath: '/settings/catalogo'
+      preLoaderRoute: typeof AuthenticatedSettingsCatalogoRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/pedidos-venda/novo': {
       id: '/_authenticated/pedidos-venda/novo'
       path: '/pedidos-venda/novo'
@@ -335,6 +355,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
   AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
   AuthenticatedPedidosVendaNovoRoute: typeof AuthenticatedPedidosVendaNovoRoute
+  AuthenticatedSettingsCatalogoRoute: typeof AuthenticatedSettingsCatalogoRoute
   AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
   AuthenticatedSettingsMapaRoute: typeof AuthenticatedSettingsMapaRoute
   AuthenticatedPedidosVendaIndexRoute: typeof AuthenticatedPedidosVendaIndexRoute
@@ -351,6 +372,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPedidosVendaAprovacoesRoute:
     AuthenticatedPedidosVendaAprovacoesRoute,
   AuthenticatedPedidosVendaNovoRoute: AuthenticatedPedidosVendaNovoRoute,
+  AuthenticatedSettingsCatalogoRoute: AuthenticatedSettingsCatalogoRoute,
   AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
   AuthenticatedSettingsMapaRoute: AuthenticatedSettingsMapaRoute,
   AuthenticatedPedidosVendaIndexRoute: AuthenticatedPedidosVendaIndexRoute,
