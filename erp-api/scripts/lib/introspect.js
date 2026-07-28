@@ -167,13 +167,41 @@ async function countRows(table) {
   return rows && rows[0] ? Number(rows[0].TOTAL) : null;
 }
 
+function sanitizeScriptErrorText(value) {
+  const text = String(value || "").trim();
+  if (!text) return "falha não detalhada";
+
+  return text
+    .replace(/\b(?:SELECT|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|GRANT|REVOKE|EXECUTE)\b[\s\S]*/gi, "[comando omitido]")
+    .replace(
+      /\b(?:password|passwd|pwd|user|uid|username|host|server|database|db|path|filename|file|data\s+source)\b\s*[:=]\s*("[^"]*"|'[^']*'|[^\s;,)]+)/gi,
+      (match) => match.replace(/[:=]\s*("[^"]*"|'[^']*'|[^\s;,)]+)/, "=[omitido]"),
+    )
+    .replace(/\b(?:[A-Za-z]:[\\/]|\\\\|\/)[^\s'")]+/g, "[caminho omitido]")
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[host omitido]")
+    .replace(/\b(?:SYSDBA|masterkey)\b/gi, "[credencial omitida]")
+    .trim();
+}
+
+function safeScriptErrorMessage(err) {
+  const parts = [];
+  if (err && err.name && err.name !== "Error") parts.push(String(err.name));
+  if (err && err.code) parts.push(`code=${sanitizeScriptErrorText(err.code)}`);
+
+  const rawMessage = err && err.message ? err.message : err;
+  const message = sanitizeScriptErrorText(rawMessage);
+  if (message) parts.push(message);
+
+  return parts.length ? parts.join(": ") : "falha não detalhada";
+}
+
 function runScript(main) {
-  main()
-    .then(() => process.exit(0))
+  return Promise.resolve()
+    .then(() => main())
     .catch((err) => {
       // eslint-disable-next-line no-console
-      console.error(`ERRO: ${err && err.message ? err.message : err}`);
-      process.exit(1);
+      console.error(`ERRO: ${safeScriptErrorMessage(err)}`);
+      process.exitCode = 1;
     });
 }
 
