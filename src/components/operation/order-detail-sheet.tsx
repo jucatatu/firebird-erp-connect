@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { operationService } from "@/lib/operations/OrderOperationService";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -223,8 +224,29 @@ export function OrderDetailSheet({
       address: addressText || null,
       phone: order.phone,
       hasReturnableEquipment: hasPickupRequiredEquipment(order),
+      snapshot: buildOrderSnapshot(),
     });
     return created.id;
+  }
+
+  /**
+   * Snapshot congelado no momento da operação. Preserva o pedido mesmo que
+   * o ERP altere cliente/endereço/itens depois, ou pare de retorná-lo.
+   */
+  function buildOrderSnapshot(): Record<string, unknown> {
+    return {
+      customerName: order.customerName,
+      address: addressText || null,
+      phone: order.phone,
+      orderNumber: order.orderNumber,
+      deliveryDate: order.deliveryDate,
+      period: order.period,
+      deliveryTime: order.deliveryTime ?? null,
+      latitude: order.location?.latitude ?? null,
+      longitude: order.location?.longitude ?? null,
+      items: order.items ?? [],
+      equipments: order.equipments ?? [],
+    };
   }
 
   const busy =
@@ -239,6 +261,15 @@ export function OrderDetailSheet({
   ) {
     try {
       const id = await ensureStateId();
+      // Persistência permanente: antes de qualquer conclusão, congela o
+      // snapshot (não destrutivo — nunca sobrescreve dados já gravados).
+      if (action === "confirm_delivery" || action === "confirm_pickup") {
+        try {
+          await operationService.enrichSnapshot({ stateId: id, snapshot: buildOrderSnapshot() });
+        } catch {
+          // Snapshot é complementar: falha aqui não bloqueia a operação.
+        }
+      }
       // Auto-chain: "Entregar" a partir de pendente/reagendado/não localizado
       // dispara internamente start_delivery → confirm_delivery. O usuário
       // nunca vê "Iniciar entrega" nem o estado transitório.
