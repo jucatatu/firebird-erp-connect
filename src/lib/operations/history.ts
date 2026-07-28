@@ -11,11 +11,36 @@ export function mapWindowLabel(w: MapWindow): string {
 }
 
 export function parseMapWindow(v: unknown): MapWindow {
-  if (v === "always" || v === -1) return "always";
+  // "always" é representação estruturada explícita (sem número mágico).
+  if (v === "always") return "always";
+  if (typeof v !== "number" && typeof v !== "string") return DEFAULT_MAP_WINDOW;
   const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isInteger(n) || n <= 0) return DEFAULT_MAP_WINDOW;
   return (MAP_WINDOW_OPTIONS as readonly unknown[]).includes(n)
     ? (n as MapWindow)
     : DEFAULT_MAP_WINDOW;
+}
+
+/**
+ * Início do dia local (00:00 no fuso do dispositivo/operação) em ms.
+ * Timestamps são gravados em UTC; a comparação é feita por DIA OPERACIONAL
+ * LOCAL para não antecipar nem atrasar a remoção visual perto da meia-noite.
+ */
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
+ * Limite inferior (inclusivo) da janela, em ms.
+ * Regra inclusiva: HOJE conta como dia 1 → janela de N dias mostra
+ * concluídos de hoje e dos (N-1) dias anteriores. Com N=7, algo concluído
+ * há 6 dias aparece; há 7 dias (8º dia) fica oculto.
+ */
+export function windowStartMs(window: MapWindow, now: number = Date.now()): number | null {
+  if (window === "always") return null;
+  return startOfLocalDay(now) - (window - 1) * 86_400_000;
 }
 
 /**
@@ -40,15 +65,16 @@ export function isWithinCompletedWindow(
   if (window === "always") return true;
   const ts = completionTimestamp(s);
   if (!ts) return true; // ainda em operação → segue os filtros operacionais
-  const ageMs = now - new Date(ts).getTime();
-  if (!Number.isFinite(ageMs)) return true;
-  return ageMs <= window * 24 * 60 * 60 * 1000;
+  const at = new Date(ts).getTime();
+  if (!Number.isFinite(at)) return true; // timestamp ilegível nunca oculta
+  const start = windowStartMs(window, now) as number;
+  return at >= start;
 }
 
-/** Data ISO (yyyy-mm-dd) do início da janela — usada para consultar o banco. */
+/** Início da janela em ISO/UTC — usado para filtrar no banco. */
 export function windowStartIso(window: MapWindow, now: number = Date.now()): string | null {
-  if (window === "always") return null;
-  return new Date(now - window * 24 * 60 * 60 * 1000).toISOString();
+  const start = windowStartMs(window, now);
+  return start == null ? null : new Date(start).toISOString();
 }
 
 /** Remove duplicatas mantendo o primeiro item de cada chave (prioridade do caller). */
