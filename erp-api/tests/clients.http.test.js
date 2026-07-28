@@ -19,10 +19,6 @@ require.cache[clientPath] = {
     ping: async () => true,
     executeQuery: async (sql, params) => {
       state.queries.push({ sql, params });
-      if (state.failNext) {
-        state.failNext = false;
-        throw new Error("driver blew up with SELECT SECRET FROM CLIENTES");
-      }
       if (/RDB\$RELATION_FIELDS/i.test(sql)) {
         const table = String(params[0]).toUpperCase();
         return (state.columns[table] || []).map((f) => ({ FIELD: f }));
@@ -33,6 +29,10 @@ require.cache[clientPath] = {
       if (/FROM CONTATO/i.test(sql)) return state.phones;
       if (/FROM ORDENS_VENDA/i.test(sql)) return state.orderAddresses;
       if (/FROM CLIENTES cl/i.test(sql)) {
+        if (state.failNext) {
+          state.failNext = false;
+          throw new Error("driver blew up running SELECT ... FROM CLIENTES cl");
+        }
         if (/cl\.ID_CLIENTE = \?/.test(sql)) {
           const id = params[0];
           return state.clients.filter((c) => c.ID_CLIENTE === id);
