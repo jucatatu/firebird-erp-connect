@@ -222,6 +222,107 @@ export type Database = {
           },
         ]
       }
+      order_catalog_setting_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          erp_item_id: number
+          event_type: Database["public"]["Enums"]["catalog_event_type"]
+          id: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          new_value: Json | null
+          previous_value: Json | null
+          setting_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          erp_item_id: number
+          event_type: Database["public"]["Enums"]["catalog_event_type"]
+          id?: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          new_value?: Json | null
+          previous_value?: Json | null
+          setting_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          erp_item_id?: number
+          event_type?: Database["public"]["Enums"]["catalog_event_type"]
+          id?: string
+          item_type?: Database["public"]["Enums"]["catalog_item_type"]
+          new_value?: Json | null
+          previous_value?: Json | null
+          setting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_catalog_setting_events_setting_id_fkey"
+            columns: ["setting_id"]
+            isOneToOne: false
+            referencedRelation: "order_catalog_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_catalog_settings: {
+        Row: {
+          company_ids: number[]
+          created_at: string
+          created_by: string | null
+          default_quantity: number
+          display_name: string | null
+          enabled: boolean
+          erp_description_snapshot: string
+          erp_item_id: number
+          id: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          quantity_step: number
+          requires_pickup: boolean | null
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          company_ids?: number[]
+          created_at?: string
+          created_by?: string | null
+          default_quantity?: number
+          display_name?: string | null
+          enabled?: boolean
+          erp_description_snapshot: string
+          erp_item_id: number
+          id?: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          quantity_step?: number
+          requires_pickup?: boolean | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          company_ids?: number[]
+          created_at?: string
+          created_by?: string | null
+          default_quantity?: number
+          display_name?: string | null
+          enabled?: boolean
+          erp_description_snapshot?: string
+          erp_item_id?: number
+          id?: string
+          item_type?: Database["public"]["Enums"]["catalog_item_type"]
+          quantity_step?: number
+          requires_pickup?: boolean | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       order_draft_events: {
         Row: {
           actor_id: string | null
@@ -631,9 +732,55 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_order_catalog_setting: {
+        Args: {
+          _company_ids: number[]
+          _default_quantity: number
+          _display_name?: string
+          _enabled: boolean
+          _erp_description_snapshot: string
+          _erp_item_id: number
+          _expected_version?: number
+          _item_type: Database["public"]["Enums"]["catalog_item_type"]
+          _quantity_step: number
+          _requires_pickup?: boolean
+          _sort_order: number
+        }
+        Returns: {
+          company_ids: number[]
+          created_at: string
+          created_by: string | null
+          default_quantity: number
+          display_name: string | null
+          enabled: boolean
+          erp_description_snapshot: string
+          erp_item_id: number
+          id: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          quantity_step: number
+          requires_pickup: boolean | null
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "order_catalog_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "vendedor" | "aprovador"
+      catalog_event_type:
+        | "created"
+        | "enabled"
+        | "disabled"
+        | "updated"
+        | "snapshot_updated"
+      catalog_item_type: "product" | "equipment"
       operation_event_origin: "local" | "erp"
       operation_event_type:
         | "loaded"
@@ -810,6 +957,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor", "aprovador"],
+      catalog_event_type: [
+        "created",
+        "enabled",
+        "disabled",
+        "updated",
+        "snapshot_updated",
+      ],
+      catalog_item_type: ["product", "equipment"],
       operation_event_origin: ["local", "erp"],
       operation_event_type: [
         "loaded",
