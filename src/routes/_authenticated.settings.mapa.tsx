@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useMapWindow, useSetMapWindow } from "@/hooks/use-operations";
-import { useMyRoles } from "@/hooks/use-auth";
+import { useAuthSession, useMyRoles } from "@/hooks/use-auth";
 import {
   MAP_WINDOW_OPTIONS,
   mapWindowLabel,
@@ -38,7 +38,8 @@ export const Route = createFileRoute("/_authenticated/settings/mapa")({
 });
 
 function MapSettingsPage() {
-  const { data: roles } = useMyRoles();
+  const { user } = useAuthSession();
+  const { data: roles } = useMyRoles(user);
   const isAdmin = (roles ?? []).includes("admin");
   const windowQ = useMapWindow();
   const setM = useSetMapWindow();
