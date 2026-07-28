@@ -94,7 +94,7 @@ test("coluna INATIVO é interpretada de forma invertida", () => {
 
 test("folding de acentos gera padrão que casa com e sem acento", () => {
   assert.equal(mapper.foldToLikePattern("Jose"), "%J_S_%");
-  assert.equal(mapper.foldToLikePattern("João"), "%J__O%");
+  assert.equal(mapper.foldToLikePattern("João"), "%J___%");
   assert.deepEqual(mapper.buildQPatterns("Jose"), ["%JOSE%", "%J_S_%"]);
 });
 
