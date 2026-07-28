@@ -10,6 +10,7 @@ import {
   type SnapshotField,
 } from "./types";
 import type { OperationAction } from "./state-machine";
+import { windowStartIso, type MapWindow } from "./history";
 
 /**
  * Interface pública das ações operacionais. Deve permanecer independente
@@ -52,6 +53,30 @@ export interface OrderOperationService {
     pickupDate: string;
     companyId?: number | null;
   }): Promise<OperationState[]>;
+  /**
+   * Operações CONCLUÍDAS persistidas no banco operacional, dentro da janela
+   * de exibição. Fonte permanente do histórico — independe do ERP/Node.
+   */
+  listCompleted(input: {
+    window: MapWindow;
+    companyId?: number | null;
+  }): Promise<OperationState[]>;
+  /** Busca histórica ampla (não depende da consulta diária do ERP). */
+  searchStates(input: {
+    term?: string;
+    companyId?: number | null;
+    limit?: number;
+  }): Promise<OperationState[]>;
+  /**
+   * Complementa o snapshot persistido SEM sobrescrever dados já gravados.
+   * Chamado no momento da entrega para congelar cliente/endereço/itens.
+   */
+  enrichSnapshot(input: {
+    stateId: string;
+    snapshot: Record<string, unknown>;
+  }): Promise<void>;
+  getMapWindow(): Promise<MapWindow>;
+  setMapWindow(window: MapWindow): Promise<void>;
   listEvents(stateId: string): Promise<OperationEvent[]>;
   listNotes(stateId: string): Promise<OperationNote[]>;
 }
@@ -221,6 +246,87 @@ export const LocalOrderOperationService: OrderOperationService = {
     const res = await q;
     if (res.error) throw res.error;
     return (res.data ?? []) as OperationState[];
+  },
+
+  async listCompleted({ window, companyId }) {
+    const since = windowStartIso(window);
+    let q = db.from("operation_states").select("*");
+    if (since) {
+      q = q.or(`delivered_at.gte.${since},pickup_completed_at.gte.${since}`);
+    } else {
+      q = q.or("delivered_at.not.is.null,pickup_completed_at.not.is.null");
+    }
+    if (companyId != null) q = q.eq("company_id", companyId);
+    const res = await q.order("delivered_at", { ascending: false, nullsFirst: false });
+    if (res.error) throw res.error;
+    return (res.data ?? []) as OperationState[];
+  },
+
+  async searchStates({ term, companyId, limit = 200 }) {
+    let q = db.from("operation_states").select("*");
+    if (companyId != null) q = q.eq("company_id", companyId);
+    const n = Number(term);
+    if (term && Number.isInteger(n) && n > 0) {
+      q = q.or(`erp_order_number.eq.${n},erp_order_id.eq.${n}`);
+    } else if (term && term.trim()) {
+      q = q.ilike("snapshot->>customerName", `%${term.trim()}%`);
+    }
+    const res = await q.order("created_at", { ascending: false }).limit(limit);
+    if (res.error) throw res.error;
+    return (res.data ?? []) as OperationState[];
+  },
+
+  async enrichSnapshot({ stateId, snapshot }) {
+    const cur = await db
+      .from("operation_states")
+      .select("snapshot")
+      .eq("id", stateId)
+      .maybeSingle();
+    if (cur.error) throw cur.error;
+    const existing = (cur.data?.snapshot ?? {}) as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...existing };
+    // Não destrutivo: só preenche o que ainda não foi congelado.
+    for (const [k, v] of Object.entries(snapshot)) {
+      if (v === undefined || v === null || v === "") continue;
+      if (Array.isArray(v) && v.length === 0) continue;
+      const prev = merged[k];
+      const prevEmpty =
+        prev === undefined || prev === null || prev === "" ||
+        (Array.isArray(prev) && prev.length === 0);
+      if (prevEmpty) merged[k] = v;
+    }
+    const res = await db
+      .from("operation_states")
+      .update({ snapshot: merged })
+      .eq("id", stateId);
+    if (res.error) throw res.error;
+  },
+
+  async getMapWindow() {
+    const res = await db
+      .from("app_settings")
+      .select("value")
+      .eq("key", "map_completed_window_days")
+      .maybeSingle();
+    if (res.error) throw res.error;
+    const raw = (res.data?.value ?? {}) as { days?: unknown };
+    const { parseMapWindow } = await import("./history");
+    return parseMapWindow(raw.days);
+  },
+
+  async setMapWindow(window) {
+    const { data: userRes } = await supabase.auth.getUser();
+    const res = await db
+      .from("app_settings")
+      .upsert(
+        {
+          key: "map_completed_window_days",
+          value: { days: window === "always" ? "always" : window },
+          updated_by: userRes.user?.id ?? null,
+        },
+        { onConflict: "key" },
+      );
+    if (res.error) throw res.error;
   },
 
   async listEvents(stateId) {
