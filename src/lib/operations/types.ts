@@ -67,6 +67,12 @@ export interface OperationState {
   pickup_scheduled_date?: string | null;
   pickup_scheduled_time?: string | null;
   pickup_note?: string | null;
+  /** Carimbo permanente da confirmação da entrega (nunca sobrescrito). */
+  delivered_at?: string | null;
+  delivered_by?: string | null;
+  /** Carimbo permanente da conclusão da recolha (nunca sobrescrito). */
+  pickup_completed_at?: string | null;
+  pickup_completed_by?: string | null;
 }
 
 /**
@@ -82,6 +88,11 @@ export const SNAPSHOT_FIELDS = [
   "orderNumber",
   "deliveryDate",
   "period",
+  "deliveryTime",
+  "latitude",
+  "longitude",
+  "items",
+  "equipments",
 ] as const;
 export type SnapshotField = (typeof SNAPSHOT_FIELDS)[number];
 
