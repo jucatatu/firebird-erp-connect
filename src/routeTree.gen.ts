@@ -18,6 +18,7 @@ import { Route as AuthenticatedEntregasRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
 import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
 import { Route as ApiPublicTmpResetAdminRouteImport } from './routes/api/public/tmp-reset-admin'
+import { Route as AuthenticatedSettingsMapaRouteImport } from './routes/_authenticated.settings.mapa'
 import { Route as AuthenticatedSettingsErpRouteImport } from './routes/_authenticated.settings.erp'
 import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_authenticated.pedidos-venda.novo'
 import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
@@ -69,6 +70,12 @@ const ApiPublicTmpResetAdminRoute = ApiPublicTmpResetAdminRouteImport.update({
   path: '/api/public/tmp-reset-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsMapaRoute =
+  AuthenticatedSettingsMapaRouteImport.update({
+    id: '/settings/mapa',
+    path: '/settings/mapa',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsErpRoute =
   AuthenticatedSettingsErpRouteImport.update({
     id: '/settings/erp',
@@ -112,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
   '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
@@ -127,6 +135,7 @@ export interface FileRoutesByTo {
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
   '/pedidos-venda': typeof AuthenticatedPedidosVendaIndexRoute
 }
@@ -144,6 +153,7 @@ export interface FileRoutesById {
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
   '/_authenticated/pedidos-venda/novo': typeof AuthenticatedPedidosVendaNovoRoute
   '/_authenticated/settings/erp': typeof AuthenticatedSettingsErpRoute
+  '/_authenticated/settings/mapa': typeof AuthenticatedSettingsMapaRoute
   '/api/public/tmp-reset-admin': typeof ApiPublicTmpResetAdminRoute
   '/_authenticated/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/settings/mapa'
     | '/api/public/tmp-reset-admin'
     | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/aprovacoes'
     | '/pedidos-venda/novo'
     | '/settings/erp'
+    | '/settings/mapa'
     | '/api/public/tmp-reset-admin'
     | '/pedidos-venda'
   id:
@@ -192,6 +204,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pedidos-venda/aprovacoes'
     | '/_authenticated/pedidos-venda/novo'
     | '/_authenticated/settings/erp'
+    | '/_authenticated/settings/mapa'
     | '/api/public/tmp-reset-admin'
     | '/_authenticated/pedidos-venda/'
   fileRoutesById: FileRoutesById
@@ -267,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTmpResetAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings/mapa': {
+      id: '/_authenticated/settings/mapa'
+      path: '/settings/mapa'
+      fullPath: '/settings/mapa'
+      preLoaderRoute: typeof AuthenticatedSettingsMapaRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/erp': {
       id: '/_authenticated/settings/erp'
       path: '/settings/erp'
@@ -316,6 +336,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
   AuthenticatedPedidosVendaNovoRoute: typeof AuthenticatedPedidosVendaNovoRoute
   AuthenticatedSettingsErpRoute: typeof AuthenticatedSettingsErpRoute
+  AuthenticatedSettingsMapaRoute: typeof AuthenticatedSettingsMapaRoute
   AuthenticatedPedidosVendaIndexRoute: typeof AuthenticatedPedidosVendaIndexRoute
 }
 
@@ -331,6 +352,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedPedidosVendaAprovacoesRoute,
   AuthenticatedPedidosVendaNovoRoute: AuthenticatedPedidosVendaNovoRoute,
   AuthenticatedSettingsErpRoute: AuthenticatedSettingsErpRoute,
+  AuthenticatedSettingsMapaRoute: AuthenticatedSettingsMapaRoute,
   AuthenticatedPedidosVendaIndexRoute: AuthenticatedPedidosVendaIndexRoute,
 }
 
