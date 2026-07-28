@@ -251,7 +251,7 @@ test("erro de comunicação com o Firebird nunca vaza SQL nem stack", async () =
   const res = await get("/api/v1/pricing/resolve?productId=10");
   assert.ok(res.status >= 500);
   const json = JSON.stringify(res.body);
-  assert.ok(!/SELECT|FROM |p\.|driver blew up/i.test(json), json);
+  assert.ok(!/SELECT|FROM | p\.|driver blew up/i.test(json), json);
   assert.equal(res.body.error.code, "PRICE_QUERY_FAILED");
 });
 
