@@ -426,12 +426,12 @@ test("erro do repository → 503 ERP_UNAVAILABLE sem vazar detalhes", async () =
   assert.ok(!/SELECT/i.test(res.body.error.message));
 });
 
-test("health retorna a versão do package.json (1.6.0)", async () => {
+test("health retorna a versão do package.json", async () => {
   reset();
   const app = createApp();
   const res = await request(app).get("/api/v1/health");
   assert.equal(res.status, 200);
-  assert.equal(res.body.data.version, "1.6.0");
+  assert.equal(res.body.data.version, require("../package.json").version);
 });
 
 test("contrato final contém date, companies, count e orders", async () => {
