@@ -78,6 +78,33 @@ export function windowStartIso(window: MapWindow, now: number = Date.now()): str
 }
 
 /** Remove duplicatas mantendo o primeiro item de cada chave (prioridade do caller). */
+
+function isEmptyValue(v: unknown): boolean {
+  return v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
+}
+
+/**
+ * Regra de congelamento do snapshot.
+ *  - `frozen = false` (operação ainda não concluída): dados do ERP podem
+ *    ATUALIZAR o snapshot — ele ainda é rascunho operacional.
+ *  - `frozen = true` (já existe delivered_at/pickup_completed_at): apenas
+ *    completa lacunas; nunca substitui o que foi congelado na conclusão.
+ * Valores vazios recebidos nunca apagam dados existentes.
+ */
+export function mergeSnapshot(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  frozen: boolean,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...existing };
+  for (const [k, v] of Object.entries(incoming)) {
+    if (isEmptyValue(v)) continue;
+    if (frozen && !isEmptyValue(out[k])) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 export function dedupeBy<T>(items: T[], keyOf: (item: T) => string): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
