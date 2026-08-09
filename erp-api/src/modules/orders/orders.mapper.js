@@ -26,6 +26,27 @@ function toDateOrNull(v) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const companyRule = require("../../shared/company/company-rule");
+
+/**
+ * Resolve companyId final aplicando a hierarquia oficial.
+ *
+ * Prioridade:
+ *   1. payload.companyId ∈ {1,3}
+ *   2. clientCompany  ∈ {1,3}
+ *   3. groupName contém "GROTT" → 3
+ *   4. fallback → 1
+ *
+ * Retorna sempre 1 ou 3.
+ */
+function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
+  return companyRule.resolveCompanyId({
+    explicitCompanyId: payloadCompanyId === 1 || payloadCompanyId === 3 ? payloadCompanyId : null,
+    clientCompanyId: clientCompanyId === 1 || clientCompanyId === 3 ? clientCompanyId : null,
+    groupDescription: groupName,
+  });
+}
+
 /**
  * Monta o array posicional para SP_CAD_ORDEM_VENDA_COMPLETO.
  * Exatamente 30 parâmetros conforme contrato Firebird.
