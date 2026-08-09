@@ -65,10 +65,15 @@ export const searchErpClients = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
+    const query: Record<string, string> = { q: data.q };
+    if (data.companyId) query.companyId = String(data.companyId);
+    if (data.limit) query.limit = String(data.limit);
+    if (data.cursor) query.cursor = String(data.cursor);
+
     return callErp({
       method: "GET",
       path: "/api/v1/clients",
-      query: data as any
+      query
     }) as Promise<ErpResponse<{ clients: ErpClient[]; nextCursor: number | null }>>;
   });
 
