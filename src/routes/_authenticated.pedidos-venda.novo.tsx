@@ -81,7 +81,11 @@ function NewOrderPage() {
   );
 
   const [productSearch, setProductSearch] = useState("");
-  const productsQ = useErpProducts(productSearch.length >= 3 ? { q: productSearch } : null);
+  const productsQ = useErpProducts(
+    productSearch.length >= 3 
+      ? { q: productSearch, companyId: companyId as 1 | 3 } 
+      : null
+  );
   
   const equipmentTypesQ = useErpEquipmentTypes();
 
