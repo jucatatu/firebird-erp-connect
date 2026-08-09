@@ -60,70 +60,67 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight">AUDITORIA READ-ONLY — BUSCA DE PRODUTOS COM FALSOS POSITIVOS</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-foreground">AUDITORIA READ-ONLY — BUSCA DE PRODUTOS COM FALSOS POSITIVOS</h2>
         
-        O fluxo do Catálogo → Produtos agora funciona, porém a busca textual está retornando resultados incorretos.
+        {"O fluxo do Catálogo → Produtos agora funciona, porém a busca textual está retornando resultados incorretos.\n\n"}
+        {"Exemplo real:\nBusca: \"Ipa\"\nResultados: CHOPP PILSEN, CHOPP PILSEN 400ML, CHOPP IPA 400ML, etc.\n\n"}
 
-        Exemplo real:
-        Busca: "Ipa"
-        Resultados: CHOPP PILSEN, CHOPP PILSEN 400ML, CHOPP IPA 400ML, etc.
+        {"==================================================\n"}
+        {"1. RASTREAR q=\"Ipa\"\n"}
+        {"==================================================\n"}
+        {"INPUT: \"Ipa\"\n"}
+        {"req.query.q: \"Ipa\"\n"}
+        {"valor normalizado: \"IPA\"\n"}
+        {"padrões gerados: [\"%IPA%\", \"%_P_%\"]\n\n"}
 
-        ==================================================
-        1. RASTREAR q="Ipa"
-        ==================================================
-        INPUT: "Ipa"
-        req.query.q: "Ipa"
-        valor normalizado: "IPA"
-        padrões gerados: ["%IPA%", "%_P_%"]
+        {"==================================================\n"}
+        {"2. VERIFICAR BUSCA APROXIMADA / FOLDING\n"}
+        {"==================================================\n"}
+        {"A lógica em shared/search/like-pattern.js troca vogais (AEIOUCN) por \"_\".\n"}
+        {"\"IPA\" -> I(vogal) P(consoante) A(vogal) -> \"_P_\"\n"}
+        {"Patterns: [\"%IPA%\", \"%_P_%\"]\n\n"}
 
-        ==================================================
-        2. VERIFICAR BUSCA APROXIMADA / FOLDING
-        ==================================================
-        A lógica em shared/search/like-pattern.js troca vogais (AEIOUCN) por "_".
-        "IPA" -> I(vogal) P(consoante) A(vogal) -> "_P_"
-        Patterns: ["%IPA%", "%_P_%"]
-
-        ==================================================
-        3. EXPLICAR CADA FALSO POSITIVO
-        ==================================================
-        CHOPP PILSEN -> Matched por "%_P_%" em "OP" (de CHOPP).
-        CHOPP VIENNA -> Matched por "%_P_%" em "OP" (de CHOPP).
-        CHOPP VINHO  -> Matched por "%_P_%" em "OP" (de CHOPP).
+        {"==================================================\n"}
+        {"3. EXPLICAR CADA FALSO POSITIVO\n"}
+        {"==================================================\n"}
+        {"CHOPP PILSEN -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n"}
+        {"CHOPP VIENNA -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n"}
+        {"CHOPP VINHO  -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n\n"}
         
-        O padrão "%_P_%" (um caractere qualquer + P + um caractere qualquer) casa com 
-        qualquer produto que contenha "CHOPP" pois o ERP armazena como "CHOPP" e 
-        a letra 'O' é substituída por '_' no folding.
+        {"O padrão \"%_P_%\" (um caractere qualquer + P + um caractere qualquer) casa com \n"}
+        {"qualquer produto que contenha \"CHOPP\" pois o ERP armazena como \"CHOPP\" e \n"}
+        {"a letra 'O' é substituída por '_' no folding.\n\n"}
 
-        ==================================================
-        4. CAMPOS PESQUISADOS
-        ==================================================
-        - DESCRICAO
-        - CODIGO
+        {"==================================================\n"}
+        {"4. CAMPOS PESQUISADOS\n"}
+        {"==================================================\n"}
+        {"- DESCRICAO\n"}
+        {"- CODIGO\n\n"}
 
-        ==================================================
-        5. SQL REAL
-        ==================================================
-        WHERE ... AND (
-          UPPER(pr.DESCRICAO) LIKE '%IPA%' OR
-          UPPER(pr.CODIGO) LIKE '%IPA%' OR
-          UPPER(pr.DESCRICAO) LIKE '%_P_%' OR
-          UPPER(pr.CODIGO) LIKE '%_P_%'
-        )
+        {"==================================================\n"}
+        {"5. SQL REAL\n"}
+        {"==================================================\n"}
+        {"WHERE ... AND (\n"}
+        {"  UPPER(pr.DESCRICAO) LIKE '%IPA%' OR\n"}
+        {"  UPPER(pr.CODIGO) LIKE '%IPA%' OR\n"}
+        {"  UPPER(pr.DESCRICAO) LIKE '%_P_%' OR\n"}
+        {"  UPPER(pr.CODIGO) LIKE '%_P_%'\n"}
+        {")\n\n"}
 
-        ==================================================
-        7. COMPARAR COM BUSCA DE CLIENTES
-        ==================================================
-        O problema é o mesmo tipo de bug de folding excessivo encontrado em clientes, 
-        mas no helper compartilhado que ainda não tem a trava de segurança de 8.5.4.
+        {"==================================================\n"}
+        {"7. COMPARAR COM BUSCA DE CLIENTES\n"}
+        {"==================================================\n"}
+        {"O problema é o mesmo tipo de bug de folding excessivo encontrado em clientes, \n"}
+        {"mas no helper compartilhado que ainda não tem a trava de segurança de 8.5.4.\n\n"}
 
-        ==================================================
-        ENTREGA
-        ==================================================
-        A. Patterns: ["%IPA%", "%_P_%"]
-        B-D. Campo/Match: DESCRICAO / Sub-string "OP" de "CHOPP".
-        E. Fuzzy permissivo? SIM, o folding transforma 3 caracteres em apenas 1 fixo ("P").
-        F. Mesma causa de Clientes? SIM.
-        G. Ponto de correção: erp-api/src/shared/search/like-pattern.js.
+        {"==================================================\n"}
+        {"ENTREGA\n"}
+        {"==================================================\n"}
+        {"A. Patterns: [\"%IPA%\", \"%_P_%\"]\n"}
+        {"B-D. Campo/Match: DESCRICAO / Sub-string \"OP\" de \"CHOPP\".\n"}
+        {"E. Fuzzy permissivo? SIM, o folding transforma 3 caracteres em apenas 1 fixo (\"P\").\n"}
+        {"F. Mesma causa de Clientes? SIM.\n"}
+        {"G. Ponto de correção: erp-api/src/shared/search/like-pattern.js.\n"}
       </div>
     </div>
   );
