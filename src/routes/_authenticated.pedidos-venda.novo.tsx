@@ -60,10 +60,12 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
   const isChopp = product.requires_equipment || punit === "L";
   const pstep = Number(product.quantity_step || 1);
   const pinitial = Number(product.default_quantity || 1);
-  const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
+  const [localQty, setLocalQty] = useState(pinitial);
 
   useEffect(() => {
-    // Sincroniza localQty com o carrinho se o item for adicionado ou removido externamente
+    // Sincroniza localQty com o carrinho SOMENTE se o item existir no carrinho.
+    // Se o item NÃO estiver no carrinho, localQty deve ser o pinitial do catálogo,
+    // garantindo que não herde lixo de um reset ou de outro produto.
     if (cartItem) {
       setLocalQty(cartItem.quantity);
     } else {
@@ -72,7 +74,12 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
   }, [cartItem, pinitial]);
 
   const handleQtyChange = (val: number) => {
-    const newQty = Math.max(0, val);
+    // Garante que o valor respeite o pstep (incremento)
+    // Se pstep=10, 10 -> 20 -> 30. Nunca 11.
+    const remainder = val % pstep;
+    const adjustedVal = remainder === 0 ? val : val + (pstep - remainder);
+    const newQty = Math.max(0, adjustedVal);
+    
     setLocalQty(newQty);
     if (cartItem) {
       addItem({ productId: product.id, description: product.description, quantity: newQty, unitPrice: 0, total: 0 });
@@ -168,9 +175,16 @@ function NewOrderPage() {
   const myCompanies = useMyCompanies(user);
 
   useEffect(() => {
-    // Ao montar a página de Novo Pedido, se o status for "created" ou "failed", resetamos para evitar lixo
+    // Ao montar a página de Novo Pedido, SEMPRE limpamos o estado para garantir um fluxo limpo,
+    // a menos que o usuário esteja em um rascunho ativo que não foi finalizado.
+    // Se o status for "created" ou "failed", o reset é obrigatório.
     if (submissionStatus === "created" || submissionStatus === "failed") {
-      reset();
+      resetItemsAndClient();
+    }
+    
+    // Se não houver clientId, forçamos um reset para garantir que nenhum lixo de itens permaneça
+    if (!clientId && items.length > 0) {
+      resetItemsAndClient();
     }
     
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
@@ -516,7 +530,17 @@ function NewOrderPage() {
             </div>
             <div className="space-y-2">
               {clientsQ.data?.data?.clients?.map((c) => (
-                <div key={c.id} className="flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-muted" onClick={() => setClient(c.id, c.name)}>
+                <div key={c.id} className="flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-muted" onClick={() => {
+                  // Ao trocar de cliente, limpamos itens e equipamentos para evitar vazamento de preços/logística
+                  if (clientId && clientId !== c.id && items.length > 0) {
+                    if (confirm("Trocar de cliente limpará os itens atuais do carrinho. Deseja continuar?")) {
+                      resetItemsAndClient();
+                      setClient(c.id, c.name);
+                    }
+                  } else {
+                    setClient(c.id, c.name);
+                  }
+                }}>
                   {c.name}
                   {clientId === c.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
                 </div>
