@@ -221,10 +221,13 @@ function EquipmentTab({
   const apiError = equipQ.data && !equipQ.data.ok ? equipQ.data.error : null;
 
   const list = useMemo(() => {
-    const all = (payload as unknown as ErpEquipmentType[]) || [];
+    const rawList = payload && typeof payload === 'object' && 'equipmentTypes' in payload 
+      ? (payload.equipmentTypes as ErpEquipmentType[]) 
+      : (Array.isArray(payload) ? (payload as ErpEquipmentType[]) : []);
+    
     const t = term.trim().toLowerCase();
-    if (t === "") return all;
-    return all.filter((e: ErpEquipmentType) =>
+    if (t === "") return rawList;
+    return rawList.filter((e: ErpEquipmentType) =>
       `${e.description ?? ""} ${e.code ?? ""}`.toLowerCase().includes(t),
     );
   }, [payload, term]);

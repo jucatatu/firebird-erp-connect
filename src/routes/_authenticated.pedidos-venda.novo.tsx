@@ -346,7 +346,7 @@ function NewOrderPage() {
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {equipmentTypesQ.data?.data?.equipmentTypes?.map((et) => (
+                  {(Array.isArray(equipmentTypesQ.data?.data?.equipmentTypes) ? equipmentTypesQ.data?.data?.equipmentTypes : []).map((et) => (
                     <Button 
                       key={et.id} 
                       variant="outline" 

@@ -120,15 +120,21 @@ export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
 }
 
 /** Busca clientes no ERP por nome, documento, código ou telefone. */
-export function useErpClients(input: { q: string; companyId?: 1 | 3; limit?: number; cursor?: number } | null) {
+export function useErpClients(input: { q?: string; document?: string; phone?: string; companyId?: 1 | 3; limit?: number; cursor?: number } | null) {
   const fn = useServerFn(searchErpClients);
   return useQuery({
-    queryKey: ["erp", "clients", input?.q ?? "", input?.companyId ?? "all"],
+    queryKey: ["erp", "clients", input?.q ?? "", input?.document ?? "", input?.phone ?? "", input?.companyId ?? "all"],
     queryFn: () => {
       if (!input) throw new Error("input ausente");
       return fn({ data: input });
     },
-    enabled: Boolean(input && input.q.trim().length >= 3),
+    enabled: Boolean(
+      input && (
+        (input.q && input.q.trim().length >= 3) || 
+        (input.document && input.document.trim().length >= 3) ||
+        (input.phone && input.phone.trim().length >= 4)
+      )
+    ),
     staleTime: 30_000,
   });
 }
