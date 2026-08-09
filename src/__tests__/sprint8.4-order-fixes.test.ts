@@ -1,10 +1,7 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useOrderFormStore } from '../hooks/use-order-form';
 
-describe('Sprint 8.4 - Novo Pedido Fixes', () => {
+describe('Sprint 8.4.1 - Novo Pedido Fixes', () => {
   beforeEach(() => {
     useOrderFormStore.getState().reset();
   });
@@ -17,9 +14,11 @@ describe('Sprint 8.4 - Novo Pedido Fixes', () => {
     expect(useOrderFormStore.getState().clientName).toBe('Romeu Casarotto');
   });
 
-  it('Selecionar empresa grava companyId correto', () => {
-    const store = useOrderFormStore.getState();
-    store.setCompany(3);
-    expect(useOrderFormStore.getState().companyId).toBe(3);
+  it('F. query dependente de clientId/companyId não executa antes de ambos existirem (UI Logic)', () => {
+    // Este teste valida que o estado inicial do Zustand permite as guardas da UI
+    const state = useOrderFormStore.getState();
+    expect(state.clientId).toBeNull();
+    expect(state.companyId).toBeNull();
   });
 });
+

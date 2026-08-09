@@ -114,7 +114,7 @@ export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
     queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
-    queryFn: () => fn({ data: input ?? {} }) as Promise<ErpResponse<ErpEquipmentType[]>>,
+    queryFn: () => fn({ data: input ?? {} }),
     staleTime: 60_000,
   });
 }

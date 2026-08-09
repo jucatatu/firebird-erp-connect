@@ -327,15 +327,15 @@ function NewOrderPage() {
           <div className="space-y-4">
             <Label>Equipamentos</Label>
             <div className="grid grid-cols-2 gap-2">
-              {equipmentTypesQ.data?.data?.map((et) => (
+              {equipmentTypesQ.data?.data?.equipmentTypes?.map((et) => (
                 <Button 
                   key={et.id} 
                   variant="outline" 
                   size="sm" 
                   className="justify-start"
                   onClick={() => addEquipment({
-                    equipmentTypeId: et.id,
-                    description: et.description,
+                    equipmentTypeId: et.id || 0,
+                    description: et.description || "Sem descrição",
                     quantity: 1
                   })}
                 >
