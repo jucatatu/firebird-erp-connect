@@ -18,6 +18,11 @@ export interface OrderEquipment {
 interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
+  idempotencyKey: string | null;
+  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
+  lastAttemptAt: string | null;
+  erpOrderId: number | null;
+  erpOrderNumber: number | null;
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
@@ -31,6 +36,8 @@ interface OrderFormStore {
   
   // Actions
   setClient: (id: number, name: string) => void;
+  setIdempotencyKey: (key: string) => void;
+  setSubmissionStatus: (status: OrderFormStore["submissionStatus"], erpData?: { orderId?: number; orderNumber?: number }) => void;
   addItem: (item: OrderItem) => void;
   removeItem: (productId: number) => void;
   updateItemQuantity: (productId: number, quantity: number) => void;
