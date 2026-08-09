@@ -1,5 +1,7 @@
 "use strict";
 
+const test = require("node:test");
+const assert = require("node:assert");
 const request = require("supertest");
 const crypto = require("crypto");
 const { createApp } = require("../src/app");
@@ -21,47 +23,42 @@ function sign(method, path, body, timestamp, nonce, apiKey, secret) {
   return crypto.createHmac("sha256", secret).update(canonical).digest("hex");
 }
 
-describe("POST /api/v1/orders (Sprint 7 - Atomicidade)", () => {
-  let app;
+test("POST /api/v1/orders (Sprint 7 - Atomicidade)", async (t) => {
+  const app = createApp();
+  _resetForTests();
 
-  beforeAll(() => {
-    app = createApp();
-  });
-
-  beforeEach(() => {
-    _resetForTests();
-    jest.clearAllMocks();
-  });
-
-  it("deve executar ROLLBACK se falhar na gravação de itens após o cabeçalho", async () => {
+  await t.test("deve executar ROLLBACK se falhar na gravação de itens após o cabeçalho", async () => {
     // 1. Mocks de serviços para permitir chegar na transação
     const clientsService = require("../src/modules/clients/clients.service");
-    jest.spyOn(clientsService, "getClientById").mockResolvedValue({ 
+    const getClientById = t.mock.method(clientsService, "getClientById", async () => ({ 
       id: 100, address: { city: "Joinville", state: "SC" } 
-    });
+    }));
     
     const productsService = require("../src/modules/products/products.service");
-    jest.spyOn(productsService, "getProductById").mockResolvedValue({ id: 1, active: true });
+    const getProductById = t.mock.method(productsService, "getProductById", async () => ({ id: 1, active: true }));
     
     const pricingService = require("../src/modules/pricing/pricing.service");
-    jest.spyOn(pricingService, "resolvePrice").mockResolvedValue({ 
+    const resolvePrice = t.mock.method(pricingService, "resolvePrice", async () => ({ 
       priceFound: true, unitPrice: 10.5, strategy: "fixed" 
-    });
+    }));
 
     // 2. Mock do Repositório para simular falha no SEGUNDO passo da transação
     const repository = require("../src/modules/orders/orders.repository");
-    const callCreateOrderComplete = jest.spyOn(repository, "callCreateOrderComplete").mockResolvedValue(999);
+    const callCreateOrderComplete = t.mock.method(repository, "callCreateOrderComplete", async () => 999);
     
     // Simula falha ao adicionar item (Step 7 do service)
-    const callAddItem = jest.spyOn(repository, "callAddItem").mockRejectedValue(new Error("DB_ERROR_ON_ITEM"));
+    const callAddItem = t.mock.method(repository, "callAddItem", async () => {
+      throw new Error("DB_ERROR_ON_ITEM");
+    });
     
     // 3. Mock do client firebird para verificar rollback
     const mockTx = {
-      query: jest.fn(),
-      rollback: jest.fn().mockResolvedValue(),
-      commit: jest.fn().mockResolvedValue()
+      query: t.mock.fn(async () => []),
+      rollback: t.mock.fn(async () => {}),
+      commit: t.mock.fn(async () => {})
     };
-    jest.spyOn(firebird, "withTransaction").mockImplementation(async (fn) => {
+    
+    t.mock.method(firebird, "withTransaction", async (fn) => {
       try {
         return await fn(mockTx);
       } catch (e) {
@@ -89,17 +86,13 @@ describe("POST /api/v1/orders (Sprint 7 - Atomicidade)", () => {
       .set("idempotency-key", "atomic-test-1");
 
     // Verifica se a API retornou 500
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("ORDER_CREATE_FAILED");
+    assert.strictEqual(res.status, 500);
+    assert.strictEqual(res.body.error.code, "ORDER_CREATE_FAILED");
 
     // PROVA DE ATOMICIDADE:
-    // O cabeçalho foi tentado...
-    expect(callCreateOrderComplete).toHaveBeenCalled();
-    // O item falhou...
-    expect(callAddItem).toHaveBeenCalled();
-    // O Rollback FOI chamado?
-    expect(mockTx.rollback).toHaveBeenCalled();
-    // O Commit NÃO foi chamado?
-    expect(mockTx.commit).not.toHaveBeenCalled();
+    assert.strictEqual(callCreateOrderComplete.mock.calls.length, 1, "Cabeçalho deveria ter sido tentado");
+    assert.strictEqual(callAddItem.mock.calls.length, 1, "Item deveria ter sido tentado e falhado");
+    assert.strictEqual(mockTx.rollback.mock.calls.length, 1, "Rollback deveria ter sido chamado");
+    assert.strictEqual(mockTx.commit.mock.calls.length, 0, "Commit NÃO deveria ter sido chamado");
   });
 });
