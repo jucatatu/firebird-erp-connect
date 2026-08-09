@@ -822,8 +822,19 @@ function NewOrderPage() {
                 <Button className="w-full" disabled={!isCoverageValid()} onClick={() => setStep("delivery")}>
                   Continuar <ChevronRight className="ml-2 h-4 w-4"/>
                 </Button>
-        {step === "delivery" && clientId && (
-          <Card>
+                {!isCoverageValid() && (
+                  <p className="text-[10px] text-destructive text-center font-medium mt-1">
+                    Equipamentos insuficientes para os produtos de chope.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {step === "delivery" && clientId && (
+        <Card>
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-2">
@@ -944,11 +955,6 @@ function NewOrderPage() {
             </CardContent>
           </Card>
         )}
-      </div>
-    </div>
-  );
-}
-      )}
     </div>
   );
 }
