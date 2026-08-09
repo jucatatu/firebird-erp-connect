@@ -49,7 +49,7 @@ export const searchErpClients = createServerFn({ method: "GET" })
     return callErp<{ clients: ErpClient[]; nextCursor: number | null }>({
       method: "GET",
       path: "/api/v1/clients",
-      query: data
+      query: data as any
     });
   });
 
@@ -73,7 +73,7 @@ export const resolveErpPrice = createServerFn({ method: "GET" })
     return callErp<PriceResolution>({
       method: "GET",
       path: "/api/v1/pricing/resolve",
-      query: data
+      query: data as any
     });
   });
 
@@ -96,19 +96,14 @@ export interface CreateOrderInput {
 }
 
 export const createErpOrder = createServerFn({ method: "POST" })
-  .inputValidator((d: CreateOrderInput) => d) // Zod validado no server-side da API Node
-  .handler(async ({ data, request }) => {
+  .inputValidator((d: { data: CreateOrderInput; idempotencyKey?: string }) => d)
+  .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
-    const idempotencyKey = request.headers.get("x-idempotency-key");
     
-    // Injetamos o header de idempotência se vier do client
-    const headers: Record<string, string> = {};
-    if (idempotencyKey) headers["x-idempotency-key"] = idempotencyKey;
-
     return callErp<{ orderId: number; orderNumber: number; status: string }>({
       method: "POST",
       path: "/api/v1/orders",
-      body: data as unknown as JsonValue,
-      headers: idempotencyKey ? { "x-idempotency-key": idempotencyKey } : undefined
+      body: data.data as unknown as JsonValue,
+      headers: data.idempotencyKey ? { "x-idempotency-key": data.idempotencyKey } : undefined
     });
   });
