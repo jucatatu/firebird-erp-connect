@@ -46,6 +46,14 @@ function NewOrderPage() {
   const myRoles = useMyRoles(user);
   const myProfile = useMyProfile(user);
 
+  const myCompanies = useMyCompanies(user);
+
+  useEffect(() => {
+    if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
+      setCompany(myCompanies.data[0]);
+    }
+  }, [myCompanies.data, companyId, setCompany]);
+
   useEffect(() => {
     if (!idempotencyKey && step === "client") {
       setIdempotencyKey(crypto.randomUUID());
