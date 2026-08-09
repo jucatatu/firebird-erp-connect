@@ -81,13 +81,16 @@ function NewOrderPage() {
   );
 
   const [productSearch, setProductSearch] = useState("");
-  const productsQ = useErpProducts(
-    productSearch.length >= 3 
-      ? { q: productSearch, companyId: companyId as 1 | 3 } 
-      : null
-  );
-  
-  const equipmentTypesQ = useErpEquipmentTypes({ companyId: companyId as 1 | 3 });
+  const productsQ = useErpProducts({
+    q: productSearch,
+    companyId: companyId as 1 | 3,
+    limit: 100,
+  });
+
+  const equipmentTypesQ = useErpEquipmentTypes({
+    companyId: companyId as 1 | 3,
+    active: true,
+  });
 
   const createOrderM = useCreateErpOrder();
 
