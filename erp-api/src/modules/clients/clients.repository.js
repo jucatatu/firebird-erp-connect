@@ -222,7 +222,28 @@ async function searchClients(input) {
     params.push(input.cityPattern);
   }
 
-  const sql = `
+  if (input.companyId !== null && input.companyId !== undefined) {
+    if (input.companyId === 3) {
+      if (c.companyId && schema.group.description && c.groupId) {
+        where.push(`(cl.${c.companyId} = 3 OR UPPER(gc.${schema.group.description}) LIKE '%GROTT%')`);
+      } else if (c.companyId) {
+        where.push(`cl.${c.companyId} = 3`);
+      } else if (schema.group.description && c.groupId) {
+        where.push(`UPPER(gc.${schema.group.description}) LIKE '%GROTT%'`);
+      }
+    } else {
+      if (c.companyId && schema.group.description && c.groupId) {
+        where.push(`(cl.${c.companyId} IS NULL OR cl.${c.companyId} <> 3)`);
+        where.push(`(gc.${schema.group.description} IS NULL OR UPPER(gc.${schema.group.description}) NOT LIKE '%GROTT%')`);
+      } else if (c.companyId) {
+        where.push(`(cl.${c.companyId} IS NULL OR cl.${c.companyId} <> 3)`);
+      } else if (schema.group.description && c.groupId) {
+        where.push(`(gc.${schema.group.description} IS NULL OR UPPER(gc.${schema.group.description}) NOT LIKE '%GROTT%')`);
+      }
+    }
+  }
+
+
     SELECT
       ${buildSelectList(schema)}
     FROM CLIENTES cl

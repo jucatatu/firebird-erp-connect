@@ -131,13 +131,7 @@ export function useErpClients(input: { q?: string; document?: string; phone?: st
       if (!input) throw new Error("input ausente");
       return fn({ data: input });
     },
-    enabled: Boolean(
-      input && (
-        (input.q && input.q.trim().length >= 3) || 
-        (input.document && input.document.trim().length >= 3) ||
-        (input.phone && input.phone.trim().length >= 4)
-      )
-    ),
+    enabled: Boolean(input?.companyId),
     staleTime: 30_000,
   });
 }

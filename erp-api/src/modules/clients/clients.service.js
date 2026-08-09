@@ -75,6 +75,7 @@ async function searchClients(input) {
       documentDigits: input.document,
       cityPattern: input.city ? mapper.exactLikePattern(input.city) : null,
       clientIdFilter,
+      companyId: input.companyId,
       limit: input.limit,
       cursor: input.cursor,
     });
@@ -106,7 +107,8 @@ async function searchClients(input) {
       });
     });
 
-    // companyId filtra o resultado; NUNCA redefine a empresa do cadastro.
+    // O companyId já foi filtrado no SQL via repository para garantir atomicidade com ROWS.
+    // Mantemos como defesa sem custo se o repository devolveu corretamente.
     if (input.companyId !== null && input.companyId !== undefined) {
       clients = clients.filter((c) => c.companyId === input.companyId);
     }
