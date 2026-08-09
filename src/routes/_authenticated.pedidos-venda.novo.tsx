@@ -160,14 +160,17 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
               </Button>
             </div>
           ) : (
-            <ProductPriceDisplay 
-              productId={product.id} 
-              clientId={clientId} 
-              unit={punit} 
-              onPriceLoaded={setErpPrice}
-              manualPrice={cartItem?.manualPrice}
-              appliedPrice={cartItem?.appliedUnitPrice}
-            />
+            <div className="mt-1 flex items-center gap-1 cursor-pointer" onClick={handlePriceClick}>
+              <ProductPriceDisplay 
+                productId={product.id} 
+                clientId={clientId} 
+                unit={punit} 
+                onPriceLoaded={setErpPrice}
+                manualPrice={cartItem?.manualPrice}
+                appliedPrice={cartItem?.appliedUnitPrice}
+              />
+              {cartItem?.manualPrice && <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+            </div>
           )}
         </div>
         {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5 shrink-0"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
