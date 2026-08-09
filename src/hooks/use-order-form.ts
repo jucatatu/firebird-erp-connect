@@ -18,6 +18,7 @@ export interface OrderEquipment {
 interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
+  companyId: number | null;
   idempotencyKey: string | null;
   submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
   lastAttemptAt: string | null;
