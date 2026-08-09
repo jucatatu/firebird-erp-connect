@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createErpOrder } from '../../erp-orders.functions';
+import { handleCreateErpOrder } from '../../erp-orders.functions';
 
 // Mock do erp.server.ts
 vi.mock('../../erp.server', () => ({
