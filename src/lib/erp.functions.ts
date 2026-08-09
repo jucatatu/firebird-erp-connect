@@ -561,7 +561,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, sort_order")
+        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -617,7 +617,9 @@ export const searchErpProducts = createServerFn({ method: "POST" })
                 return {
                   ...r.data,
                   description: cfg.display_name || r.data.description,
-                  order: cfg.order
+                  order: cfg.order,
+                  default_quantity: cfg.default_quantity,
+                  quantity_step: cfg.quantity_step
                 };
               }
             } catch (err) {
