@@ -37,8 +37,13 @@ function foldToLikePattern(term) {
     .toUpperCase()
     .replace(/[%_]/g, " ") // neutraliza coringas vindos do usuário
     .trim();
+  
+  if (!upper) return "%%";
+
   let out = "";
   for (const ch of upper) {
+    // Apenas substitui por coringa se for um caractere que realmente tem acento.
+    // Isso evita que caracteres comuns virem wildcards excessivamente amplos.
     out += ACCENT_CLASSES.includes(ch) ? "_" : ch;
   }
   return `%${out}%`;
