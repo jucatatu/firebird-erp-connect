@@ -131,6 +131,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       reset: () => set({
         clientId: null,
         clientName: null,
+        companyId: null,
         idempotencyKey: null,
         submissionStatus: "draft",
         lastAttemptAt: null,
