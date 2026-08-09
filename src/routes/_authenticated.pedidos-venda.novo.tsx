@@ -55,6 +55,74 @@ function SubtotalDisplay({ productId, clientId, quantity }: { productId: number,
   );
 }
 
+function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { product: any, clientId: number, addItem: any, removeItem: any, cartItem: any }) {
+  const punit = product.unit?.code || "UN";
+  const pstep = Number(product.quantity_step || 1);
+  const pinitial = Number(product.default_quantity || 1);
+  const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
+
+  useEffect(() => {
+    if (cartItem) setLocalQty(cartItem.quantity);
+  }, [cartItem]);
+
+  const handleQtyChange = (val: number) => {
+    const newQty = Math.max(0, val);
+    setLocalQty(newQty);
+    if (cartItem) {
+      addItem({ productId: product.id, description: product.description, quantity: newQty, unitPrice: 0, total: 0 });
+    }
+  };
+
+  return (
+    <div className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
+      <div className="flex justify-between items-start">
+        <div>
+          <h4 className="font-bold text-sm leading-tight">{product.description}</h4>
+          <ProductPriceDisplay productId={product.id} clientId={clientId} unit={punit} />
+        </div>
+        {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
+      </div>
+
+      <div className="flex items-center justify-between mt-auto pt-2">
+        <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7" 
+            onClick={() => handleQtyChange(localQty - pstep)}
+            disabled={localQty <= 0}
+          >-</Button>
+          <Input 
+            type="number"
+            className="h-7 w-12 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
+            value={localQty}
+            onChange={(e) => handleQtyChange(Number(e.target.value))}
+          />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-7 w-7" 
+            onClick={() => handleQtyChange(localQty + pstep)}
+          >+</Button>
+        </div>
+        
+        <div className="text-right">
+           <SubtotalDisplay productId={product.id} clientId={clientId} quantity={localQty} />
+           {!cartItem ? (
+             <Button size="sm" className="h-8 px-3 text-xs mt-1" onClick={() => {
+               if (localQty > 0) addItem({ productId: product.id, description: product.description, quantity: localQty, unitPrice: 0, total: 0 });
+             }}>Adicionar</Button>
+           ) : (
+             <Button variant="ghost" size="sm" className="h-8 px-2 text-xs mt-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeItem(product.id)}>
+               Remover
+             </Button>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewOrderPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
