@@ -74,9 +74,10 @@ function ProductPriceDisplay({
 
 function SubtotalDisplay({ productId, clientId, quantity, appliedPrice }: { productId: number, clientId: number, quantity: number, appliedPrice?: number }) {
   const { data } = useErpPrice({ productId, clientId });
-  if (!data?.ok || (!data.data?.priceFound && !appliedPrice)) return null;
+  if (!data?.ok || (!data?.data?.priceFound && !appliedPrice)) return null;
   
-  const price = appliedPrice ?? data.data.unitPrice;
+  const price = appliedPrice ?? data?.data?.unitPrice;
+  if (price === undefined) return null;
   const subtotal = price * quantity;
   return (
     <p className="text-xs font-bold text-muted-foreground">
