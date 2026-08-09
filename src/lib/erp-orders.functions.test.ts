@@ -72,7 +72,7 @@ describe('createErpOrder Server Function', () => {
       };
     });
 
-    const result = await createErpOrder({ data: mockPayload });
+    const result = await createErpOrder({ data: { data: mockPayload } });
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('SELLER_NOT_MAPPED');
   });
