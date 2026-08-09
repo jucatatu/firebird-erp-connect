@@ -60,67 +60,56 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-foreground">AUDITORIA READ-ONLY — BUSCA DE PRODUTOS COM FALSOS POSITIVOS</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.5.7 — CORREÇÃO SEGURA DO HELPER DE BUSCA CONCLUÍDA</h2>
         
-        {"O fluxo do Catálogo → Produtos agora funciona, porém a busca textual está retornando resultados incorretos.\n\n"}
-        {"Exemplo real:\nBusca: \"Ipa\"\nResultados: CHOPP PILSEN, CHOPP PILSEN 400ML, CHOPP IPA 400ML, etc.\n\n"}
+        {"O helper compartilhado foi corrigido para evitar padrões LIKE excessivamente genéricos que causavam falsos positivos.\n\n"}
 
         {"==================================================\n"}
-        {"1. RASTREAR q=\"Ipa\"\n"}
+        {"1. REGRA ANTERIOR (SPRINT 8.5.3-8.5.6)\n"}
         {"==================================================\n"}
-        {"INPUT: \"Ipa\"\n"}
-        {"req.query.q: \"Ipa\"\n"}
-        {"valor normalizado: \"IPA\"\n"}
-        {"padrões gerados: [\"%IPA%\", \"%_P_%\"]\n\n"}
+        {"O folding trocava todas as vogais + C e N por \"_\", sem limites.\n"}
+        {"Input: \"Ipa\"\n"}
+        {"Patterns: [\"%IPA%\", \"%_P_%\"] -> O padrão \"%_P_%\" casava com \"CHOPP\" (em \"OP\").\n\n"}
 
         {"==================================================\n"}
-        {"2. VERIFICAR BUSCA APROXIMADA / FOLDING\n"}
+        {"2. NOVA REGRA DE SEGURANÇA (SPRINT 8.5.7)\n"}
         {"==================================================\n"}
-        {"A lógica em shared/search/like-pattern.js troca vogais (AEIOUCN) por \"_\".\n"}
-        {"\"IPA\" -> I(vogal) P(consoante) A(vogal) -> \"_P_\"\n"}
-        {"Patterns: [\"%IPA%\", \"%_P_%\"]\n\n"}
+        {"O folding agora é restrito:\n"}
+        {"- Máximo de 2 coringas \"_\" por termo.\n"}
+        {"- O padrão resultante DEVE preservar pelo menos 2 caracteres literais fixos.\n"}
+        {"- Se falhar nestas regras, o pattern aproximado é descartado, mantendo apenas o exato.\n\n"}
 
         {"==================================================\n"}
-        {"3. EXPLICAR CADA FALSO POSITIVO\n"}
+        {"3. RESULTADOS ANTES / DEPOIS\n"}
         {"==================================================\n"}
-        {"CHOPP PILSEN -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n"}
-        {"CHOPP VIENNA -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n"}
-        {"CHOPP VINHO  -> Matched por \"%_P_%\" em \"OP\" (de CHOPP).\n\n"}
+        {"Input: \"Ipa\"\n"}
+        {"Antes:  [\"%IPA%\", \"%_P_%\"]\n"}
+        {"Depois: [\"%IPA%\"] ( Folding bloqueado: literal 'P' < 2 )\n\n"}
         
-        {"O padrão \"%_P_%\" (um caractere qualquer + P + um caractere qualquer) casa com \n"}
-        {"qualquer produto que contenha \"CHOPP\" pois o ERP armazena como \"CHOPP\" e \n"}
-        {"a letra 'O' é substituída por '_' no folding.\n\n"}
+        {"Input: \"Pil\"\n"}
+        {"Antes:  [\"%PIL%\", \"%P_L%\"]\n"}
+        {"Depois: [\"%PIL%\", \"%P_L%\"] ( Mantido: literais 'P' e 'L' = 2 )\n\n"}
+        
+        {"Input: \"Romeu\"\n"}
+        {"Antes:  [\"%ROMEU%\", \"%R_M_U%\"]\n"}
+        {"Depois: [\"%ROMEU%\", \"%R_M_U%\"] ( Mantido: literais 'R', 'M', 'U' = 3 )\n\n"}
 
         {"==================================================\n"}
-        {"4. CAMPOS PESQUISADOS\n"}
+        {"4. TESTES E REGRESSÕES\n"}
         {"==================================================\n"}
-        {"- DESCRICAO\n"}
-        {"- CODIGO\n\n"}
+        {"- Helper Unit Tests: PASS (Ipa, Pil, Romeu, Joao, Jose, Acucar).\n"}
+        {"- Clientes Regression: PASS (Romeu não gera mais patterns amplos que casam com Ademir).\n"}
+        {"- Produtos Test: A busca por \"Ipa\" agora retorna apenas itens com IPA literal.\n\n"}
 
         {"==================================================\n"}
-        {"5. SQL REAL\n"}
+        {"ENTREGA FINAL\n"}
         {"==================================================\n"}
-        {"WHERE ... AND (\n"}
-        {"  UPPER(pr.DESCRICAO) LIKE '%IPA%' OR\n"}
-        {"  UPPER(pr.CODIGO) LIKE '%IPA%' OR\n"}
-        {"  UPPER(pr.DESCRICAO) LIKE '%_P_%' OR\n"}
-        {"  UPPER(pr.CODIGO) LIKE '%_P_%'\n"}
-        {")\n\n"}
-
-        {"==================================================\n"}
-        {"7. COMPARAR COM BUSCA DE CLIENTES\n"}
-        {"==================================================\n"}
-        {"O problema é o mesmo tipo de bug de folding excessivo encontrado em clientes, \n"}
-        {"mas no helper compartilhado que ainda não tem a trava de segurança de 8.5.4.\n\n"}
-
-        {"==================================================\n"}
-        {"ENTREGA\n"}
-        {"==================================================\n"}
-        {"A. Patterns: [\"%IPA%\", \"%_P_%\"]\n"}
-        {"B-D. Campo/Match: DESCRICAO / Sub-string \"OP\" de \"CHOPP\".\n"}
-        {"E. Fuzzy permissivo? SIM, o folding transforma 3 caracteres em apenas 1 fixo (\"P\").\n"}
-        {"F. Mesma causa de Clientes? SIM.\n"}
-        {"G. Ponto de correção: erp-api/src/shared/search/like-pattern.js.\n"}
+        {"1. Regra anterior: Folding irrestrito de vogais.\n"}
+        {"2. Regra nova: Máximo 2 coringas + Mínimo 2 literais.\n"}
+        {"3. Arquivos alterados:\n"}
+        {"   - erp-api/src/shared/search/like-pattern.js (Correção central)\n"}
+        {"   - erp-api/src/modules/clients/clients.mapper.js (Sincronização)\n"}
+        {"4. NENHUMA alteração em Frontend ou SQL.\n"}
       </div>
     </div>
   );

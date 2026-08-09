@@ -2,6 +2,7 @@
 
 const companyRule = require("../../shared/company/company-rule");
 const { maskDocument, documentType, maskPhone, onlyDigits } = require("../../shared/utils/mask");
+const { buildQPatterns: sharedBuildQPatterns } = require("../../shared/search/like-pattern");
 const {
   pick,
   toNullableString,
@@ -9,80 +10,14 @@ const {
 } = require("../operations/operations.mapper");
 
 /**
- * Estratégia de busca acento-insensível LIMITADA e segura.
- *
- * O Firebird desta instalação usa WIN1252 e a collation padrão do charset
- * NÃO é accent-insensitive (não foi confirmada nenhuma collation _CI_AI).
- * Em vez de carregar a tabela para normalizar em memória (proibido), o
- * termo é convertido em um padrão LIKE onde cada caractere que possui
- * variantes acentuadas vira o coringa de 1 caractere `_`.
- *
- *   "Jose"  → "%J_S_%"  → casa com JOSE e JOSÉ
- *   "João"  → "%J__O%"  → casa com JOAO e JOÃO
- *
- * O padrão é sempre aplicado sobre UPPER(coluna) e continua 100%
- * parametrizado (o padrão é um VALOR, nunca concatenado na SQL).
+ * Reutiliza o helper compartilhado para manter a consistência entre módulos.
  */
-const ACCENT_CLASSES = "AEIOUCN";
-
-/** Remove acentos do termo digitado antes do folding (NFD + strip). */
-function stripAccents(value) {
-  return String(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function foldToLikePattern(term) {
-  const upper = stripAccents(term)
-    .toUpperCase()
-    .replace(/[%_]/g, " ")
-    .trim();
-  
-  if (!upper) return "%%";
-
-  let out = "";
-  let wildcardsCount = 0;
-  for (const ch of upper) {
-    if (ACCENT_CLASSES.includes(ch)) {
-      // Sprint 8.5.4: Limita a no máximo 2 coringas por termo para evitar %_M__%
-      // que casa com "EDIMAR MIRANDA" para o termo "Romeu".
-      if (wildcardsCount < 2) {
-        out += "_";
-        wildcardsCount++;
-      } else {
-        out += ch;
-      }
-    } else {
-      out += ch;
-    }
-  }
-  return `%${out}%`;
-}
-
-/** Padrão LIKE exato (sem folding) — usado como primeira alternativa. */
-function exactLikePattern(term) {
-  const upper = String(term).toUpperCase().replace(/[%_]/g, " ").trim();
-  return `%${upper}%`;
-}
-
 function buildQPatterns(term) {
-  const exact = exactLikePattern(term);
-  if (term.length < 3) return [exact]; // Termos curtos: apenas exato.
-
-  const folded = foldToLikePattern(term);
-  return folded === exact ? [exact] : [exact, folded];
+  return sharedBuildQPatterns(term);
 }
 
-/**
- * ATIVO / BLOQUEADO.
- *
- * Regra: NADA é inventado. Se a coluna correspondente não foi confirmada
- * pela introspecção do schema, o campo é `null` — nunca `true`/`false`.
- * `DELETED` é exclusão lógica e é tratado separadamente de bloqueio.
- */
 function mapStatusFlags(row, schema) {
   const c = schema.client;
-
   let active = null;
   if (c.active) {
     const raw = pick(row, "CLIENTE_ATIVO");
@@ -96,12 +31,10 @@ function mapStatusFlags(row, schema) {
       active = /^(S|SIM|A|ATIVO|T|TRUE|1)$/i.test(s);
     }
   }
-
   let blocked = null;
   let blockType = null;
   const commercialRaw = c.blocked ? pick(row, "CLIENTE_BLOQUEADO") : undefined;
   const financialRaw = c.blockedFinancial ? pick(row, "CLIENTE_BLOQUEADO_FIN") : undefined;
-
   const isTruthyFlag = (v) => {
     const n = toNullableInt(v);
     if (n !== null) return n === 1;
@@ -109,22 +42,17 @@ function mapStatusFlags(row, schema) {
     if (s !== null) return /^(S|SIM|T|TRUE|1)$/i.test(s);
     return null;
   };
-
   const commercial = c.blocked ? isTruthyFlag(commercialRaw) : null;
   const financial = c.blockedFinancial ? isTruthyFlag(financialRaw) : null;
-
   if (commercial !== null || financial !== null) {
     blocked = Boolean(commercial) || Boolean(financial);
     if (blocked) blockType = financial ? "financial" : "commercial";
   }
-
   let blockReason = null;
   if (c.blockReason && blocked) {
     const reason = toNullableString(pick(row, "CLIENTE_MOTIVO_BLOQUEIO"));
-    // Sanitização: sem quebras de linha, tamanho limitado.
     blockReason = reason ? reason.replace(/\s+/g, " ").slice(0, 200) : null;
   }
-
   return { active, blocked, blockType, blockReason };
 }
 
@@ -187,7 +115,6 @@ function mapName(row) {
   return toNullableString(pick(row, "CLIENTE_NOME")) || null;
 }
 
-/** Item de listagem — nunca inclui documento integral. */
 function mapClientListItem(row, schema, ctx = {}) {
   const id = toNullableInt(pick(row, "ID_CLIENTE"));
   const doc = mapDocument(row, schema);
@@ -221,7 +148,6 @@ function mapClientListItem(row, schema, ctx = {}) {
   };
 }
 
-/** Detalhe — superset do item de listagem, ainda com documento mascarado. */
 function mapClientDetail(row, schema, ctx = {}) {
   const base = mapClientListItem(row, schema, ctx);
   const flags = mapStatusFlags(row, schema);
@@ -242,8 +168,6 @@ function mapClientDetail(row, schema, ctx = {}) {
 
 module.exports = {
   buildQPatterns,
-  foldToLikePattern,
-  exactLikePattern,
   mapStatusFlags,
   mapDocument,
   resolveCompany,
