@@ -58,6 +58,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
     (set) => ({
       clientId: null,
       clientName: null,
+      companyId: null,
       idempotencyKey: null,
       submissionStatus: "draft",
       lastAttemptAt: null,
@@ -75,6 +76,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       saleTypeId: null,
 
       setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setCompany: (id: number | null) => set({ companyId: id }),
       setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
       setSubmissionStatus: (status, erpData) => set({ 
         submissionStatus: status,
