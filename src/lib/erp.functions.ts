@@ -491,6 +491,7 @@ export interface ErpProduct {
   active: boolean | null;
   blocked: boolean | null;
   discontinued: boolean | null;
+  [key: string]: JsonValue;
 }
 
 export interface ErpProductsPayload {
@@ -508,6 +509,7 @@ export interface ErpEquipmentType {
   active: boolean | null;
   category: string | null;
   returnable: boolean | null;
+  [key: string]: JsonValue;
 }
 
 export interface ErpEquipmentTypesPayload {
