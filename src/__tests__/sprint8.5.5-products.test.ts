@@ -8,9 +8,7 @@ describe('Auditoria Sprint 8.5.5 - Busca de Produtos', () => {
       // @ts-ignore
       await searchErpProducts({ data: { q: "Ipa", companyId: 1, limit: 50, isAdminSearch: true } });
     } catch (e: any) {
-      // Se falhar no validator, o erro conterá a mensagem de caracteres
       expect(e.message).not.toContain('Informe de 3 a 60 caracteres');
-      // O erro esperado aqui no teste (fora do runtime Start) é o de Context, o que prova que PASSOU pelo validator
       expect(e.message).toContain('No Start context found');
     }
   });
@@ -35,15 +33,9 @@ describe('Auditoria Sprint 8.5.5 - Busca de Produtos', () => {
   });
 
   it('deve aceitar busca vazia administrativa (short-circuit)', async () => {
-    try {
-      // @ts-ignore
-      const res = await searchErpProducts({ data: { q: "", companyId: 1, limit: 50, isAdminSearch: true } });
-      // Aqui não deve dar erro de contexto pois o handler retorna objeto direto
-      expect(res.ok).toBe(true);
-      expect(res.data.products).toHaveLength(0);
-    } catch (e: any) {
-      // Não deve cair aqui
-      throw e;
-    }
+    // @ts-ignore
+    const res = await searchErpProducts({ data: { q: "", companyId: 1, limit: 50, isAdminSearch: true } });
+    expect(res.ok).toBe(true);
+    expect(res.data?.products).toHaveLength(0);
   });
 });
