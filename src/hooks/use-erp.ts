@@ -113,7 +113,7 @@ export function useErpProducts(input: SearchProductsInput | null) {
 export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
-    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
+    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any", input?.companyId ?? "all"],
     queryFn: () => fn({ data: input ?? {} }),
     staleTime: 60_000,
   });
@@ -123,12 +123,12 @@ export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
 export function useErpClients(input: { q: string; companyId?: 1 | 3; limit?: number; cursor?: number } | null) {
   const fn = useServerFn(searchErpClients);
   return useQuery({
-    queryKey: ["erp", "clients", input],
+    queryKey: ["erp", "clients", input?.q ?? "", input?.companyId ?? "all"],
     queryFn: () => {
       if (!input) throw new Error("input ausente");
       return fn({ data: input });
     },
-    enabled: Boolean(input && input.q.length >= 3),
+    enabled: Boolean(input && input.q.trim().length >= 3),
     staleTime: 30_000,
   });
 }

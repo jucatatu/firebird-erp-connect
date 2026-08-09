@@ -525,6 +525,7 @@ export interface SearchProductsInput {
   active?: boolean;
   limit?: number;
   cursor?: string;
+  isAdminSearch?: boolean;
 }
 
 export interface ErpEnvelope<T> {
@@ -545,10 +546,23 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     }
     const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 50) : 20;
     const cursor = typeof input.cursor === "string" && input.cursor.trim() !== "" ? input.cursor.trim() : undefined;
-    return { q, companyId: input.companyId, active: input.active, limit, cursor };
+    return { q, companyId: input.companyId, active: input.active, limit, cursor, isAdminSearch: !!input.isAdminSearch };
   })
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1. Buscar habilitados no Supabase se não for busca administrativa
+    let enabledIds: number[] = [];
+    if (!data.isAdminSearch) {
+      const { data: enabledProducts } = await supabaseAdmin
+        .from("order_catalog_settings")
+        .select("erp_item_id")
+        .eq("item_type", "product")
+        .eq("enabled", true)
+        .contains("company_ids", [data.companyId || 1]);
+      enabledIds = (enabledProducts || []).map((p: any) => p.erp_item_id);
+    }
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
     if (data.companyId) query.companyId = String(data.companyId);
     if (typeof data.active === "boolean") query.active = String(data.active);
@@ -558,13 +572,21 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       path: "/api/v1/products",
       query,
     });
-    return res as unknown as ErpEnvelope<ErpProductsPayload>;
+    const finalRes = res as unknown as ErpEnvelope<ErpProductsPayload>;
+    if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
+      finalRes.data.products = finalRes.data.products.filter((p) => 
+        p.id !== null && enabledIds.includes(p.id)
+      );
+    }
+    return finalRes;
   });
 
 export interface ListEquipmentTypesInput {
   q?: string;
   active?: boolean;
   limit?: number;
+  companyId?: 1 | 3;
+  isAdminSearch?: boolean;
 }
 
 export const listErpEquipmentTypes = createServerFn({ method: "POST" })
@@ -574,10 +596,23 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
       throw new Error("A busca deve ter de 2 a 60 caracteres.");
     }
     const limit = Number.isFinite(input?.limit) ? Math.min(Math.max(Number(input?.limit), 1), 200) : 200;
-    return { q: raw === "" ? undefined : raw, active: input?.active, limit };
+    return { q: raw === "" ? undefined : raw, active: input?.active, limit, companyId: input?.companyId, isAdminSearch: !!input?.isAdminSearch };
   })
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1. Buscar habilitados no Supabase se não for busca administrativa
+    let enabledIds: number[] = [];
+    if (!data.isAdminSearch) {
+      const { data: enabledEquips } = await supabaseAdmin
+        .from("order_catalog_settings")
+        .select("erp_item_id")
+        .eq("item_type", "equipment")
+        .eq("enabled", true)
+        .contains("company_ids", [data.companyId || 1]);
+      enabledIds = (enabledEquips || []).map((p: any) => p.erp_item_id);
+    }
     const query: Record<string, string> = { limit: String(data.limit) };
     if (data.q) query.q = data.q;
     if (typeof data.active === "boolean") query.active = String(data.active);
@@ -586,5 +621,11 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
       path: "/api/v1/equipment-types",
       query,
     });
-    return res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
+    const finalRes = res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
+    if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
+      finalRes.data.equipmentTypes = finalRes.data.equipmentTypes.filter((et) => 
+        et.id !== null && enabledIds.includes(et.id)
+      );
+    }
+    return finalRes;
   });
