@@ -19,6 +19,10 @@ const LIMITS = Object.freeze({
   OBS: 500,
 });
 
+const finiteNumber = z
+  .number({ invalid_type_error: "Deve ser numérico." })
+  .refine((n) => Number.isFinite(n), { message: "Valor não pode ser NaN/Infinity." });
+
 const positiveInt = z
   .number({ invalid_type_error: "Deve ser inteiro." })
   .int({ message: "Deve ser inteiro." })
@@ -31,7 +35,7 @@ const isoDateTime = z
 const itemSchema = z
   .object({
     productId: positiveInt,
-    quantity: z.number().positive({ message: "Quantidade deve ser maior que zero." }),
+    quantity: finiteNumber.positive({ message: "Quantidade deve ser maior que zero." }),
   })
   .strict();
 
@@ -54,7 +58,7 @@ const bodySchema = z
     deliveryAt: isoDateTime,
     returnEquipment: z.boolean(),
     returnAt: isoDateTime.nullable().optional().default(null),
-    freightValue: z.number().min(0).default(0),
+    freightValue: finiteNumber.min(0).default(0),
     notes: z.string().max(LIMITS.OBS).nullable().optional().default(null),
     items: z.array(itemSchema).min(1, "O pedido deve ter pelo menos 1 item."),
     equipments: z.array(equipmentSchema).default([]),

@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const firebird = require("../../shared/database/firebird-client");
 const { AppError } = require("../../shared/errors/app-error");
+const { env } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const {
   getStore,
