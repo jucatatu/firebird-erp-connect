@@ -628,18 +628,24 @@ function NewOrderPage() {
                 <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens</p>
                   {items.map(it => (
-                    <div key={it.productId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
-                       <span className="truncate max-w-[120px]">{it.description}</span>
-                       <span className="font-mono">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? "L" : ""}</span>
+                    <div key={it.productId} className="flex flex-col py-2 border-b border-dashed last:border-0">
+                       <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold truncate max-w-[150px]">{it.description}</span>
+                          <span className="font-mono font-bold">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? " L" : ""}</span>
+                       </div>
+                       <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-0.5">
+                          <span>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.unitPrice)}/un</span>
+                          <span>Subtotal: R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.total)}</span>
+                       </div>
                     </div>
                   ))}
                   {items.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum item adicionado</p>}
 
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-4">Equipamentos</p>
                   {equipments.map(eq => (
-                    <div key={eq.equipmentTypeId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
-                       <span className="truncate max-w-[120px]">{eq.description}</span>
-                       <span className="font-mono">{eq.quantity}x</span>
+                    <div key={eq.equipmentTypeId} className="flex justify-between items-center text-xs py-2 border-b border-dashed last:border-0">
+                       <span className="truncate max-w-[150px]">{eq.description}</span>
+                       <span className="font-mono font-bold">{eq.quantity}x</span>
                     </div>
                   ))}
                   {equipments.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum equipamento</p>}
