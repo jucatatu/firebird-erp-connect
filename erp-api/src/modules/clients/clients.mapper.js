@@ -35,11 +35,26 @@ function stripAccents(value) {
 function foldToLikePattern(term) {
   const upper = stripAccents(term)
     .toUpperCase()
-    .replace(/[%_]/g, " ") // neutraliza coringas vindos do usuário
+    .replace(/[%_]/g, " ")
     .trim();
+  
+  if (!upper) return "%%";
+
   let out = "";
+  let wildcardsCount = 0;
   for (const ch of upper) {
-    out += ACCENT_CLASSES.includes(ch) ? "_" : ch;
+    if (ACCENT_CLASSES.includes(ch)) {
+      // Sprint 8.5.4: Limita a no máximo 2 coringas por termo para evitar %_M__%
+      // que casa com "EDIMAR MIRANDA" para o termo "Romeu".
+      if (wildcardsCount < 2) {
+        out += "_";
+        wildcardsCount++;
+      } else {
+        out += ch;
+      }
+    } else {
+      out += ch;
+    }
   }
   return `%${out}%`;
 }
@@ -52,6 +67,8 @@ function exactLikePattern(term) {
 
 function buildQPatterns(term) {
   const exact = exactLikePattern(term);
+  if (term.length < 3) return [exact]; // Termos curtos: apenas exato.
+
   const folded = foldToLikePattern(term);
   return folded === exact ? [exact] : [exact, folded];
 }

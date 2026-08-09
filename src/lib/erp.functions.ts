@@ -557,12 +557,16 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     // 1. Buscar habilitados no Supabase se não for busca administrativa
     let enabledIds: number[] = [];
     if (!data.isAdminSearch) {
-      const { data: enabledProducts } = await supabaseAdmin
+      const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
         .select("erp_item_id")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
+      
+      if (supabaseErr) {
+        console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
+      }
       enabledIds = (enabledProducts || []).map((p: any) => p.erp_item_id);
     }
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
@@ -575,10 +579,17 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       query,
     });
     const finalRes = res as unknown as ErpEnvelope<ErpProductsPayload>;
+    
+    // Sprint 8.5.4: Auditoria de filtragem
     if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
-      finalRes.data.products = finalRes.data.products.filter((p) => 
-        p.id !== null && enabledIds.includes(p.id)
-      );
+      console.log(`[ERP_PRODUCTS] Filtrando ${finalRes.data.products.length} itens contra ${enabledIds.length} habilitados no Supabase.`);
+      finalRes.data.products = finalRes.data.products.filter((p) => {
+        const isEnabled = p.id !== null && enabledIds.includes(p.id);
+        if (!isEnabled && p.id === 1) {
+          console.warn(`[ERP_PRODUCTS] CHOPP PILSEN (ID 1) foi filtrado! Não está habilitado para empresa ${data.companyId} no Supabase.`);
+        }
+        return isEnabled;
+      });
     }
     return finalRes;
   });
