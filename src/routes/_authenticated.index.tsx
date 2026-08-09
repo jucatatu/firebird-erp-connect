@@ -1,30 +1,30 @@
-// Execute esta instrucao no projeto: SPRINT 7.1 — HOMOLOGAÇÃO REAL DA CRIAÇÃO DE PEDIDOS
+// Execute esta instrucao no projeto: SPRINT 7 — CRIAÇÃO SEGURA DE PEDIDOS NO ERP FIREBIRD
 //
-// A Sprint 7 foi implementada na ERP API v1.8.0.
+// Contexto já confirmado:
+// - Sistema novo de Entregas.
+// - Node separado do legado.
+// - Firebird local.
+// - Empresas:
+//   - ID_EMPRESA = 1 → Graal
+//   - ID_EMPRESA = 3 → Grott
+// - Catálogo configurável já existe.
+// - Pricing já existe.
+// - Fluxo de criação foi investigado nas Sprints 6/6.1.
+// - Procedure principal confirmada:
+//   SP_CAD_ORDEM_VENDA_COMPLETO
+// - Procedures de itens/equipamentos confirmadas:
+//   SP_CAD_ITENS_ORDENS_VENDA
+//   SP_CAD_EQUIP_ORDENS_VENDA
+// - A criação deve preservar integralmente as regras do ERP.
+// - Não criar trigger, generator, tabela ou procedure nova.
+// - Não alterar procedures existentes.
+// - Não escrever diretamente nas tabelas de pedido se já existir procedure oficial para isso.
 //
-// Não criar funcionalidades novas nesta Sprint.
+// OBJETIVO
+// Implementar o endpoint de criação de pedido no Node:
+// POST /api/v1/orders
 //
-// Objetivo exclusivo:
-// Validar o POST /api/v1/orders contra o Firebird real e comprovar que o pedido criado pelo Node é equivalente a um pedido criado normalmente pelo ERP.
-//
-// Não alterar procedures, triggers, generators, tabelas ou schema do Firebird.
-//
-// ────────────────────────────────────────
-// 1. PRÉ-VALIDAÇÃO
-// ────────────────────────────────────────
-// Antes de criar qualquer pedido, confirmar no Firebird real:
-// - assinatura real de cada procedure (SP_CAD_ORDEM_VENDA_COMPLETO, SP_CAD_ITENS_ORDENS_VENDA, SP_CAD_EQUIP_ORDENS_VENDA);
-// - ordem e tipo dos parâmetros;
-// - existência do usuário ID_USER = 2;
-// - significado operacional de GERA_COBRANCA = 1 e SAIDA_ESTOQUE.
-//
-// ────────────────────────────────────────
-// 2. TESTE GRAAL — PEDIDO MÍNIMO
-// ────────────────────────────────────────
-// Criar um único pedido controlado para ID_EMPRESA = 1.
-// Releitura pós-COMMIT validando campo por campo.
-//
-// (Roteiro completo de homologação, itens, N_PEDIDO, histórico, cobrança, ID_USER, endereço, idempotência e rollback registrado no briefing).
+// (Roteiro detalhado de contrato, resolução de empresa, cliente, produtos, equipamentos, totais, procedures, transação, numeração, resposta, erros, segurança, idempotência e testes registrados no briefing).
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
