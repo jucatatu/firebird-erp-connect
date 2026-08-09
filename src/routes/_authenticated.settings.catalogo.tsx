@@ -210,7 +210,7 @@ function ProductsTab({
             {!productsQ.isFetching && query && payload && payload.products.length === 0 && (
               <p className="text-sm text-muted-foreground">Nenhum produto encontrado no ERP.</p>
             )}
-            {(Array.isArray(payload?.products) ? payload.products : []).map((p) => {
+            {(Array.isArray(payload?.products) ? payload.products : []).map((p: any) => {
               const id = Number(p.id);
               if (!Number.isInteger(id) || id <= 0) return null;
               const description = p.description?.trim() || `Produto ${id}`;
