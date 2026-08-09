@@ -491,6 +491,7 @@ export interface ErpProduct {
   active: boolean | null;
   blocked: boolean | null;
   discontinued: boolean | null;
+  [key: string]: any;
 }
 
 export interface ErpProductsPayload {
@@ -508,6 +509,7 @@ export interface ErpEquipmentType {
   active: boolean | null;
   category: string | null;
   returnable: boolean | null;
+  [key: string]: any;
 }
 
 export interface ErpEquipmentTypesPayload {
@@ -586,9 +588,66 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       };
     }
 
-    // Sprint 8.5.9: Se NÃO for busca administrativa, carregamos TODOS os habilitados da empresa
-    // A ERP API será consultada sem 'q' para trazer o "seed" de dados brutos
-    const query: Record<string, string> = { limit: String(data.limit) };
+    // Sprint 8.5.11: No Novo Pedido, buscamos os produtos específicos por ID via rota de detalhe
+    if (!data.isAdminSearch) {
+      const enabledIds = Object.keys(catalogConfig).map(Number);
+      if (enabledIds.length === 0) {
+        return {
+          ok: true,
+          data: { products: [], nextCursor: null, count: 0, limit: data.limit },
+          status: 200,
+          error: null
+        };
+      }
+
+      // Busca concorrente controlada (concorrência 5)
+      const products: ErpProduct[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < enabledIds.length; i += batchSize) {
+        const batch = enabledIds.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(async (id) => {
+            try {
+              const r = await callErp<ErpProduct>({
+                method: "GET",
+                path: `/api/v1/products/${id}`,
+              });
+              if (r.ok && r.data) {
+                const cfg = catalogConfig[id];
+                return {
+                  ...r.data,
+                  description: cfg.display_name || r.data.description,
+                  order: cfg.order
+                };
+              }
+            } catch (err) {
+              console.error(`[ERP_PRODUCTS] Erro ao buscar produto ${id}:`, err);
+            }
+            return null;
+          })
+        );
+        products.push(...(results.filter(Boolean) as ErpProduct[]));
+      }
+
+      // Ordenação: sort_order (order) ASC -> Nome ASC
+      products.sort((a, b) => {
+        const orderA = (a as any).order ?? 0;
+        const orderB = (b as any).order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.description || "").localeCompare(b.description || "");
+      });
+
+      return {
+        ok: true,
+        data: { products, nextCursor: null, count: products.length, limit: data.limit },
+        status: 200,
+        error: null
+      };
+    }
+
+    // Busca Administrativa: mantém busca textual com limite seguro
+    const erpLimit = Math.min(data.limit, 50);
+    const query: Record<string, string> = { limit: String(erpLimit) };
     if (data.q) query.q = data.q;
     if (typeof data.active === "boolean") query.active = String(data.active);
     if (data.cursor) query.cursor = data.cursor;
@@ -598,32 +657,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       path: "/api/v1/products",
       query,
     });
-    const finalRes = res as unknown as ErpEnvelope<ErpProductsPayload>;
-    
-    if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
-      const enabledIds = Object.keys(catalogConfig).map(Number);
-      
-      // Filtrar apenas habilitados e enriquecer com dados do catálogo Supabase
-      finalRes.data.products = finalRes.data.products
-        .filter((p) => p.id !== null && enabledIds.includes(p.id))
-        .map((p) => {
-          const cfg = catalogConfig[p.id!];
-          return {
-            ...p,
-            description: cfg.display_name || p.description, // Prioriza nome de exibição
-            order: cfg.order // Anexa ordem para o frontend
-          };
-        });
-
-      // Ordenação: Ordem (asc) -> Nome (asc)
-      finalRes.data.products.sort((a, b) => {
-        const orderA = (a as any).order ?? 0;
-        const orderB = (b as any).order ?? 0;
-        if (orderA !== orderB) return orderA - orderB;
-        return (a.description || "").localeCompare(b.description || "");
-      });
-    }
-    return finalRes;
+    return res as unknown as ErpEnvelope<ErpProductsPayload>;
   });
 
 export interface ListEquipmentTypesInput {
