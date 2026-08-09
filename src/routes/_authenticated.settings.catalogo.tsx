@@ -299,7 +299,7 @@ function EquipmentTab({
         {!equipQ.isLoading && list.length === 0 && !apiError && (
           <p className="text-sm text-muted-foreground">Nenhum equipamento encontrado.</p>
         )}
-        {list.map((e: ErpEquipmentType) => {
+        {list.map((e: any) => {
           const id = Number(e.id);
           if (!Number.isInteger(id) || id <= 0) return null;
           const description = e.description?.trim() || `Equipamento ${id}`;
