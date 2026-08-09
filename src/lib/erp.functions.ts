@@ -559,7 +559,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, ordem")
+        .select("erp_item_id, display_name, sort_order")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -570,7 +570,8 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       (enabledProducts || []).forEach((p: any) => {
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
-          order: p.ordem ?? 0 
+          order: p.sort_order ?? 0 
+
         };
       });
     }
@@ -651,7 +652,7 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
     if (!data.isAdminSearch) {
       const { data: enabledEquips } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, ordem")
+        .select("erp_item_id, display_name, sort_order")
         .eq("item_type", "equipment")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -659,7 +660,7 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
       (enabledEquips || []).forEach((p: any) => {
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
-          order: p.ordem ?? 0 
+          order: p.sort_order ?? 0 
         };
       });
     }
