@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { useMyRoles, useMyProfile } from "@/hooks/use-auth";
+import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
 import { useCreateDraft } from "@/hooks/use-drafts";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
