@@ -412,42 +412,17 @@ function NewOrderPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {((productsQ.data as any)?.data?.products || []).filter((p: any) => 
                     !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
-                  ).map((p: any) => {
-                    const punit = p.unit?.code || "UN";
-                    const pstep = Number(p.quantity_step || 1);
-                    const pinitial = Number(p.default_quantity || 1);
-                    const cartItem = items.find(it => it.productId === p.id);
-                    const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
-                    
-                    const handleQtyChange = (val: number) => {
-                      const newQty = Math.max(0, val);
-                      setLocalQty(newQty);
-                      if (cartItem) {
-                        addItem({ productId: p.id, description: p.description, quantity: newQty, unitPrice: 0, total: 0 });
-                      }
-                    };
+                  ).map((p: any) => (
+                    <ProductCard 
+                      key={p.id}
+                      product={p}
+                      clientId={clientId!}
+                      addItem={addItem}
+                      removeItem={removeItem}
+                      cartItem={items.find(it => it.productId === p.id)}
+                    />
+                  ))}
 
-                    return (
-                      <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-bold text-sm leading-tight">{p.description}</h4>
-                            <ProductPriceDisplay productId={p.id} clientId={clientId} unit={punit} />
-                          </div>
-                          {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
-                        </div>
-
-                        <div className="flex items-center justify-between mt-auto pt-2">
-                          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7" 
-                              onClick={() => handleQtyChange(localQty - pstep)}
-                              disabled={localQty <= 0}
-                            >-</Button>
-                            <Input 
-                              type="number"
                               className="h-7 w-12 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
                               value={localQty}
                               onChange={(e) => handleQtyChange(Number(e.target.value))}
