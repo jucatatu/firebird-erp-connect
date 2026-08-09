@@ -572,7 +572,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
 
     // Se for busca administrativa e não houver termo, não chamamos o ERP para evitar 400
     if (data.isAdminSearch && !data.q) {
-      return { ok: true, data: { products: [], nextCursor: null }, status: 200 };
+      return { 
+        ok: true, 
+        data: { products: [], nextCursor: null, count: 0, limit: data.limit }, 
+        status: 200,
+        error: null
+      };
     }
 
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
