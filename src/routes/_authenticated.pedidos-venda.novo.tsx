@@ -118,6 +118,190 @@ function NewOrderPage() {
 
   const createOrderM = useCreateErpOrder();
 
+  const [showAddEquip, setShowAddEquip] = useState(false);
+
+  const choppItems = items.filter(it => {
+    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
+    return p?.requires_equipment;
+  });
+
+  const getRequiredVias = () => choppItems.length;
+
+  const getAvailableVias = () => {
+    let total = 0;
+    equipments.forEach(eq => {
+      const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
+      if (et?.description?.toLowerCase().includes("vias")) {
+        const viasMatch = et.description.match(/(\d+)\s*vias/i);
+        if (viasMatch) total += Number(viasMatch[1]) * eq.quantity;
+      } else if (et?.description?.toLowerCase().includes("via")) {
+        total += 1 * eq.quantity;
+      }
+    });
+    return total;
+  };
+
+  const getProductCoverage = (productId: number) => {
+    const it = items.find(i => i.productId === productId);
+    if (!it) return { required: 0, provided: 0 };
+    
+    let provided = 0;
+    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === productId);
+    const pName = p?.description?.toLowerCase() || "";
+    
+    equipments.forEach(eq => {
+      const desc = eq.description.toLowerCase();
+      if (desc.includes("barril")) {
+        if (choppItems.length === 1 || desc.includes(pName.split(" ")[0])) {
+           const litersMatch = desc.match(/(\d+)\s*l/i);
+           if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+        }
+      }
+    });
+
+    return { required: it.quantity, provided };
+  };
+
+  const suggestEquipments = () => {
+    const newEquips: any[] = [];
+    const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
+    
+    const requiredVias = getRequiredVias();
+    if (requiredVias > 0) {
+      const chopeiras = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("chopeira"));
+      let remainingVias = requiredVias;
+      const sortedChopeiras = [...chopeiras].sort((a, b) => {
+         const vA = Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vB = Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         return vB - vA;
+      });
+
+      for (const ch of sortedChopeiras) {
+        const vias = Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+        const qty = Math.floor(remainingVias / vias);
+        if (qty > 0) {
+          newEquips.push({ equipmentTypeId: ch.id, description: ch.description, quantity: qty });
+          remainingVias -= qty * vias;
+        }
+      }
+      if (remainingVias > 0 && sortedChopeiras.length > 0) {
+        const smallestToCover = [...sortedChopeiras].reverse().find(ch => Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1) >= remainingVias);
+        if (smallestToCover) {
+          const existing = newEquips.find(e => e.equipmentTypeId === smallestToCover.id);
+          if (existing) existing.quantity += 1;
+          else newEquips.push({ equipmentTypeId: smallestToCover.id, description: smallestToCover.description, quantity: 1 });
+        }
+      }
+    }
+
+    choppItems.forEach(it => {
+      let remainingLiters = it.quantity;
+      const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
+      const style = p?.description?.split(" ")[0]?.toUpperCase() || "";
+      
+      const barris = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("barril"));
+      const sortedBarris = [...barris].sort((a, b) => {
+         const lA = Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lB = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         return lB - lA;
+      });
+
+      for (const b of sortedBarris) {
+        const capacity = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+        if (capacity === 0) continue;
+        const qty = Math.floor(remainingLiters / capacity);
+        if (qty > 0) {
+          newEquips.push({ equipmentTypeId: b.id, description: `${b.description} (${style})`, quantity: qty });
+          remainingLiters -= qty * capacity;
+        }
+      }
+      if (remainingLiters > 0 && sortedBarris.length > 0) {
+        const smallestToCover = [...sortedBarris].reverse().find(b => Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0) >= remainingLiters);
+        if (smallestToCover) {
+           newEquips.push({ equipmentTypeId: smallestToCover.id, description: `${smallestToCover.description} (${style})`, quantity: 1 });
+        }
+      }
+    });
+
+    useOrderFormStore.setState({ equipments: newEquips });
+    toast.success("Sugestão de equipamentos aplicada");
+  };
+
+  const updateEquipmentQty = (id: number, qty: number) => {
+    if (qty <= 0) removeEquipment(id);
+    else {
+      const eqs = [...equipments];
+      const idx = eqs.findIndex(e => e.equipmentTypeId === id);
+      if (idx >= 0) {
+        eqs[idx].quantity = qty;
+        useOrderFormStore.setState({ equipments: eqs });
+      }
+    }
+  };
+
+  const isCoverageValid = () => {
+    if (choppItems.length === 0) return true;
+    if (getAvailableVias() < getRequiredVias()) return false;
+    for (const it of choppItems) {
+      const cov = getProductCoverage(it.productId);
+      if (cov.provided < cov.required) return false;
+    }
+    return true;
+  };
+
+  const EquipmentCoverageIndicators = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="p-3 border rounded-lg bg-muted/10">
+        <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Vias (Chopeiras)</p>
+        <div className="flex justify-between items-center">
+          <span className="text-sm">Requeridas: {getRequiredVias()}</span>
+          <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
+             {getAvailableVias()} disponíveis
+          </Badge>
+        </div>
+      </div>
+      {choppItems.map(it => {
+        const cov = getProductCoverage(it.productId);
+        const diff = cov.required - cov.provided;
+        return (
+          <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
+            <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate">{it.description}</p>
+            <div className="flex justify-between items-center">
+               <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
+               {diff > 0 ? (
+                 <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
+               ) : diff < 0 ? (
+                 <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
+               ) : (
+                 <CheckCircle2 className="h-4 w-4 text-green-600" />
+               )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const CoverageSummary = () => {
+    const viasValid = getAvailableVias() >= getRequiredVias();
+    const allLitersValid = choppItems.every(it => getProductCoverage(it.productId).provided >= it.required);
+    
+    if (choppItems.length === 0) return null;
+
+    return (
+      <div className="space-y-1 mt-2">
+         <div className="flex items-center gap-2 text-[10px]">
+            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            <span className={viasValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Vias {getAvailableVias()}/{getRequiredVias()}</span>
+         </div>
+         <div className="flex items-center gap-2 text-[10px]">
+            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Litros Cobertos</span>
+         </div>
+      </div>
+    );
+  };
+
   const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
     if (!myProfile.data?.erp_seller_id) {
