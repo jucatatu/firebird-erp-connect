@@ -545,7 +545,7 @@ function NewOrderPage() {
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-xl">2. Equipamentos</CardTitle>
                 <div className="flex gap-2">
-                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => suggestEquipments()}>
+                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={suggestEquipments} disabled={choppItems.length === 0}>
                      ✨ Sugerir
                    </Button>
                    <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setShowAddEquip(true)}>
@@ -554,6 +554,13 @@ function NewOrderPage() {
                 </div>
               </CardHeader>
               <CardContent>
+                 {suggestionDirty && (
+                    <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                      <p className="text-[10px] text-yellow-800 font-medium">Produtos alterados. Recalcular equipamentos?</p>
+                      <Button variant="link" size="sm" className="h-6 text-[10px] text-yellow-800 underline" onClick={suggestEquipments}>Recalcular sugestão</Button>
+                    </div>
+                 )}
+                 
                  <EquipmentCoverageIndicators />
                  
                  <div className="space-y-2 mt-4">
@@ -584,7 +591,7 @@ function NewOrderPage() {
                   {items.map(it => (
                     <div key={it.productId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
                        <span className="truncate max-w-[120px]">{it.description}</span>
-                       <span className="font-mono">{it.quantity}x</span>
+                       <span className="font-mono">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? "L" : ""}</span>
                     </div>
                   ))}
                   {items.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum item adicionado</p>}
