@@ -1,30 +1,30 @@
-// Execute esta instrucao no projeto: SPRINT 7 — CRIAÇÃO SEGURA DE PEDIDOS NO ERP FIREBIRD
-//
-// Contexto já confirmado:
-// - Sistema novo de Entregas.
-// - Node separado do legado.
-// - Firebird local.
-// - Empresas:
-//   - ID_EMPRESA = 1 → Graal
-//   - ID_EMPRESA = 3 → Grott
-// - Catálogo configurável já existe.
-// - Pricing já existe.
-// - Fluxo de criação foi investigado nas Sprints 6/6.1.
-// - Procedure principal confirmada:
-//   SP_CAD_ORDEM_VENDA_COMPLETO
-// - Procedures de itens/equipamentos confirmadas:
-//   SP_CAD_ITENS_ORDENS_VENDA
-//   SP_CAD_EQUIP_ORDENS_VENDA
-// - A criação deve preservar integralmente as regras do ERP.
-// - Não criar trigger, generator, tabela ou procedure nova.
-// - Não alterar procedures existentes.
-// - Não escrever diretamente nas tabelas de pedido se já existir procedure oficial para isso.
-//
-// OBJETIVO
-// Implementar o endpoint de criação de pedido no Node:
-// POST /api/v1/orders
-//
-// (Instruções detalhadas de contrato, resolução de empresa, cliente, produtos, equipamentos, totais, procedures, transação, numeração, resposta, erros, segurança, idempotência e testes registradas no briefing).
+// Execute esta instrucao no projeto: A Sprint 7.1 ainda não foi executada.
+// Você apenas atualizou a rota/documentação com o roteiro de homologação.
+// Agora preciso que execute a homologação real contra o Firebird disponível no ambiente do servidor Windows.
+// Faça exclusivamente a validação definida na Sprint 7.1 e me entregue o relatório factual.
+// Não implemente novas funcionalidades.
+// Não altere procedures, triggers, schema ou tabelas do Firebird.
+// Valide:
+// assinatura real das procedures;
+// existência do usuário ID_USER = 2;
+// comportamento de GERA_COBRANCA = 1;
+// criação de um pedido Graal controlado;
+// releitura completa do pedido;
+// itens gravados;
+// N_PEDIDO gerado pelo ERP;
+// histórico/status criado pelas procedures;
+// idempotência com o mesmo Idempotency-Key;
+// rollback completo em falha controlada;
+// depois, se o Graal passar, cenário Grott.
+// Se este ambiente Lovable não conseguir acessar o Firebird real, não simule nem invente resultados.
+// Nesse caso, gere exatamente:
+// os comandos que devo executar no servidor Windows;
+// o payload de teste;
+// os comandos curl;
+// as SQLs de conferência somente leitura;
+// o formato do resultado que devo te devolver.
+// Quero executar a homologação no servidor real e depois você analisa os resultados.
+// Não responda apenas que “o roteiro foi atualizado”.
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
