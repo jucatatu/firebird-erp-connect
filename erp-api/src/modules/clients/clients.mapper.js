@@ -40,15 +40,31 @@ function foldToLikePattern(term) {
   
   if (!upper) return "%%";
 
-  // Se o termo tem 3 ou mais caracteres, usamos o folding de acentos.
-  // Se for muito curto (1 ou 2), o folding gera padrões muito amplos (ex: "ID" -> "__").
-  // Nesses casos, preferimos a busca exata para evitar falsos positivos.
-  if (upper.length < 3) return `%${upper}%`;
-
+  // Se o termo tem 3 ou mais caracteres, aplicamos folding seletivo.
+  // Substituímos apenas a PRIMEIRA vogal acentuável de cada bloco ou limitamos coringas.
+  // Para a Sprint 8.5.4, vamos ser mais conservadores: 
+  // O padrão folding agora exige que o termo comece exatamente com a primeira letra 
+  // (removendo o % inicial se for alfabético) OU limitamos a um único coringa central.
+  
+  // Decisão: Substituir vogais apenas se o termo for longo o suficiente e manter 
+  // a estrutura das consoantes intacta.
   let out = "";
+  let wildcardsCount = 0;
   for (const ch of upper) {
-    out += ACCENT_CLASSES.includes(ch) ? "_" : ch;
+    if (ACCENT_CLASSES.includes(ch)) {
+      // Se já usamos 2 wildcards, paramos de substituir para evitar %_ _ _ _%
+      if (wildcardsCount < 2) {
+        out += "_";
+        wildcardsCount++;
+      } else {
+        out += ch;
+      }
+    } else {
+      out += ch;
+    }
   }
+
+  // Se o folding não mudou nada, não precisamos de duplicata.
   return `%${out}%`;
 }
 
