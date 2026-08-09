@@ -521,6 +521,7 @@ export interface ErpEquipmentTypesPayload {
 export interface SearchProductsInput {
   /** Termo de busca (3 a 60 caracteres). Obrigatório: a API exige ao menos um filtro. */
   q: string;
+  /** Opcional: só deve ser usado em rotas que aceitam este filtro (ex: pedidos). Não enviar na busca administrativa. */
   companyId?: 1 | 3;
   active?: boolean;
   limit?: number;
@@ -581,7 +582,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     }
 
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
-    if (data.companyId) query.companyId = String(data.companyId);
+    if (data.companyId && !data.isAdminSearch) query.companyId = String(data.companyId);
     if (typeof data.active === "boolean") query.active = String(data.active);
     if (data.cursor) query.cursor = data.cursor;
     const res = await callErp<JsonValue>({

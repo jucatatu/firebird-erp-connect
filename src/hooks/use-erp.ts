@@ -90,7 +90,7 @@ export function useGeocodeOrders() {
 }
 
 /** GET /api/v1/products — busca direta no ERP para configuração do catálogo. */
-export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: number; cursor?: string; isAdminSearch?: boolean }) {
+export function useErpProducts(input: { q?: string; companyId?: 1 | 3; limit?: number; cursor?: string; isAdminSearch?: boolean }) {
   const fn = useServerFn(searchErpProducts);
   const query = input.q?.trim() || "";
   
@@ -122,7 +122,7 @@ export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: nu
 }
 
 /** GET /api/v1/equipment-types — catálogo pequeno do ERP filtrado pelo Supabase. */
-export function useErpEquipmentTypes(input: { q?: string; active?: boolean; companyId: 1 | 3; isAdminSearch?: boolean }) {
+export function useErpEquipmentTypes(input: { q?: string; active?: boolean; companyId?: 1 | 3; isAdminSearch?: boolean }) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
     queryKey: [
