@@ -5,7 +5,9 @@ export interface OrderItem {
   productId: number;
   description: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number; // Preço original do ERP
+  appliedUnitPrice: number; // Preço final (ERP ou manual)
+  manualPrice: boolean;
   total: number;
 }
 
@@ -13,6 +15,9 @@ export interface OrderEquipment {
   equipmentTypeId: number;
   description: string;
   quantity: number;
+  role?: "TAP" | "KEG" | "OTHER";
+  tapLines?: number;
+  capacityLiters?: number;
 }
 
 interface OrderFormStore {
