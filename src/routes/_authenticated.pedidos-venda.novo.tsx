@@ -334,8 +334,8 @@ function NewOrderPage() {
                   size="sm" 
                   className="justify-start"
                   onClick={() => addEquipment({
-                    equipmentTypeId: et.id,
-                    description: et.description,
+                    equipmentTypeId: et.id || 0,
+                    description: et.description || "Sem descrição",
                     quantity: 1
                   })}
                 >
