@@ -372,6 +372,4 @@ function NewOrderPage() {
       )}
     </div>
   );
-    </div>
-  );
 }
