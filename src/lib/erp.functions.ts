@@ -557,11 +557,11 @@ export const searchErpProducts = createServerFn({ method: "POST" })
 
     // 1. Buscar catálogo operacional no Supabase se não for busca administrativa
     // Sprint 8.5.9: Agora buscamos ordem e nome de exibição para ordenação e enriquecimento.
-    let catalogConfig: Record<number, { display_name: string | null; order: number }> = {};
+    let catalogConfig: Record<number, { display_name: string | null; order: number; default_quantity: number; quantity_step: number }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, sort_order")
+        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -572,8 +572,9 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       (enabledProducts || []).forEach((p: any) => {
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
-          order: p.sort_order ?? 0 
-
+          order: p.sort_order ?? 0,
+          default_quantity: Number(p.default_quantity || 1),
+          quantity_step: Number(p.quantity_step || 1)
         };
       });
     }
@@ -617,7 +618,9 @@ export const searchErpProducts = createServerFn({ method: "POST" })
                 return {
                   ...r.data,
                   description: cfg.display_name || r.data.description,
-                  order: cfg.order
+                  order: cfg.order,
+                  default_quantity: cfg.default_quantity,
+                  quantity_step: cfg.quantity_step
                 };
               }
             } catch (err) {

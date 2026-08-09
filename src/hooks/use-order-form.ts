@@ -91,7 +91,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           return {
             items: state.items.map(i => 
               i.productId === item.productId 
-                ? { ...i, quantity: i.quantity + item.quantity, total: (i.quantity + item.quantity) * i.unitPrice }
+                ? { ...i, quantity: item.quantity, total: item.quantity * i.unitPrice }
                 : i
             )
           };
