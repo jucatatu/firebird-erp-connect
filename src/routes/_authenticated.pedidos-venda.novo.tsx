@@ -37,9 +37,20 @@ function NewOrderPage() {
   const {
     clientId, clientName, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
+    idempotencyKey, submissionStatus,
     setClient, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
-    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset
+    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
+    setIdempotencyKey, setSubmissionStatus
   } = useOrderFormStore();
+
+  const myRoles = useMyRoles(user);
+  const myProfile = useMyProfile(user);
+
+  useEffect(() => {
+    if (!idempotencyKey && step === "client") {
+      setIdempotencyKey(crypto.randomUUID());
+    }
+  }, [idempotencyKey, step, setIdempotencyKey]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -56,19 +67,35 @@ function NewOrderPage() {
   const createOrderM = useCreateErpOrder();
 
   const handleCreateOrder = async () => {
-    if (!clientId || items.length === 0) return;
+    if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
+
+    if (!myProfile.data?.erp_seller_id) {
+      toast.error("Vendedor não mapeado", {
+        description: "Seu usuário não possui um ID de vendedor vinculado no ERP."
+      });
+      return;
+    }
+
+    if (!paymentTermId || !paymentMethodId || !saleTypeId) {
+      toast.error("Dados incompletos", {
+        description: "Por favor, selecione o tipo de venda, prazo e forma de pagamento."
+      });
+      setStep("payment");
+      return;
+    }
+
+    setSubmissionStatus("submitting");
+    const currentKey = idempotencyKey || crypto.randomUUID();
+    if (!idempotencyKey) setIdempotencyKey(currentKey);
 
     try {
-      // Regras de negócio da Sprint 8
-      const idempotencyKey = crypto.randomUUID();
-      
       const payload = {
-        companyId: 1 as const, // Fallback Grott (3) se necessário no futuro
+        companyId: (myProfile.data?.company_ids?.[0] || 1) as 1 | 3,
         clientId: clientId,
-        sellerId: 2, // ID_USER fixo no Node conforme Sprint 7, mas enviamos como sellerId
-        saleTypeId: saleTypeId || 1,
-        paymentTermId: paymentTermId || 1,
-        paymentMethodId: paymentMethodId || 1,
+        sellerId: myProfile.data.erp_seller_id,
+        saleTypeId,
+        paymentTermId,
+        paymentMethodId,
         deliver,
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
@@ -78,19 +105,37 @@ function NewOrderPage() {
         notes: notes || null
       };
 
-      const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey });
+      const result = await createOrderM.mutateAsync({ 
+        data: payload, 
+        idempotencyKey: currentKey 
+      });
       
       if (result.ok && result.data) {
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
         toast.success(`Pedido criado com sucesso! Nº ERP: ${result.data.orderNumber}`);
+        
+        // Persistência no rascunho Supabase (opcional, mas recomendado)
+        // Se houver um draftId na URL, poderíamos atualizar seu status aqui.
+        
         reset();
         navigate({ to: "/pedidos-venda" });
       } else {
-        toast.error("Erro ao criar pedido", {
+        const isConflict = result.status === 409;
+        const status = isConflict ? "created" : "failed";
+        setSubmissionStatus(status);
+        
+        toast.error(isConflict ? "Pedido já existe" : "Erro ao criar pedido", {
           description: result.error?.message || "Ocorreu um erro inesperado no ERP."
         });
       }
     } catch (err) {
-      toast.error("Falha na comunicação com o ERP");
+      setSubmissionStatus("unknown");
+      toast.error("Falha na comunicação", {
+        description: "O status do envio é desconhecido. Não tente novamente sem verificar a lista de pedidos."
+      });
     }
   };
 
@@ -294,10 +339,18 @@ function NewOrderPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-4">
-                <Button className="w-full" disabled={items.length === 0} onClick={() => setStep("delivery")}>
-                  Continuar <ChevronRight className="ml-2 h-4 w-4" />
+                <Button 
+                  className="w-full" 
+                  disabled={items.length === 0 || submissionStatus === "submitting"} 
+                  onClick={() => setStep("delivery")}
+                >
+                  {submissionStatus === "submitting" ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
+                  ) : (
+                    <>Continuar <ChevronRight className="ml-2 h-4 w-4" /></>
+                  )}
                 </Button>
-                <Button variant="ghost" onClick={() => setStep("client")}>
+                <Button variant="ghost" onClick={() => setStep("client")} disabled={submissionStatus === "submitting"}>
                   <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
                 </Button>
               </div>
