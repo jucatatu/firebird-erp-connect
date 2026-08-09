@@ -24,7 +24,7 @@
 // Implementar o endpoint de criação de pedido no Node:
 // POST /api/v1/orders
 //
-// (Roteiro detalhado de contrato, resolução de empresa, cliente, produtos, equipamentos, totais, procedures, transação, numeração, resposta, erros, segurança, idempotência e testes registrados no briefing).
+// (Instruções detalhadas de contrato, resolução de empresa, cliente, produtos, equipamentos, totais, procedures, transação, numeração, resposta, erros, segurança, idempotência e testes registradas no briefing).
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
