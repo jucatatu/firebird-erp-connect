@@ -10,7 +10,7 @@ describe('Sprint 8.5 - Catalog & Company Reset', () => {
     const store = useOrderFormStore.getState();
     store.setCompany(1);
     store.setClient(123, 'Romeu');
-    store.addItem({ productId: 1, description: 'Chopp', quantity: 2, unitPrice: 10, total: 20 });
+    store.addItem({ productId: 1, description: 'Chopp', quantity: 2, unitPrice: 10 });
     
     store.resetItemsAndClient();
     
