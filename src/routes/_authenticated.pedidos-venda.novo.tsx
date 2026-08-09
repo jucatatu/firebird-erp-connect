@@ -317,9 +317,9 @@ function NewOrderPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {(Array.isArray(productsQ.data?.data?.products) ? productsQ.data.data.products : [])
-                    .filter(p => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
-                    .map((p) => {
+                  {(Array.isArray((productsQ.data as any)?.data?.products) ? (productsQ.data as any).data.products : [])
+                    .filter((p: any) => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
+                    .map((p: any) => {
                       const pid = p.id;
                       const pdesc = p.description;
                       if (pid === null || pdesc === null) return null;
@@ -343,7 +343,7 @@ function NewOrderPage() {
                         </div>
                       );
                     })}
-                  {!productsQ.isFetching && (!productsQ.data?.data?.products || productsQ.data.data.products.length === 0) && (
+                  {!productsQ.isFetching && (!(productsQ.data as any)?.data?.products || (productsQ.data as any).data.products.length === 0) && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>
                   )}
                 </div>
@@ -356,7 +356,7 @@ function NewOrderPage() {
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {(Array.isArray(equipmentTypesQ.data?.data?.equipmentTypes) ? equipmentTypesQ.data?.data?.equipmentTypes : []).map((et) => (
+                  {(Array.isArray((equipmentTypesQ.data as any)?.data?.equipmentTypes) ? (equipmentTypesQ.data as any).data.equipmentTypes : []).map((et: any) => (
                     <Button 
                       key={et.id} 
                       variant="outline" 
