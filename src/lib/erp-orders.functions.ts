@@ -120,62 +120,60 @@ export const createErpOrder = createServerFn({ method: "POST" })
     const { callErp } = await import("./erp.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1. Resolver o sellerId a partir do auth.uid()
-    const { data: { user } } = await supabaseAdmin.auth.getUser();
-    if (!user) {
-      return {
-        ok: false,
-        status: 401,
-        data: null,
-        error: { code: "UNAUTHORIZED", message: "Usuário não autenticado no servidor.", retryable: false }
-      };
-    }
-
-    // Buscar perfil para pegar o erp_seller_id
-    const { data: profile, error: profileErr } = await supabaseAdmin
-      .from("profiles")
-      .select("erp_seller_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileErr || !profile?.erp_seller_id) {
-      return {
-        ok: false,
-        status: 422,
-        data: null,
-        error: { 
-          code: "SELLER_NOT_MAPPED", 
-          message: "Vendedor não mapeado para o ERP. Contate o administrador.", 
-          retryable: false 
-        }
-      };
-    }
-
-    // 2. Validar Empresa (Company)
-    // Buscamos permissões do usuário
-    const { data: roles } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-    
-    const isAdmin = roles?.some(r => r.role === 'admin');
-    
-    // Se não for admin, validamos se a empresa é permitida.
-    // Atualmente as empresas são 1 e 3. A Sprint 8.1 exige validação server-side.
-    // Como a lógica de empresa é complexa, se for vendedor, assumimos que ele 
-    // enviou a empresa correta que ele tem acesso (validado no frontend),
-    // mas a API do Node (orders.service.js) já re-valida isso contra o ERP.
-    
-    // Sobrescrever sellerId do payload com o valor real do banco
-    const finalPayload = {
-      ...data.data,
-      sellerId: profile.erp_seller_id
-    };
-    
-    return callErp({
-      method: "POST",
-      path: "/api/v1/orders",
-      body: finalPayload as unknown as JsonValue,
-      headers: data.idempotencyKey ? { "Idempotency-Key": data.idempotencyKey } : undefined
-    }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
+    return handleCreateErpOrder(data.data, data.idempotencyKey, supabaseAdmin);
   });
+
+/**
+ * Lógica interna testável sem dependência de AsyncLocalStorage do createServerFn.
+ */
+export async function handleCreateErpOrder(
+  input: CreateOrderInput,
+  idempotencyKey: string | undefined,
+  supabaseAdmin: any
+): Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>> {
+  const { callErp } = await import("./erp.server");
+
+  // 1. Resolver o sellerId a partir do auth.uid()
+  const { data: { user } } = await supabaseAdmin.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      status: 401,
+      data: null,
+      error: { code: "UNAUTHORIZED", message: "Usuário não autenticado no servidor.", retryable: false }
+    };
+  }
+
+  // Buscar perfil para pegar o erp_seller_id
+  const { data: profile, error: profileErr } = await supabaseAdmin
+    .from("profiles")
+    .select("erp_seller_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileErr || !profile?.erp_seller_id) {
+    return {
+      ok: false,
+      status: 422,
+      data: null,
+      error: { 
+        code: "SELLER_NOT_MAPPED", 
+        message: "Vendedor não mapeado para o ERP. Contate o administrador.", 
+        retryable: false 
+      }
+    };
+  }
+
+  // Sobrescrever sellerId do payload com o valor real do banco
+  const finalPayload = {
+    ...input,
+    sellerId: profile.erp_seller_id
+  };
+  
+  return callErp({
+    method: "POST",
+    path: "/api/v1/orders",
+    body: finalPayload as unknown as JsonValue,
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
+  }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
+}
