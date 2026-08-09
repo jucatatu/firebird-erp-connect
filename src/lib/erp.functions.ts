@@ -538,10 +538,10 @@ export interface ErpEnvelope<T> {
 export const searchErpProducts = createServerFn({ method: "POST" })
   .inputValidator((input: SearchProductsInput) => {
     const q = typeof input?.q === "string" ? input.q.trim() : "";
-    // No Novo Pedido, q pode ser vazio para listar habilitados. 
-    // Se preenchido, deve ter min 3 para não ser barrado pela API Node.
+    // Se for busca no ERP (q preenchido), deve ter min 3 para não ser barrado pela API Node.
+    // IMPORTANTE: Garantir que se q="Ipa", o length seja 3.
     if (q !== "" && (q.length < 3 || q.length > 60)) {
-      throw new Error("Informe de 3 a 60 caracteres na busca.");
+      throw new Error(`Busca "${q}" inválida. Informe de 3 a 60 caracteres.`);
     }
     if (input.companyId !== undefined && input.companyId !== 1 && input.companyId !== 3) {
       throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
