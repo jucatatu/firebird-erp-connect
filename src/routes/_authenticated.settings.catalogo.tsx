@@ -216,7 +216,7 @@ function EquipmentTab({
   onSelect: (t: CatalogDialogTarget) => void;
 }) {
   const [term, setTerm] = useState("");
-  const equipQ = useErpEquipmentTypes({ isAdminSearch: true });
+  const equipQ = useErpEquipmentTypes({ isAdminSearch: true, companyId: 1 });
   const payload = equipQ.data?.ok ? equipQ.data.data : null;
   const apiError = equipQ.data && !equipQ.data.ok ? equipQ.data.error : null;
 
