@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { handleCreateErpOrder } from '../../erp-orders.functions';
 
 // Mock do erp.server.ts
@@ -22,18 +22,12 @@ vi.mock('@/integrations/supabase/client.server', () => ({
           single: vi.fn(async () => ({ data: { erp_seller_id: 4 }, error: null }))
         };
       }
-      if (table === 'user_roles') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn(async () => ({ data: [{ role: 'vendedor' }], error: null }))
-        };
-      }
       return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn() };
     })
   }
 }));
 
-describe('createErpOrder Server Function', () => {
+describe('handleCreateErpOrder Function', () => {
   const mockPayload = {
     companyId: 1 as const,
     clientId: 1465,
@@ -51,10 +45,10 @@ describe('createErpOrder Server Function', () => {
   it('deve resolver o sellerId real do banco e ignorar o do payload', async () => {
     const { callErp } = await import('../../erp.server');
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    
     const result = await handleCreateErpOrder(mockPayload, 'key-1', supabaseAdmin);
     
     expect(result.ok).toBe(true);
-    // Verifica se o sellerId enviado ao callErp foi 4 (do mock do profile)
     expect(vi.mocked(callErp)).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.objectContaining({
         sellerId: 4
@@ -65,15 +59,17 @@ describe('createErpOrder Server Function', () => {
 
   it('deve falhar se o vendedor não estiver mapeado', async () => {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    vi.mocked(supabaseAdmin.from).mockImplementationOnce((table) => {
-      return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn(async () => ({ data: null, error: { message: 'Not found' } }))
-      };
+    vi.mocked(supabaseAdmin.from).mockImplementationOnce((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn(async () => ({ data: null, error: { message: 'Not found' } }))
+        } as any;
+      }
+      return {} as any;
     });
 
-    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const result = await handleCreateErpOrder(mockPayload, undefined, supabaseAdmin);
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('SELLER_NOT_MAPPED');
