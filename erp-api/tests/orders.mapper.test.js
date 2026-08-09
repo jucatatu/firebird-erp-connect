@@ -27,20 +27,8 @@ test("resolveCompanyId fallback vira 1", () => {
 test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
   const params = mapper.buildCompleteProcParams({
     companyId: 3,
-    payload: {
-      customerId: 100,
-      sellerId: 10,
-      saleTypeId: 1,
-      paymentTermId: 2,
-      paymentMethodId: 3,
-      delivery: true,
-      expectedDeliveryAt: "2026-07-25T14:00:00Z",
-      deliveryAt: null,
-      retrieveEquipment: false,
-      returnAt: null,
-      expectedReturnAt: null,
-      total: 100,
-      freight: 5,
+    totals: { total: 105.00 },
+    clientContext: {
       address: {
         state: "SC",
         city: "Corupa",
@@ -49,24 +37,29 @@ test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
         number: "10",
         complement: null,
         postalCode: "89250000",
-      },
+      }
+    },
+    payload: {
+      clientId: 100,
+      sellerId: 10,
+      saleTypeId: 1,
+      paymentTermId: 2,
+      paymentMethodId: 3,
+      deliver: true,
+      deliveryAt: "2026-07-25T14:00:00Z",
+      returnEquipment: false,
+      returnAt: null,
+      freightValue: 5,
       notes: null,
-      stockOutput: true,
-      userId: 999,
-      carrierId: null,
-      carrierVehicleId: null,
-      commercialDiscountPercent: 0,
-      posSessionId: null,
     },
   });
   assert.equal(params.length, 30);
   assert.equal(params[0], 3);
   assert.equal(params[1], 100);
   assert.equal(params[6], 1);
+  assert.equal(params[12], 105.00);
   assert.equal(params[22], 1);
-  // SAIDA_ESTOQUE fixado em 0 no servidor, ignora payload.stockOutput=true
   assert.equal(params[23], 0);
-  // ID_USER é a constante interna CAD_USER=2, ignora payload.userId=999
   assert.equal(params[24], 2);
   assert.equal(params[24], mapper.CAD_USER);
   assert.equal(params[25], null);
@@ -78,7 +71,6 @@ test("buildItemProcParams CHAVE I", () => {
     productId: 10,
     unitPrice: 15.5,
     quantity: 2,
-    discount: 0,
   });
   assert.deepEqual(p, [500, 10, 15.5, 2, 0, "I"]);
 });
@@ -86,7 +78,6 @@ test("buildItemProcParams CHAVE I", () => {
 test("buildEquipmentProcParams CHAVE I", () => {
   const p = mapper.buildEquipmentProcParams(500, {
     equipmentTypeId: 5,
-    productId: null,
     quantity: 1,
   });
   assert.deepEqual(p, [500, 5, null, 1, "I"]);
