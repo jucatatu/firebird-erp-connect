@@ -11,10 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRecolhasRouteImport } from './routes/_authenticated.recolhas'
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
 import { Route as AuthenticatedEntregasRouteImport } from './routes/_authenticated.entregas'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated.approvals'
 import { Route as AuthenticatedPedidosVendaIndexRouteImport } from './routes/_authenticated.pedidos-venda.index'
 import { Route as ApiPublicTmpResetAdminRouteImport } from './routes/api/public/tmp-reset-admin'
@@ -35,10 +36,10 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRecolhasRoute = AuthenticatedRecolhasRouteImport.update({
   id: '/recolhas',
@@ -53,6 +54,11 @@ const AuthenticatedOperationsRoute = AuthenticatedOperationsRouteImport.update({
 const AuthenticatedEntregasRoute = AuthenticatedEntregasRouteImport.update({
   id: '/entregas',
   path: '/entregas',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
@@ -115,9 +121,10 @@ const AuthenticatedOrdersSplatRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
   '/recolhas': typeof AuthenticatedRecolhasRoute
@@ -132,12 +139,13 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
   '/recolhas': typeof AuthenticatedRecolhasRoute
-  '/': typeof AuthenticatedIndexRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -150,13 +158,14 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/entregas': typeof AuthenticatedEntregasRoute
   '/_authenticated/operations': typeof AuthenticatedOperationsRoute
   '/_authenticated/recolhas': typeof AuthenticatedRecolhasRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/approvals'
+    | '/dashboard'
     | '/entregas'
     | '/operations'
     | '/recolhas'
@@ -187,12 +197,13 @@ export interface FileRouteTypes {
     | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/login'
     | '/approvals'
+    | '/dashboard'
     | '/entregas'
     | '/operations'
     | '/recolhas'
-    | '/'
     | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
@@ -204,13 +215,14 @@ export interface FileRouteTypes {
     | '/pedidos-venda'
   id:
     | '__root__'
+    | '/'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/approvals'
+    | '/_authenticated/dashboard'
     | '/_authenticated/entregas'
     | '/_authenticated/operations'
     | '/_authenticated/recolhas'
-    | '/_authenticated/'
     | '/_authenticated/orders/$'
     | '/_authenticated/pedidos-venda/$draftId'
     | '/_authenticated/pedidos-venda/aprovacoes'
@@ -223,6 +235,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   ApiPublicTmpResetAdminRoute: typeof ApiPublicTmpResetAdminRoute
@@ -244,12 +257,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/recolhas': {
       id: '/_authenticated/recolhas'
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/entregas'
       fullPath: '/entregas'
       preLoaderRoute: typeof AuthenticatedEntregasRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/approvals': {
@@ -347,10 +367,10 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedEntregasRoute: typeof AuthenticatedEntregasRoute
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
   AuthenticatedRecolhasRoute: typeof AuthenticatedRecolhasRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
   AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
   AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -363,10 +383,10 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedEntregasRoute: AuthenticatedEntregasRoute,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
   AuthenticatedRecolhasRoute: AuthenticatedRecolhasRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedOrdersSplatRoute: AuthenticatedOrdersSplatRoute,
   AuthenticatedPedidosVendaDraftIdRoute: AuthenticatedPedidosVendaDraftIdRoute,
   AuthenticatedPedidosVendaAprovacoesRoute:
@@ -383,6 +403,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   ApiPublicTmpResetAdminRoute: ApiPublicTmpResetAdminRoute,
@@ -390,3 +411,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
