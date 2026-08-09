@@ -74,7 +74,7 @@ function ProductPriceDisplay({
 
 function SubtotalDisplay({ productId, clientId, quantity, appliedPrice }: { productId: number, clientId: number, quantity: number, appliedPrice?: number }) {
   const { data } = useErpPrice({ productId, clientId });
-  if (!data?.ok || !data.data?.priceFound && !appliedPrice) return null;
+  if (!data?.ok || (!data.data?.priceFound && !appliedPrice)) return null;
   
   const price = appliedPrice ?? data.data.unitPrice;
   const subtotal = price * quantity;
@@ -240,12 +240,13 @@ function NewOrderPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [user, setUser] = useState<User | null>(null);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus,
-    setClient, setCompany, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
+    setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore();
@@ -650,6 +651,7 @@ function NewOrderPage() {
                       clientId={clientId!}
                       addItem={addItem}
                       removeItem={removeItem}
+                      updateItemPrice={updateItemPrice}
                       cartItem={items.find(it => it.productId === p.id)}
                     />
                   ))}
