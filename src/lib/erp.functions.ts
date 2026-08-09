@@ -572,8 +572,9 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       (enabledProducts || []).forEach((p: any) => {
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
-          order: p.sort_order ?? 0 
-
+          order: p.sort_order ?? 0,
+          default_quantity: Number(p.default_quantity || 1),
+          quantity_step: Number(p.quantity_step || 1)
         };
       });
     }
