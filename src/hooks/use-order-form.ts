@@ -1,0 +1,125 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+export interface OrderItem {
+  productId: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface OrderEquipment {
+  equipmentTypeId: number;
+  description: string;
+  quantity: number;
+}
+
+interface OrderFormStore {
+  clientId: number | null;
+  clientName: string | null;
+  items: OrderItem[];
+  equipments: OrderEquipment[];
+  deliver: boolean;
+  deliveryAt: string | null;
+  returnEquipment: boolean;
+  returnAt: string | null;
+  notes: string;
+  paymentTermId: number | null;
+  paymentMethodId: number | null;
+  saleTypeId: number | null;
+  
+  // Actions
+  setClient: (id: number, name: string) => void;
+  addItem: (item: OrderItem) => void;
+  removeItem: (productId: number) => void;
+  updateItemQuantity: (productId: number, quantity: number) => void;
+  addEquipment: (eq: OrderEquipment) => void;
+  removeEquipment: (typeId: number) => void;
+  setDelivery: (deliver: boolean, date: string | null) => void;
+  setReturn: (ret: boolean, date: string | null) => void;
+  setNotes: (notes: string) => void;
+  setPayment: (termId: number | null, methodId: number | null) => void;
+  setSaleType: (typeId: number | null) => void;
+  reset: () => void;
+}
+
+export const useOrderFormStore = create<OrderFormStore>()(
+  persist(
+    (set) => ({
+      clientId: null,
+      clientName: null,
+      items: [],
+      equipments: [],
+      deliver: true,
+      deliveryAt: null,
+      returnEquipment: false,
+      returnAt: null,
+      notes: "",
+      paymentTermId: null,
+      paymentMethodId: null,
+      saleTypeId: null,
+
+      setClient: (id, name) => set({ clientId: id, clientName: name }),
+      addItem: (item) => set((state) => {
+        const exists = state.items.find(i => i.productId === item.productId);
+        if (exists) {
+          return {
+            items: state.items.map(i => 
+              i.productId === item.productId 
+                ? { ...i, quantity: i.quantity + item.quantity, total: (i.quantity + item.quantity) * i.unitPrice }
+                : i
+            )
+          };
+        }
+        return { items: [...state.items, item] };
+      }),
+      removeItem: (productId) => set((state) => ({
+        items: state.items.filter(i => i.productId !== productId)
+      })),
+      updateItemQuantity: (productId, quantity) => set((state) => ({
+        items: state.items.map(i => 
+          i.productId === productId 
+            ? { ...i, quantity, total: quantity * i.unitPrice }
+            : i
+        )
+      })),
+      addEquipment: (eq) => set((state) => {
+        const exists = state.equipments.find(e => e.equipmentTypeId === eq.equipmentTypeId);
+        if (exists) {
+          return {
+            equipments: state.equipments.map(e => 
+              e.equipmentTypeId === eq.equipmentTypeId 
+                ? { ...e, quantity: e.quantity + eq.quantity }
+                : e
+            )
+          };
+        }
+        return { equipments: [...state.equipments, eq] };
+      }),
+      removeEquipment: (typeId) => set((state) => ({
+        equipments: state.equipments.filter(e => e.equipmentTypeId !== typeId)
+      })),
+      setDelivery: (deliver, date) => set({ deliver, deliveryAt: date }),
+      setReturn: (ret, date) => set({ returnEquipment: ret, returnAt: date }),
+      setNotes: (notes) => set({ notes }),
+      setPayment: (termId, methodId) => set({ paymentTermId: termId, paymentMethodId: methodId }),
+      setSaleType: (typeId) => set({ saleTypeId: typeId }),
+      reset: () => set({
+        clientId: null,
+        clientName: null,
+        items: [],
+        equipments: [],
+        deliver: true,
+        deliveryAt: null,
+        returnEquipment: false,
+        returnAt: null,
+        notes: "",
+        paymentTermId: null,
+        paymentMethodId: null,
+        saleTypeId: null,
+      }),
+    }),
+    { name: "order-form-storage" }
+  )
+);

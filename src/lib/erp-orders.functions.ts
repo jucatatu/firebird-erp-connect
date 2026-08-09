@@ -46,11 +46,11 @@ export const searchErpClients = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
-    return callErp<{ clients: ErpClient[]; nextCursor: number | null }>({
+    return callErp({
       method: "GET",
       path: "/api/v1/clients",
       query: data as any
-    });
+    }) as Promise<ErpResponse<{ clients: ErpClient[]; nextCursor: number | null }>>;
   });
 
 // --- PRICING ---
@@ -70,11 +70,11 @@ export const resolveErpPrice = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
-    return callErp<PriceResolution>({
+    return callErp({
       method: "GET",
       path: "/api/v1/pricing/resolve",
       query: data as any
-    });
+    }) as Promise<ErpResponse<PriceResolution>>;
   });
 
 // --- ORDERS ---
@@ -100,10 +100,10 @@ export const createErpOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
     
-    return callErp<{ orderId: number; orderNumber: number; status: string }>({
+    return callErp({
       method: "POST",
       path: "/api/v1/orders",
       body: data.data as unknown as JsonValue,
       headers: data.idempotencyKey ? { "x-idempotency-key": data.idempotencyKey } : undefined
-    });
+    }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
   });
