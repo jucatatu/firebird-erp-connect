@@ -37,6 +37,7 @@ interface OrderFormStore {
   
   // Actions
   setClient: (id: number, name: string) => void;
+  setCompany: (id: number | null) => void;
   setIdempotencyKey: (key: string) => void;
   setSubmissionStatus: (status: OrderFormStore["submissionStatus"], erpData?: { orderId?: number; orderNumber?: number }) => void;
   addItem: (item: OrderItem) => void;
