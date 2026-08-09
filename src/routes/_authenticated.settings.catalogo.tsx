@@ -125,8 +125,8 @@ function ProductsTab({
   onSelect: (t: CatalogDialogTarget) => void;
 }) {
   const [term, setTerm] = useState("");
-  const [query, setQuery] = useState<string | null>(null);
-  const productsQ = useErpProducts(query ? { q: query, limit: 50, isAdminSearch: true } : null);
+  const [query, setQuery] = useState<string>("");
+  const productsQ = useErpProducts({ q: query, limit: 50, isAdminSearch: true, companyId: 1 });
   const payload = productsQ.data?.ok ? productsQ.data.data : null;
   const apiError = productsQ.data && !productsQ.data.ok ? productsQ.data.error : null;
 
