@@ -127,6 +127,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
       reset: () => set({
         clientId: null,
         clientName: null,
+        idempotencyKey: null,
+        submissionStatus: "draft",
+        lastAttemptAt: null,
+        erpOrderId: null,
+        erpOrderNumber: null,
         items: [],
         equipments: [],
         deliver: true,
