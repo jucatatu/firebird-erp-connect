@@ -59,7 +59,7 @@ export interface ErpEquipmentType {
 export const searchErpClients = createServerFn({ method: "GET" })
   .inputValidator((d) => 
     z.object({
-      q: z.string().min(3).optional(),
+      q: z.string().optional(),
       document: z.string().optional(),
       phone: z.string().optional(),
       companyId: z.union([z.literal(1), z.literal(3)]).optional(),
