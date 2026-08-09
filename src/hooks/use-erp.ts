@@ -114,7 +114,7 @@ export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: nu
           error: null 
         };
       }
-      return fn({ data: { ...input, q: query } });
+      return fn({ data: { ...input, q: query } }) as Promise<ErpResponse<ErpProductsPayload>>;
     },
     enabled: !input.isAdminSearch || query.length >= 3,
     staleTime: 60_000,
