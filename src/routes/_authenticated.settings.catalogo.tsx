@@ -130,79 +130,126 @@ function ProductsTab({
   const payload = productsQ.data?.ok ? productsQ.data.data : null;
   const apiError = productsQ.data && !productsQ.data.ok ? productsQ.data.error : null;
 
+  const configuredProducts = useMemo(() => {
+    return Array.from(settingsByKey.values()).filter(s => s.item_type === 'product');
+  }, [settingsByKey]);
+
   return (
     <div>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setQuery(term.trim());
-        }}
-      >
-        <Input
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder="Buscar por descrição ou código (mín. 3 caracteres)"
-          aria-label="Buscar produtos no ERP"
-        />
-        <Button type="submit" disabled={term.trim().length < 3}>
-          <Search className="h-4 w-4" />
-          Buscar
-        </Button>
-      </form>
+      <div className="space-y-4">
+        {/* Seção: Produtos Configurados */}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold">Produtos configurados no catálogo</h3>
+          <div className="space-y-2">
+            {configuredProducts.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground border rounded-md border-dashed">
+                Nenhum produto configurado para esta empresa.
+              </p>
+            ) : (
+              configuredProducts.map((setting) => (
+                <button
+                  key={`conf-${setting.id}`}
+                  type="button"
+                  onClick={() =>
+                    onSelect({
+                      itemType: "product",
+                      erpItemId: setting.erp_item_id,
+                      erpDescription: setting.erp_description_snapshot,
+                      erpCode: null, // Será carregado pelo ERP se necessário
+                      setting: setting,
+                    })
+                  }
+                  className="flex w-full items-center justify-between gap-3 rounded-md border bg-surface p-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {setting.display_name || setting.erp_description_snapshot}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      ID {setting.erp_item_id}
+                    </div>
+                  </div>
+                  <StatusBadges setting={setting} />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
 
-      <div className="mt-4 space-y-2">
-        {productsQ.isFetching && (
-          <p className="text-sm text-muted-foreground">Consultando o ERP…</p>
-        )}
-        {productsQ.error && (
-          <p className="text-sm text-destructive">
-            {(productsQ.error as Error).message}
-          </p>
-        )}
-        {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
-        {!productsQ.isFetching && query && payload && payload.products.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
-        )}
-        {!query && (
-          <p className="text-sm text-muted-foreground">
-            Busque um produto no ERP para configurá-lo.
-          </p>
-        )}
-        {(Array.isArray(payload?.products) ? payload.products : []).map((p) => {
-          const id = Number(p.id);
-          if (!Number.isInteger(id) || id <= 0) return null;
-          const description = p.description?.trim() || `Produto ${id}`;
-          const setting = settingsByKey.get(settingKey("product", id));
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() =>
-                onSelect({
-                  itemType: "product",
-                  erpItemId: id,
-                  erpDescription: description,
-                  erpCode: p.code ?? null,
-                  setting: setting ?? null,
-                })
-              }
-              className="flex w-full items-center justify-between gap-3 rounded-md border bg-surface p-3 text-left transition-colors hover:bg-accent"
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
-                  {setting?.display_name || description}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  ID {id}
-                  {p.code ? ` · ${p.code}` : ""}
-                  {p.unit?.description ? ` · ${p.unit.description}` : ""}
-                </div>
-              </div>
-              <StatusBadges setting={setting} />
-            </button>
-          );
-        })}
+        <div className="border-t pt-4">
+          <h3 className="mb-2 text-sm font-semibold">Buscar novo produto no ERP</h3>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setQuery(term.trim());
+            }}
+          >
+            <Input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Digite ao menos 3 caracteres (ex: Pil)"
+              aria-label="Buscar produtos no ERP"
+            />
+            <Button type="submit" disabled={term.trim().length < 3}>
+              <Search className="h-4 w-4" />
+              Buscar
+            </Button>
+          </form>
+
+          <div className="mt-4 space-y-2">
+            {productsQ.isFetching && (
+              <p className="text-sm text-muted-foreground">Consultando o ERP…</p>
+            )}
+            {productsQ.error && (
+              <p className="text-sm text-destructive">
+                {(productsQ.error as Error).message}
+              </p>
+            )}
+            {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+            {!productsQ.isFetching && query && payload && payload.products.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum produto encontrado no ERP.</p>
+            )}
+            {(Array.isArray(payload?.products) ? payload.products : []).map((p) => {
+              const id = Number(p.id);
+              if (!Number.isInteger(id) || id <= 0) return null;
+              const description = p.description?.trim() || `Produto ${id}`;
+              const setting = settingsByKey.get(settingKey("product", id));
+              
+              // Se já está configurado, opcionalmente podemos destacar ou apenas permitir editar
+              return (
+                <button
+                  key={`erp-${id}`}
+                  type="button"
+                  onClick={() =>
+                    onSelect({
+                      itemType: "product",
+                      erpItemId: id,
+                      erpDescription: description,
+                      erpCode: p.code ?? null,
+                      setting: setting ?? null,
+                    })
+                  }
+                  className="flex w-full items-center justify-between gap-3 rounded-md border bg-surface p-3 text-left transition-colors hover:bg-accent"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {setting?.display_name || description}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      ID {id}
+                      {p.code ? ` · ${p.code}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {setting && <Badge variant="outline" className="text-[10px]">Já no catálogo</Badge>}
+                    <StatusBadges setting={setting} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

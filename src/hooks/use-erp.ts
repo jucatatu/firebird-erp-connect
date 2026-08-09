@@ -88,19 +88,29 @@ export function useGeocodeOrders() {
   });
 }
 
-/** GET /api/v1/products — catálogo do ERP filtrado pelo Supabase. */
+/** GET /api/v1/products — busca direta no ERP para configuração do catálogo. */
 export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: number; cursor?: string; isAdminSearch?: boolean }) {
   const fn = useServerFn(searchErpProducts);
+  const query = input.q?.trim() || "";
+  
   return useQuery({
     queryKey: [
       "erp",
       "products",
-      input.q ?? "",
+      "search",
+      query,
       input.companyId,
       input.cursor ?? "",
       !!input.isAdminSearch,
     ],
-    queryFn: () => fn({ data: { ...input, q: input.q || "" } }),
+    queryFn: () => {
+      if (!query && input.isAdminSearch) {
+        // Para busca administrativa, não disparamos sem termo para evitar 400 da API
+        return { ok: true, data: { products: [], nextCursor: null } };
+      }
+      return fn({ data: { ...input, q: query } });
+    },
+    enabled: !input.isAdminSearch || query.length >= 3,
     staleTime: 60_000,
   });
 }
