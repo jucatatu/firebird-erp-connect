@@ -40,10 +40,13 @@ function foldToLikePattern(term) {
   
   if (!upper) return "%%";
 
+  // Se o termo tem 3 ou mais caracteres, usamos o folding de acentos.
+  // Se for muito curto (1 ou 2), o folding gera padrões muito amplos (ex: "ID" -> "__").
+  // Nesses casos, preferimos a busca exata para evitar falsos positivos.
+  if (upper.length < 3) return `%${upper}%`;
+
   let out = "";
   for (const ch of upper) {
-    // Apenas substitui por coringa se for um caractere que realmente tem acento.
-    // Isso evita que caracteres comuns virem wildcards excessivamente amplos.
     out += ACCENT_CLASSES.includes(ch) ? "_" : ch;
   }
   return `%${out}%`;
