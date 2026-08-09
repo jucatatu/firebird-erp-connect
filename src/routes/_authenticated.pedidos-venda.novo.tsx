@@ -14,6 +14,8 @@ import { useOrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -25,29 +27,60 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   component: NewOrderPage,
 });
 
-function ProductPriceDisplay({ productId, clientId, unit }: { productId: number, clientId: number, unit: string }) {
+function ProductPriceDisplay({ 
+  productId, 
+  clientId, 
+  unit, 
+  onPriceLoaded,
+  manualPrice,
+  appliedPrice
+}: { 
+  productId: number, 
+  clientId: number, 
+  unit: string,
+  onPriceLoaded?: (price: number) => void,
+  manualPrice?: boolean,
+  appliedPrice?: number
+}) {
   const { data, isLoading } = useErpPrice({ productId, clientId });
   
+  useEffect(() => {
+    if (data?.ok && data.data?.priceFound && onPriceLoaded) {
+      onPriceLoaded(data.data.unitPrice);
+    }
+  }, [data, onPriceLoaded]);
+
   if (isLoading) return <p className="text-xs text-muted-foreground animate-pulse mt-1">Consultando preço...</p>;
   if (!data?.ok || !data.data?.priceFound) return <p className="text-xs text-destructive font-medium mt-1">Preço não cadastrado</p>;
   
+  const erpPrice = data.data.unitPrice;
   const strategyLabel = data.data.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
   
   return (
     <div className="mt-1">
-      <p className="text-sm font-bold text-primary">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.data.unitPrice)} / {unit}
-      </p>
-      <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>
+      <div className="flex flex-col">
+        <span className="text-sm font-bold text-primary">
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
+        </span>
+        {manualPrice && (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-orange-600 font-bold uppercase">Preço alterado manualmente</span>
+            <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
+          </div>
+        )}
+        {!manualPrice && <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>}
+      </div>
     </div>
   );
 }
 
-function SubtotalDisplay({ productId, clientId, quantity }: { productId: number, clientId: number, quantity: number }) {
+function SubtotalDisplay({ productId, clientId, quantity, appliedPrice }: { productId: number, clientId: number, quantity: number, appliedPrice?: number }) {
   const { data } = useErpPrice({ productId, clientId });
-  if (!data?.ok || !data.data?.priceFound) return null;
+  if (!data?.ok || (!data?.data?.priceFound && !appliedPrice)) return null;
   
-  const subtotal = data.data.unitPrice * quantity;
+  const price = appliedPrice ?? data?.data?.unitPrice;
+  if (price === undefined) return null;
+  const subtotal = price * quantity;
   return (
     <p className="text-xs font-bold text-muted-foreground">
       Subtotal: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subtotal)}
@@ -55,17 +88,16 @@ function SubtotalDisplay({ productId, clientId, quantity }: { productId: number,
   );
 }
 
-function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { product: any, clientId: number, addItem: any, removeItem: any, cartItem: any }) {
+function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, cartItem }: { product: any, clientId: number, addItem: any, removeItem: any, updateItemPrice: any, cartItem: any }) {
   const punit = product.unit?.code || "UN";
-  const isChopp = product.requires_equipment || punit === "L";
+  const isChopp = product.equipment_mode === 'CHOPE' || product.requires_equipment || punit === "L";
   const pstep = Number(product.quantity_step || 1);
   const pinitial = Number(product.default_quantity || 1);
   const [localQty, setLocalQty] = useState(pinitial);
+  const [erpPrice, setErpPrice] = useState<number | null>(null);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
 
   useEffect(() => {
-    // Sincroniza localQty com o carrinho SOMENTE se o item existir no carrinho.
-    // Se o item NÃO estiver no carrinho, localQty deve ser o pinitial do catálogo,
-    // garantindo que não herde lixo de um reset ou de outro produto.
     if (cartItem) {
       setLocalQty(cartItem.quantity);
     } else {
@@ -74,16 +106,18 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
   }, [cartItem, pinitial]);
 
   const handleQtyChange = (val: number) => {
-    // Garante que o valor respeite o pstep (incremento)
-    // Se pstep=10, 10 -> 20 -> 30. Nunca 11.
     const remainder = val % pstep;
     const adjustedVal = remainder === 0 ? val : val + (pstep - remainder);
     const newQty = Math.max(0, adjustedVal);
     
     setLocalQty(newQty);
     if (cartItem) {
-      addItem({ productId: product.id, description: product.description, quantity: newQty, unitPrice: 0, total: 0 });
+      useOrderFormStore.getState().updateItemQuantity(product.id, newQty);
     }
+  };
+
+  const handlePriceClick = () => {
+    if (cartItem) setIsEditingPrice(true);
   };
 
   const shortcuts = isChopp ? [10, 20, 30, 50] : [];
@@ -91,9 +125,53 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
   return (
     <div className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
       <div className="flex justify-between items-start">
-        <div className="flex-1">
+        <div className="flex-1" onClick={handlePriceClick}>
           <h4 className="font-bold text-sm leading-tight">{product.description}</h4>
-          <ProductPriceDisplay productId={product.id} clientId={clientId} unit={punit} />
+          {isEditingPrice ? (
+            <div className="mt-1 flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.01"
+                className="h-8 w-24 text-sm font-bold"
+                defaultValue={cartItem?.appliedUnitPrice ?? (erpPrice || 0)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = Number((e.target as HTMLInputElement).value);
+                    if (val > 0) updateItemPrice(product.id, val);
+                    setIsEditingPrice(false);
+                  }
+                  if (e.key === 'Escape') setIsEditingPrice(false);
+                }}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > 0 && val !== (cartItem?.appliedUnitPrice)) {
+                    updateItemPrice(product.id, val);
+                  }
+                  setIsEditingPrice(false);
+                }}
+              />
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={(e) => {
+                e.stopPropagation();
+                updateItemPrice(product.id, null);
+                setIsEditingPrice(false);
+              }} title="Resetar para preço ERP">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-1 flex items-center gap-1 cursor-pointer" onClick={handlePriceClick}>
+              <ProductPriceDisplay 
+                productId={product.id} 
+                clientId={clientId} 
+                unit={punit} 
+                onPriceLoaded={setErpPrice}
+                manualPrice={cartItem?.manualPrice}
+                appliedPrice={cartItem?.appliedUnitPrice}
+              />
+              {cartItem?.manualPrice && <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+            </div>
+          )}
         </div>
         {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5 shrink-0"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
       </div>
@@ -141,11 +219,18 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
         </div>
         
         <div className="text-right">
-           <SubtotalDisplay productId={product.id} clientId={clientId} quantity={localQty} />
+           <SubtotalDisplay productId={product.id} clientId={clientId} quantity={localQty} appliedPrice={cartItem?.appliedUnitPrice} />
            {!cartItem ? (
              <Button size="sm" className="h-8 px-3 text-xs mt-1" onClick={() => {
-               if (localQty > 0) addItem({ productId: product.id, description: product.description, quantity: localQty, unitPrice: 0, total: 0 });
-             }}>Adicionar</Button>
+               if (localQty > 0 && erpPrice !== null) {
+                 addItem({ 
+                   productId: product.id, 
+                   description: product.description, 
+                   quantity: localQty, 
+                   unitPrice: erpPrice 
+                 });
+               }
+             }} disabled={erpPrice === null}>Adicionar</Button>
            ) : (
              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs mt-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeItem(product.id)}>
                Remover
@@ -166,7 +251,7 @@ function NewOrderPage() {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus,
-    setClient, setCompany, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
+    setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore();
@@ -236,7 +321,7 @@ function NewOrderPage() {
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-    return p?.requires_equipment;
+    return p?.equipment_mode === 'CHOPE' || p?.requires_equipment;
   });
 
   const getRequiredVias = () => choppItems.length;
@@ -244,12 +329,15 @@ function NewOrderPage() {
   const getAvailableVias = () => {
     let total = 0;
     equipments.forEach(eq => {
-      const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
-      if (et?.description?.toLowerCase().includes("vias")) {
-        const viasMatch = et.description.match(/(\d+)\s*vias/i);
+      // Usar metadados se disponíveis, senão fallback para parsing de nome
+      if (eq.tapLines) {
+        total += eq.tapLines * eq.quantity;
+      } else {
+        const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
+        const desc = (eq.description || et?.description || "").toLowerCase();
+        const viasMatch = desc.match(/(\d+)\s*vias/i);
         if (viasMatch) total += Number(viasMatch[1]) * eq.quantity;
-      } else if (et?.description?.toLowerCase().includes("via")) {
-        total += 1 * eq.quantity;
+        else if (desc.includes("via")) total += 1 * eq.quantity;
       }
     });
     return total;
@@ -261,16 +349,25 @@ function NewOrderPage() {
     
     let provided = 0;
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === productId);
-    const pName = p?.description?.toLowerCase() || "";
+    const pDesc = (p?.description || "").toLowerCase();
+    const style = pDesc.split(" ")[0] || "";
     
     equipments.forEach(eq => {
       const desc = eq.description.toLowerCase();
-      if (desc.includes("barril")) {
-        // Regra: se houver apenas um estilo, qualquer barril conta.
-        // Se houver múltiplos, o barril deve conter o nome do estilo (descrito no suggestEquipments)
-        if (choppItems.length === 1 || desc.includes(pName.split(" ")[0])) {
-           const litersMatch = desc.match(/(\d+)\s*l/i);
-           if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+      // Regra: se o equipamento for um barril (KEG)
+      if (eq.role === 'KEG' || desc.includes("barril")) {
+        // Se houver apenas um estilo de chope, qualquer barril conta.
+        // Se houver múltiplos, o barril deve conter o estilo no nome (injetado pelo suggest) ou ser genérico
+        const isGeneric = !desc.includes("(") || desc.includes("genérico");
+        const matchesStyle = style && desc.includes(style);
+
+        if (choppItems.length === 1 || isGeneric || matchesStyle) {
+           if (eq.capacityLiters) {
+             provided += eq.capacityLiters * eq.quantity;
+           } else {
+             const litersMatch = desc.match(/(\d+)\s*l/i);
+             if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+           }
         }
       }
     });
@@ -281,11 +378,10 @@ function NewOrderPage() {
   const [suggestionDirty, setSuggestionDirty] = useState(false);
   useEffect(() => {
     if (equipments.length > 0 && choppItems.length > 0) {
-      // Verificação simplificada se a sugestão atende os itens atuais
       const viasValid = getAvailableVias() >= getRequiredVias();
       const litersValid = choppItems.every(it => {
         const cov = getProductCoverage(it.productId);
-        return cov.provided === cov.required;
+        return cov.provided >= cov.required; // Mudamos para >= para ser mais flexível se manual for maior
       });
       if (!viasValid || !litersValid) setSuggestionDirty(true);
       else setSuggestionDirty(false);
@@ -296,66 +392,112 @@ function NewOrderPage() {
     const newEquips: any[] = [];
     const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
     
+    // 1. Otimizar Vias (CHOPEIRAS)
     const requiredVias = getRequiredVias();
     if (requiredVias > 0) {
-      const chopeiras = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("chopeira"));
+      const chopeiras = allEquipTypes.filter((et: any) => 
+        et.equipment_mode === 'CHOPE' || et.equipment_role === 'TAP' || et.description?.toLowerCase().includes("chopeira")
+      );
+
       let remainingVias = requiredVias;
+      // Ordenar por maior número de vias para usar menos equipamentos
       const sortedChopeiras = [...chopeiras].sort((a, b) => {
-         const vA = Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-         const vB = Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vA = a.tap_lines || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vB = b.tap_lines || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          return vB - vA;
       });
 
       for (const ch of sortedChopeiras) {
-        const vias = Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+        const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+        if (remainingVias <= 0) break;
         const qty = Math.floor(remainingVias / vias);
         if (qty > 0) {
-          newEquips.push({ equipmentTypeId: ch.id, description: ch.description, quantity: qty });
+          newEquips.push({ 
+            equipmentTypeId: ch.id, 
+            description: ch.description, 
+            quantity: qty,
+            role: "TAP",
+            tapLines: vias
+          });
           remainingVias -= qty * vias;
         }
       }
+
+      // Se sobrar, pegar a menor chopeira que cubra o resto
       if (remainingVias > 0 && sortedChopeiras.length > 0) {
-        const smallestToCover = [...sortedChopeiras].reverse().find(ch => Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1) >= remainingVias);
+        const smallestToCover = [...sortedChopeiras].reverse().find(ch => {
+          const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+          return vias >= remainingVias;
+        });
         if (smallestToCover) {
+          const vias = smallestToCover.tap_lines || Number(smallestToCover.description.match(/(\d+)\s*vias/i)?.[1] || 1);
           const existing = newEquips.find(e => e.equipmentTypeId === smallestToCover.id);
           if (existing) existing.quantity += 1;
-          else newEquips.push({ equipmentTypeId: smallestToCover.id, description: smallestToCover.description, quantity: 1 });
+          else newEquips.push({ 
+            equipmentTypeId: smallestToCover.id, 
+            description: smallestToCover.description, 
+            quantity: 1,
+            role: "TAP",
+            tapLines: vias
+          });
         }
       }
     }
 
+    // 2. Otimizar Barris (KEG) - CÁLCULO POR PRODUTO INDIVIDUAL
     choppItems.forEach(it => {
       let remainingLiters = it.quantity;
       const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-      const style = p?.description?.split(" ")[0]?.toUpperCase() || "";
+      const style = p?.description?.split(" ")[0]?.toUpperCase() || "CHOPE";
       
-      const barris = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("barril"));
+      const barris = allEquipTypes.filter((et: any) => 
+        et.equipment_role === 'KEG' || et.description?.toLowerCase().includes("barril")
+      );
+
       const sortedBarris = [...barris].sort((a, b) => {
-         const lA = Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
-         const lB = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lA = a.capacity_liters || Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lB = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
          return lB - lA;
       });
 
       for (const b of sortedBarris) {
-        const capacity = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
-        if (capacity === 0) continue;
+        const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+        if (capacity <= 0 || remainingLiters <= 0) continue;
         const qty = Math.floor(remainingLiters / capacity);
         if (qty > 0) {
-          newEquips.push({ equipmentTypeId: b.id, description: `${b.description} (${style})`, quantity: qty });
+          newEquips.push({ 
+            equipmentTypeId: b.id, 
+            description: `${b.description} (${style})`, 
+            quantity: qty,
+            role: "KEG",
+            capacityLiters: capacity
+          });
           remainingLiters -= qty * capacity;
         }
       }
+
+      // Se sobrar, pegar o menor barril que cubra o resto do produto
       if (remainingLiters > 0 && sortedBarris.length > 0) {
-        const smallestToCover = [...sortedBarris].reverse().find(b => Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0) >= remainingLiters);
+        const smallestToCover = [...sortedBarris].reverse().find(b => {
+          const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+          return capacity >= remainingLiters;
+        });
         if (smallestToCover) {
-           newEquips.push({ equipmentTypeId: smallestToCover.id, description: `${smallestToCover.description} (${style})`, quantity: 1 });
+           const capacity = smallestToCover.capacity_liters || Number(smallestToCover.description.match(/(\d+)\s*l/i)?.[1] || 0);
+           newEquips.push({ 
+             equipmentTypeId: smallestToCover.id, 
+             description: `${smallestToCover.description} (${style})`, 
+             quantity: 1,
+             role: "KEG",
+             capacityLiters: capacity
+           });
         }
       }
     });
 
     useOrderFormStore.setState({ equipments: newEquips });
     setSuggestionDirty(false);
-    toast.success("Sugestão de equipamentos aplicada");
+    toast.success("Sugestão otimizada de equipamentos aplicada");
   };
 
   const updateEquipmentQty = (id: number, qty: number) => {
@@ -405,7 +547,7 @@ function NewOrderPage() {
             <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
               <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate flex items-center gap-2">
                 {it.description}
-                {diff === 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
+                {diff <= 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
               </p>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
@@ -474,7 +616,7 @@ function NewOrderPage() {
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
         returnAt: returnEquipment ? returnAt : null,
-        items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
+        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined })),
         equipments: equipments.map(e => ({ equipmentTypeId: e.equipmentTypeId, quantity: e.quantity })),
         notes: notes || null
       };
@@ -571,6 +713,7 @@ function NewOrderPage() {
                       clientId={clientId!}
                       addItem={addItem}
                       removeItem={removeItem}
+                      updateItemPrice={updateItemPrice}
                       cartItem={items.find(it => it.productId === p.id)}
                     />
                   ))}
@@ -694,6 +837,129 @@ function NewOrderPage() {
           </div>
         </div>
       )}
+
+      {step === "delivery" && clientId && (
+        <Card>
+            <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="deliver" checked={deliver} onCheckedChange={(checked: boolean) => setDelivery(!!checked, deliveryAt)} />
+                <Label htmlFor="deliver">Deseja entrega?</Label>
+              </div>
+
+              {deliver && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Data de Entrega</Label>
+                    <Input type="date" value={deliveryAt?.split('T')[0] || ""} onChange={(e) => setDelivery(deliver, e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Horário Previsto (Opcional)</Label>
+                    <Input type="time" onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      if (deliveryAt) {
+                        const date = deliveryAt.split('T')[0];
+                        setDelivery(deliver, `${date}T${e.target.value}:00`);
+                      }
+                    }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} />
+                <Label htmlFor="returnEq">Recolher equipamentos?</Label>
+              </div>
+
+              {returnEquipment && (
+                <div className="space-y-2">
+                  <Label>Data de Recolhimento</Label>
+                  <Input type="date" value={returnAt?.split('T')[0] || ""} onChange={(e) => setReturn(returnEquipment, e.target.value)} />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Observações do Pedido</Label>
+                <Textarea placeholder="Instruções de entrega, detalhes adicionais..." value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} />
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep("items")}>Voltar</Button>
+                <Button onClick={() => setStep("payment")}>Próximo</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "payment" && clientId && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">4. Pagamento</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+               <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
+               {/* Futuramente: Carregar termos de pagamento do ERP aqui */}
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Condição de Pagamento</Label>
+                    <Badge variant="outline">Padrão ERP (ID 1)</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Venda</Label>
+                    <Badge variant="outline">Venda Normal (ID 1)</Badge>
+                  </div>
+               </div>
+               
+               <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
+                <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "review" && clientId && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-muted-foreground">Cliente</Label>
+                    <p className="font-bold">{clientName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Logística</Label>
+                    <p className="text-sm">• {deliver ? `Entrega em ${new Date(deliveryAt!).toLocaleDateString('pt-BR')}` : 'Retirada no local'}</p>
+                    <p className="text-sm">• {returnEquipment ? `Recolhimento em ${new Date(returnAt!).toLocaleDateString('pt-BR')}` : 'Sem recolhimento'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Observações</Label>
+                    <p className="text-sm italic">{notes || "Nenhuma"}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Label className="text-muted-foreground">Resumo Financeiro</Label>
+                  <div className="border rounded-lg p-3 space-y-2 bg-muted/5">
+                    <div className="flex justify-between text-sm">
+                      <span>Total de Itens:</span>
+                      <span className="font-bold">{items.length}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                      <span>Total Geral:</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc, it) => acc + it.total, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-6 border-t">
+                <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
+                <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
+                  {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

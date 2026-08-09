@@ -36,6 +36,7 @@ const itemSchema = z
   .object({
     productId: positiveInt,
     quantity: finiteNumber.positive({ message: "Quantidade deve ser maior que zero." }),
+    manualUnitPrice: finiteNumber.positive({ message: "Preço manual deve ser positivo." }).nullable().optional(),
   })
   .strict();
 
