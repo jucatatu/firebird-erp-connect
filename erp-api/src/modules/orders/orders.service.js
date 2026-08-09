@@ -109,27 +109,40 @@ async function validateProductsAndPricing(items, clientId) {
       });
     }
 
-    // 3. Resolver preço exclusivamente pelo módulo de pricing
-    const pricing = await pricingService.resolvePrice({
-      productId: item.productId,
-      clientId: clientId
-    });
+    // 3. Resolver preço
+    let unitPrice;
+    let strategy;
 
-    if (!pricing.priceFound) {
-      throw new AppError({
-        message: `Preço não encontrado para o produto ${item.productId}.`,
-        statusCode: 422,
-        code: "PRICE_NOT_FOUND",
-        retryable: false
+    if (item.manualUnitPrice) {
+      unitPrice = Number(item.manualUnitPrice);
+      strategy = "manual";
+      logger.info(
+        { productId: item.productId, clientId, manualUnitPrice: unitPrice },
+        "orders.pricing: usando preço manual informado pelo vendedor"
+      );
+    } else {
+      const pricing = await pricingService.resolvePrice({
+        productId: item.productId,
+        clientId: clientId,
       });
+
+      if (!pricing.priceFound) {
+        throw new AppError({
+          message: `Preço não encontrado para o produto ${item.productId}.`,
+          statusCode: 422,
+          code: "PRICE_NOT_FOUND",
+          retryable: false,
+        });
+      }
+      unitPrice = Number(pricing.unitPrice);
+      strategy = pricing.strategy;
     }
 
-    const unitPrice = Number(pricing.unitPrice);
     validatedItems.push({
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: unitPrice,
-      strategy: pricing.strategy
+      strategy: strategy,
     });
 
     subtotal += unitPrice * item.quantity;
