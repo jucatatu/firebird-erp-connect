@@ -41,6 +41,10 @@ export interface ErpProduct {
   description: string;
   companyId: number | null;
   active: boolean | null;
+  unit?: {
+    code: string | null;
+    description: string | null;
+  } | null;
 }
 
 export interface ErpEquipmentType {

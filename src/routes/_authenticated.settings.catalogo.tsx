@@ -220,10 +220,10 @@ function EquipmentTab({
   const apiError = equipQ.data && !equipQ.data.ok ? equipQ.data.error : null;
 
   const list = useMemo(() => {
-    const all = payload?.equipmentTypes ?? [];
+    const all = (payload as unknown as ErpEquipmentType[]) || [];
     const t = term.trim().toLowerCase();
     if (t === "") return all;
-    return all.filter((e) =>
+    return all.filter((e: ErpEquipmentType) =>
       `${e.description ?? ""} ${e.code ?? ""}`.toLowerCase().includes(t),
     );
   }, [payload, term]);
@@ -248,7 +248,7 @@ function EquipmentTab({
         {!equipQ.isLoading && list.length === 0 && !apiError && (
           <p className="text-sm text-muted-foreground">Nenhum equipamento encontrado.</p>
         )}
-        {list.map((e) => {
+        {list.map((e: ErpEquipmentType) => {
           const id = Number(e.id);
           if (!Number.isInteger(id) || id <= 0) return null;
           const description = e.description?.trim() || `Equipamento ${id}`;
