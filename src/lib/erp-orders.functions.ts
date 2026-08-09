@@ -98,7 +98,7 @@ export const resolveErpPrice = createServerFn({ method: "GET" })
 
 // --- ORDERS ---
 export interface CreateOrderInput {
-  companyId: 1 | 3;
+  companyId: number;
   clientId: number;
   sellerId: number;
   saleTypeId: number;
