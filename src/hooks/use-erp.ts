@@ -88,33 +88,36 @@ export function useGeocodeOrders() {
   });
 }
 
-/** GET /api/v1/products — catálogo somente leitura do ERP. Exige termo de busca. */
-export function useErpProducts(input: SearchProductsInput | null) {
+/** GET /api/v1/products — catálogo do ERP filtrado pelo Supabase. */
+export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: number; cursor?: string; isAdminSearch?: boolean }) {
   const fn = useServerFn(searchErpProducts);
   return useQuery({
     queryKey: [
       "erp",
       "products",
-      input?.q ?? "",
-      input?.companyId ?? "all",
-      input?.active ?? "any",
-      input?.cursor ?? "",
+      input.q ?? "",
+      input.companyId,
+      input.cursor ?? "",
+      !!input.isAdminSearch,
     ],
-    queryFn: () => {
-      if (!input) throw new Error("input ausente");
-      return fn({ data: input }) as Promise<ErpResponse<{ products: ErpProduct[]; nextCursor: number | null }>>;
-    },
-    enabled: Boolean(input && input.q.trim().length >= 3),
+    queryFn: () => fn({ data: { ...input, q: input.q || "" } }),
     staleTime: 60_000,
   });
 }
 
-/** GET /api/v1/equipment-types — catálogo pequeno, carregado inteiro. */
-export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
+/** GET /api/v1/equipment-types — catálogo pequeno do ERP filtrado pelo Supabase. */
+export function useErpEquipmentTypes(input: { q?: string; active?: boolean; companyId: 1 | 3; isAdminSearch?: boolean }) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
-    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any", input?.companyId ?? "all"],
-    queryFn: () => fn({ data: input ?? {} }),
+    queryKey: [
+      "erp",
+      "equipment-types",
+      input.q ?? "",
+      input.active ?? "all",
+      input.companyId,
+      !!input.isAdminSearch,
+    ],
+    queryFn: () => fn({ data: input }),
     staleTime: 60_000,
   });
 }
