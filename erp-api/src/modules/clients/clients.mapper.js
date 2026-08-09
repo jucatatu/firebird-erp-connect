@@ -73,18 +73,6 @@ function buildQPatterns(term) {
   return folded === exact ? [exact] : [exact, folded];
 }
 
-/** Padrão LIKE exato (sem folding) — usado como primeira alternativa. */
-function exactLikePattern(term) {
-  const upper = String(term).toUpperCase().replace(/[%_]/g, " ").trim();
-  return `%${upper}%`;
-}
-
-function buildQPatterns(term) {
-  const exact = exactLikePattern(term);
-  const folded = foldToLikePattern(term);
-  return folded === exact ? [exact] : [exact, folded];
-}
-
 /**
  * ATIVO / BLOQUEADO.
  *
