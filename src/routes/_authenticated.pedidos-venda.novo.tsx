@@ -137,7 +137,7 @@ function NewOrderPage() {
         // Se houver um draftId na URL, poderíamos atualizar seu status aqui.
         
         reset();
-        navigate({ to: "/pedidos-venda" });
+        navigate({ to: "/pedidos-venda", search: { status: "all" } });
       } else {
         const isConflict = result.status === 409;
         const status = isConflict ? "created" : "failed";
