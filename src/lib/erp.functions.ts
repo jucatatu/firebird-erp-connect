@@ -557,12 +557,16 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     // 1. Buscar habilitados no Supabase se não for busca administrativa
     let enabledIds: number[] = [];
     if (!data.isAdminSearch) {
-      const { data: enabledProducts } = await supabaseAdmin
+      const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
         .select("erp_item_id")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
+      
+      if (supabaseErr) {
+        console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
+      }
       enabledIds = (enabledProducts || []).map((p: any) => p.erp_item_id);
     }
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
