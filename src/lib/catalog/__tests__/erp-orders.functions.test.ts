@@ -73,7 +73,8 @@ describe('createErpOrder Server Function', () => {
       };
     });
 
-    const result = await createErpOrder({ data: { data: mockPayload } });
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const result = await handleCreateErpOrder(mockPayload, undefined, supabaseAdmin);
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('SELLER_NOT_MAPPED');
   });
