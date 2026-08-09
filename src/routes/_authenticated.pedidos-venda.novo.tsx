@@ -84,6 +84,14 @@ function NewOrderPage() {
       return;
     }
 
+    if (!companyId) {
+      toast.error("Empresa não selecionada", {
+        description: "Por favor, selecione a empresa para este pedido."
+      });
+      setStep("client");
+      return;
+    }
+
     if (!paymentTermId || !paymentMethodId || !saleTypeId) {
       toast.error("Dados incompletos", {
         description: "Por favor, selecione o tipo de venda, prazo e forma de pagamento."
