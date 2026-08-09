@@ -150,6 +150,7 @@ function buildInPlaceholders(n) {
  *
  * @param {{qPatterns?: string[], documentDigits?: string|null,
  *          cityPattern?: string|null, clientIdFilter?: number[]|null,
+ *          companyId?: number|null,
  *          limit: number, cursor: number|null}} input
  */
 async function searchClients(input) {
