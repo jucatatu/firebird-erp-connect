@@ -569,6 +569,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       }
       enabledIds = (enabledProducts || []).map((p: any) => p.erp_item_id);
     }
+
+    // Se for busca administrativa e não houver termo, não chamamos o ERP para evitar 400
+    if (data.isAdminSearch && !data.q) {
+      return { ok: true, data: { products: [], nextCursor: null }, status: 200 };
+    }
+
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
     if (data.companyId) query.companyId = String(data.companyId);
     if (typeof data.active === "boolean") query.active = String(data.active);
