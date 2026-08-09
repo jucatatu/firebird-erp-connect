@@ -18,8 +18,9 @@ if (!apiKey || !secret) {
   process.exit(1);
 }
 
-const payloadRaw = fs.readFileSync(payloadPath, "utf8");
-const bodyHash = crypto.createHash("sha256").update(payloadRaw).digest("hex");
+const payloadParsed = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+const payloadStringified = JSON.stringify(payloadParsed);
+const bodyHash = crypto.createHash("sha256").update(payloadStringified).digest("hex");
 const timestamp = Date.now().toString();
 const nonce = crypto.randomBytes(12).toString("hex");
 const method = "POST";
@@ -62,5 +63,5 @@ req.on("error", (e) => {
   console.error("Erro na requisição:", e.message);
 });
 
-req.write(payloadRaw);
+req.write(payloadStringified);
 req.end();
