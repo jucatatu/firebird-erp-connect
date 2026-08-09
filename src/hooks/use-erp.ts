@@ -8,12 +8,53 @@ import {
   geocodeOrders,
   searchErpProducts,
   listErpEquipmentTypes,
-  type ListOrdersInput,
-  type GetMapOrdersInput,
-  type GeocodeOrdersInput,
-  type SearchProductsInput,
-  type ListEquipmentTypesInput,
 } from "@/lib/erp.functions";
+import {
+  searchErpClients,
+  resolveErpPrice,
+  createErpOrder,
+  type CreateOrderInput,
+} from "@/lib/erp-orders.functions";
+
+/** Busca clientes no ERP por nome, documento, código ou telefone. */
+export function useErpClients(input: { q: string; companyId?: 1 | 3; limit?: number; cursor?: number } | null) {
+  const fn = useServerFn(searchErpClients);
+  return useQuery({
+    queryKey: ["erp", "clients", input],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input && input.q.length >= 3),
+    staleTime: 30_000,
+  });
+}
+
+/** Resolve o preço de um produto para um cliente específico. */
+export function useErpPrice(input: { productId: number; clientId: number } | null) {
+  const fn = useServerFn(resolveErpPrice);
+  return useQuery({
+    queryKey: ["erp", "pricing", input?.productId, input?.clientId],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input?.productId && input?.clientId),
+    staleTime: 60_000,
+  });
+}
+
+/** POST /api/v1/orders — cria pedido real no Firebird. */
+export function useCreateErpOrder() {
+  const fn = useServerFn(createErpOrder);
+  return useMutation({
+    mutationFn: (args: { data: CreateOrderInput; idempotencyKey: string }) => 
+      fn({ 
+        data: args.data, 
+        headers: { "x-idempotency-key": args.idempotencyKey } 
+      }),
+  });
+}
 
 /** Ping público /api/v1/health da API Node. */
 export function useErpHealth() {
