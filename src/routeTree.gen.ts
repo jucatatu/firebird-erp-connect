@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuditoriaProdutosRouteImport } from './routes/auditoria-produtos'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedRecolhasRouteImport } from './routes/_authenticated.recolhas'
@@ -29,6 +30,11 @@ import { Route as AuthenticatedOrdersSplatRouteImport } from './routes/_authenti
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditoriaProdutosRoute = AuditoriaProdutosRouteImport.update({
+  id: '/auditoria-produtos',
+  path: '/auditoria-produtos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -116,6 +122,7 @@ const AuthenticatedOrdersSplatRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
+  '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/entregas': typeof AuthenticatedEntregasRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesByTo {
+  '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/entregas': typeof AuthenticatedEntregasRoute
@@ -151,6 +159,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/entregas': typeof AuthenticatedEntregasRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auditoria-produtos'
     | '/login'
     | '/approvals'
     | '/entregas'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auditoria-produtos'
     | '/login'
     | '/approvals'
     | '/entregas'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authenticated'
+    | '/auditoria-produtos'
     | '/login'
     | '/_authenticated/approvals'
     | '/_authenticated/entregas'
@@ -224,6 +236,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AuditoriaProdutosRoute: typeof AuditoriaProdutosRoute
   LoginRoute: typeof LoginRoute
   ApiPublicTmpResetAdminRoute: typeof ApiPublicTmpResetAdminRoute
 }
@@ -235,6 +248,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auditoria-produtos': {
+      id: '/auditoria-produtos'
+      path: '/auditoria-produtos'
+      fullPath: '/auditoria-produtos'
+      preLoaderRoute: typeof AuditoriaProdutosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -384,6 +404,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  AuditoriaProdutosRoute: AuditoriaProdutosRoute,
   LoginRoute: LoginRoute,
   ApiPublicTmpResetAdminRoute: ApiPublicTmpResetAdminRoute,
 }
