@@ -624,7 +624,7 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
     const finalRes = res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
     if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
       finalRes.data.equipmentTypes = finalRes.data.equipmentTypes.filter((et) => 
-        enabledIds.includes(et.id)
+        et.id !== null && enabledIds.includes(et.id)
       );
     }
     return finalRes;
