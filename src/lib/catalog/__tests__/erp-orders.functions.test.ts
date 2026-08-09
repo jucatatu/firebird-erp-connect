@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createErpOrder } from '../../erp-orders.functions';
 
 // Mock do erp.server.ts
-vi.mock('./erp.server', () => ({
+vi.mock('../../erp.server', () => ({
   callErp: vi.fn(async (opts) => {
     return { ok: true, status: 201, data: { orderId: 123, orderNumber: 456 }, error: null };
   })
