@@ -40,7 +40,7 @@ function NewOrderPage() {
     idempotencyKey, submissionStatus,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
-    setIdempotencyKey, setSubmissionStatus
+    setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore();
 
   const myRoles = useMyRoles(user);
@@ -210,14 +210,22 @@ function NewOrderPage() {
                 <div className="flex gap-4">
                   <div 
                     className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 1 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => setCompany(1)}
+                    onClick={() => {
+                      if (submissionStatus === "submitting" || submissionStatus === "created") return;
+                      resetItemsAndClient();
+                      setCompany(1);
+                    }}
                   >
                     <p className="text-sm font-bold">Graal</p>
                     <p className="text-xs text-muted-foreground">ID: 1</p>
                   </div>
                   <div 
                     className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 3 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => setCompany(3)}
+                    onClick={() => {
+                      if (submissionStatus === "submitting" || submissionStatus === "created") return;
+                      resetItemsAndClient();
+                      setCompany(3);
+                    }}
                   >
                     <p className="text-sm font-bold">Grott</p>
                     <p className="text-xs text-muted-foreground">ID: 3</p>
@@ -286,11 +294,10 @@ function NewOrderPage() {
         <div className="grid gap-6 md:grid-cols-3">
           <Card className="md:col-span-2">
             <CardHeader>
-              <CardTitle className="text-lg">Adicionar Itens e Equipamentos</CardTitle>
+              <CardTitle className="text-lg">Adicionar Produtos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <Label>Produtos</Label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
@@ -302,48 +309,61 @@ function NewOrderPage() {
                 </div>
                 
                 <div className="max-h-60 space-y-2 overflow-y-auto">
-              {productsQ.data?.data?.products?.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-                  <div className="flex-1">
-                    <p className="font-medium">{p.description}</p>
-                    <p className="text-xs text-muted-foreground">ID: {p.id}</p>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => addItem({
-                    productId: p.id,
-                    description: p.description,
-                    quantity: 1,
-                    unitPrice: 0, // Será resolvido no backend
-                    total: 0
-                  })}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  {productsQ.isFetching && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {productsQ.data?.data?.products?.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className="font-medium truncate">{p.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ID: {p.id} {p.code ? `· ${p.code}` : ""}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => addItem({
+                        productId: p.id,
+                        description: p.description,
+                        quantity: 1,
+                        unitPrice: 0,
+                        total: 0
+                      })}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {productSearch.length >= 3 && !productsQ.isFetching && productsQ.data?.data?.products?.length === 0 && (
+                    <p className="py-4 text-center text-xs text-muted-foreground">Nenhum produto encontrado.</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <Separator />
+              <Separator />
 
-          <div className="space-y-4">
-            <Label>Equipamentos</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {equipmentTypesQ.data?.data?.equipmentTypes?.map((et) => (
-                <Button 
-                  key={et.id} 
-                  variant="outline" 
-                  size="sm" 
-                  className="justify-start"
-                  onClick={() => addEquipment({
-                    equipmentTypeId: et.id || 0,
-                    description: et.description || "Sem descrição",
-                    quantity: 1
-                  })}
-                >
-                  <Plus className="mr-2 h-3 w-3" /> {et.description}
-                </Button>
-              ))}
-            </div>
-          </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {equipmentTypesQ.data?.data?.equipmentTypes?.map((et) => (
+                    <Button 
+                      key={et.id} 
+                      variant="outline" 
+                      size="sm" 
+                      className="justify-start h-auto py-2.5 px-3 text-left"
+                      onClick={() => addEquipment({
+                        equipmentTypeId: et.id || 0,
+                        description: et.description || "Sem descrição",
+                        quantity: 1
+                      })}
+                    >
+                      <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span className="truncate">{et.description}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
