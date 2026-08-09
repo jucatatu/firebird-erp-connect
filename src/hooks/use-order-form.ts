@@ -45,9 +45,10 @@ interface OrderFormStore {
   setCompany: (id: number | null) => void;
   setIdempotencyKey: (key: string) => void;
   setSubmissionStatus: (status: OrderFormStore["submissionStatus"], erpData?: { orderId?: number; orderNumber?: number }) => void;
-  addItem: (item: OrderItem) => void;
+  addItem: (item: Omit<OrderItem, "total" | "appliedUnitPrice" | "manualPrice"> & { manualUnitPrice?: number | null }) => void;
   removeItem: (productId: number) => void;
   updateItemQuantity: (productId: number, quantity: number) => void;
+  updateItemPrice: (productId: number, manualUnitPrice: number | null) => void;
   addEquipment: (eq: OrderEquipment) => void;
   removeEquipment: (typeId: number) => void;
   setDelivery: (deliver: boolean, date: string | null) => void;
@@ -92,11 +93,17 @@ export const useOrderFormStore = create<OrderFormStore>()(
       }),
       addItem: (item) => set((state: OrderFormStore) => {
         const exists = state.items.find(i => i.productId === item.productId);
+        const manualPrice = item.manualUnitPrice !== undefined && item.manualUnitPrice !== null;
+        const appliedPrice = manualPrice ? (item.manualUnitPrice as number) : item.unitPrice;
+        
         const finalItem: OrderItem = {
-          ...item,
-          manualPrice: item.manualUnitPrice !== undefined && item.manualUnitPrice !== null,
-          appliedUnitPrice: item.manualUnitPrice ?? item.unitPrice,
-          total: (item.manualUnitPrice ?? item.unitPrice) * item.quantity
+          productId: item.productId,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          manualPrice,
+          appliedUnitPrice: appliedPrice,
+          total: appliedPrice * item.quantity
         };
 
         if (exists) {
