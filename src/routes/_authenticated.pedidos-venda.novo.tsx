@@ -213,52 +213,165 @@ function NewOrderPage() {
       )}
 
       {step === "items" && clientId && companyId && (
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-2 shadow-none border-none sm:border">
-            <CardHeader><CardTitle className="text-xl">Produtos</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <Input placeholder="Filtrar produtos..." value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
-              <div className="grid grid-cols-1 gap-4">
-                {((productsQ.data as any)?.data?.products || []).filter((p: any) => 
-                  !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
-                ).map((p: any) => {
-                  const punit = p.unit?.code || "UN";
-                  const pstep = Number(p.quantity_step || 1);
-                  const pinitial = Number(p.default_quantity || 1);
-                  
-                  return (
-                    <div key={p.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                      <h4 className="font-semibold">{p.description}</h4>
-                      <ProductPriceDisplay productId={p.id} clientId={clientId} unit={punit} />
-                      <div className="flex items-center justify-between pt-2">
-                         <div className="flex bg-muted/30 rounded-lg p-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>-</Button>
-                            <Input className="h-8 w-14 text-center font-bold" defaultValue={pinitial} />
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>+</Button>
-                         </div>
-                         <Button onClick={() => addItem({ productId: p.id, description: p.description, quantity: pinitial, unitPrice: 0, total: 0 })}>Adicionar</Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader><CardTitle>Carrinho</CardTitle></CardHeader>
-            <CardContent>
-              {items.map(it => (
-                <div key={it.productId} className="flex justify-between py-2 border-b">
-                   <span>{it.quantity}x {it.description}</span>
-                   <Button variant="ghost" size="icon" onClick={() => removeItem(it.productId)}><Trash2 className="h-4 w-4"/></Button>
+        <div className="grid gap-6 md:grid-cols-4">
+          <div className="md:col-span-3 space-y-6">
+            <Card className="shadow-none border-none sm:border">
+              <CardHeader className="pb-3"><CardTitle className="text-xl">1. Produtos</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Filtrar produtos..." className="pl-9" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
                 </div>
-              ))}
-              <Button className="w-full mt-4" onClick={() => setStep("delivery")}>Continuar</Button>
-            </CardContent>
-          </Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {((productsQ.data as any)?.data?.products || []).filter((p: any) => 
+                    !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
+                  ).map((p: any) => {
+                    const punit = p.unit?.code || "UN";
+                    const pstep = Number(p.quantity_step || 1);
+                    const pinitial = Number(p.default_quantity || 1);
+                    const cartItem = items.find(it => it.productId === p.id);
+                    const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
+                    
+                    const handleQtyChange = (val: number) => {
+                      const newQty = Math.max(0, val);
+                      setLocalQty(newQty);
+                      if (cartItem) {
+                        addItem({ productId: p.id, description: p.description, quantity: newQty, unitPrice: 0, total: 0 });
+                      }
+                    };
+
+                    return (
+                      <div key={p.id} className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-sm leading-tight">{p.description}</h4>
+                            <ProductPriceDisplay productId={p.id} clientId={clientId} unit={punit} />
+                          </div>
+                          {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-auto pt-2">
+                          <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7" 
+                              onClick={() => handleQtyChange(localQty - pstep)}
+                              disabled={localQty <= 0}
+                            >-</Button>
+                            <Input 
+                              type="number"
+                              className="h-7 w-12 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
+                              value={localQty}
+                              onChange={(e) => handleQtyChange(Number(e.target.value))}
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7" 
+                              onClick={() => handleQtyChange(localQty + pstep)}
+                            >+</Button>
+                          </div>
+                          
+                          <div className="text-right">
+                             <SubtotalDisplay productId={p.id} clientId={clientId} quantity={localQty} />
+                             {!cartItem ? (
+                               <Button size="sm" className="h-8 px-3 text-xs mt-1" onClick={() => {
+                                 if (localQty > 0) addItem({ productId: p.id, description: p.description, quantity: localQty, unitPrice: 0, total: 0 });
+                               }}>Adicionar</Button>
+                             ) : (
+                               <Button variant="ghost" size="sm" className="h-8 px-2 text-xs mt-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeItem(p.id)}>
+                                 Remover
+                               </Button>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-none border-none sm:border">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-xl">2. Equipamentos</CardTitle>
+                <div className="flex gap-2">
+                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => suggestEquipments()}>
+                     ✨ Sugerir
+                   </Button>
+                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setShowAddEquip(true)}>
+                     <Plus className="h-3 w-3 mr-1"/> Manual
+                   </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                 <EquipmentCoverageIndicators />
+                 
+                 <div className="space-y-2 mt-4">
+                    {equipments.map(eq => (
+                      <div key={eq.equipmentTypeId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+                         <div>
+                            <p className="text-sm font-bold">{eq.description}</p>
+                            <p className="text-xs text-muted-foreground">Qtd: {eq.quantity}</p>
+                         </div>
+                         <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1)}>-</Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1)}>+</Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="space-y-4">
+            <Card className="sticky top-6">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo do Carrinho</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens</p>
+                  {items.map(it => (
+                    <div key={it.productId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
+                       <span className="truncate max-w-[120px]">{it.description}</span>
+                       <span className="font-mono">{it.quantity}x</span>
+                    </div>
+                  ))}
+                  {items.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum item adicionado</p>}
+
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-4">Equipamentos</p>
+                  {equipments.map(eq => (
+                    <div key={eq.equipmentTypeId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
+                       <span className="truncate max-w-[120px]">{eq.description}</span>
+                       <span className="font-mono">{eq.quantity}x</span>
+                    </div>
+                  ))}
+                  {equipments.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum equipamento</p>}
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-1">
+                   <CoverageSummary />
+                </div>
+
+                <Button className="w-full" disabled={!isCoverageValid()} onClick={() => setStep("delivery")}>
+                  Continuar <ChevronRight className="ml-2 h-4 w-4"/>
+                </Button>
+                {!isCoverageValid() && (
+                  <p className="text-[10px] text-destructive text-center font-medium mt-1">
+                    Equipamentos insuficientes para os produtos de chope.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
+    </div>
+  );
     </div>
   );
 }
