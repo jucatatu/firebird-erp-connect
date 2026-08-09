@@ -539,15 +539,13 @@ export interface ErpEnvelope<T> {
 export const searchErpProducts = createServerFn({ method: "POST" })
   .inputValidator((input: SearchProductsInput) => {
     const q = typeof input?.q === "string" ? input.q.trim() : "";
-    // Se for busca no ERP (q preenchido), deve ter min 3 para não ser barrado pela API Node.
-    // IMPORTANTE: Garantir que se q="Ipa", o length seja 3.
     if (q !== "" && (q.length < 3 || q.length > 60)) {
       throw new Error(`Busca "${q}" inválida. Informe de 3 a 60 caracteres.`);
     }
     if (input.companyId !== undefined && input.companyId !== 1 && input.companyId !== 3) {
       throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
     }
-    const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 50) : 20;
+    const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 200) : 50;
     const cursor = typeof input.cursor === "string" && input.cursor.trim() !== "" ? input.cursor.trim() : undefined;
     return { q, companyId: input.companyId, active: input.active, limit, cursor, isAdminSearch: !!input.isAdminSearch };
   })
@@ -555,12 +553,13 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     const { callErp } = await import("./erp.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1. Buscar habilitados no Supabase se não for busca administrativa
-    let enabledIds: number[] = [];
+    // 1. Buscar catálogo operacional no Supabase se não for busca administrativa
+    // Sprint 8.5.9: Agora buscamos ordem e nome de exibição para ordenação e enriquecimento.
+    let catalogConfig: Record<number, { display_name: string | null; order: number }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id")
+        .select("erp_item_id, display_name, ordem")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -568,10 +567,15 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       if (supabaseErr) {
         console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
       }
-      enabledIds = (enabledProducts || []).map((p: any) => p.erp_item_id);
+      (enabledProducts || []).forEach((p: any) => {
+        catalogConfig[p.erp_item_id] = { 
+          display_name: p.display_name, 
+          order: p.ordem ?? 0 
+        };
+      });
     }
 
-    // Se for busca administrativa e não houver termo, não chamamos o ERP para evitar 400
+    // Se for busca administrativa e não houver termo, não chamamos o ERP
     if (data.isAdminSearch && !data.q) {
       return { 
         ok: true, 
@@ -581,11 +585,13 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       };
     }
 
-    const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
-    // Sprint 8.5.8: REMOVER companyId da pesquisa de produtos no ERP. O ERP não possui esse vínculo.
-    // O filtro de empresa é aplicado exclusivamente via order_catalog_settings do Supabase no passo 1 acima.
+    // Sprint 8.5.9: Se NÃO for busca administrativa, carregamos TODOS os habilitados da empresa
+    // A ERP API será consultada sem 'q' para trazer o "seed" de dados brutos
+    const query: Record<string, string> = { limit: String(data.limit) };
+    if (data.q) query.q = data.q;
     if (typeof data.active === "boolean") query.active = String(data.active);
     if (data.cursor) query.cursor = data.cursor;
+
     const res = await callErp<JsonValue>({
       method: "GET",
       path: "/api/v1/products",
@@ -593,15 +599,27 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     });
     const finalRes = res as unknown as ErpEnvelope<ErpProductsPayload>;
     
-    // Sprint 8.5.4: Auditoria de filtragem
     if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
-      console.log(`[ERP_PRODUCTS] Filtrando ${finalRes.data.products.length} itens contra ${enabledIds.length} habilitados no Supabase.`);
-      finalRes.data.products = finalRes.data.products.filter((p) => {
-        const isEnabled = p.id !== null && enabledIds.includes(p.id);
-        if (!isEnabled && p.id === 1) {
-          console.warn(`[ERP_PRODUCTS] CHOPP PILSEN (ID 1) foi filtrado! Não está habilitado para empresa ${data.companyId} no Supabase.`);
-        }
-        return isEnabled;
+      const enabledIds = Object.keys(catalogConfig).map(Number);
+      
+      // Filtrar apenas habilitados e enriquecer com dados do catálogo Supabase
+      finalRes.data.products = finalRes.data.products
+        .filter((p) => p.id !== null && enabledIds.includes(p.id))
+        .map((p) => {
+          const cfg = catalogConfig[p.id!];
+          return {
+            ...p,
+            description: cfg.display_name || p.description, // Prioriza nome de exibição
+            order: cfg.order // Anexa ordem para o frontend
+          };
+        });
+
+      // Ordenação: Ordem (asc) -> Nome (asc)
+      finalRes.data.products.sort((a, b) => {
+        const orderA = (a as any).order ?? 0;
+        const orderB = (b as any).order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.description || "").localeCompare(b.description || "");
       });
     }
     return finalRes;
@@ -628,31 +646,57 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
     const { callErp } = await import("./erp.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1. Buscar habilitados no Supabase se não for busca administrativa
-    let enabledIds: number[] = [];
+    // 1. Buscar catálogo operacional no Supabase
+    let catalogConfig: Record<number, { display_name: string | null; order: number }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledEquips } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id")
+        .select("erp_item_id, display_name, ordem")
         .eq("item_type", "equipment")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
-      enabledIds = (enabledEquips || []).map((p: any) => p.erp_item_id);
+      
+      (enabledEquips || []).forEach((p: any) => {
+        catalogConfig[p.erp_item_id] = { 
+          display_name: p.display_name, 
+          order: p.ordem ?? 0 
+        };
+      });
     }
+
     const query: Record<string, string> = { limit: String(data.limit) };
     if (data.q) query.q = data.q;
     if (typeof data.active === "boolean") query.active = String(data.active);
+    
     const res = await callErp<JsonValue>({
       method: "GET",
       path: "/api/v1/equipment-types",
       query,
     });
     const finalRes = res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
+    
     if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
+      const enabledIds = Object.keys(catalogConfig).map(Number);
       const list = Array.isArray(finalRes.data.equipmentTypes) ? finalRes.data.equipmentTypes : [];
-      finalRes.data.equipmentTypes = list.filter((et) => 
-        et.id !== null && enabledIds.includes(et.id)
-      );
+      
+      finalRes.data.equipmentTypes = list
+        .filter((et) => et.id !== null && enabledIds.includes(et.id))
+        .map((et) => {
+          const cfg = catalogConfig[et.id!];
+          return {
+            ...et,
+            description: cfg.display_name || et.description,
+            order: cfg.order
+          };
+        });
+
+      // Ordenação Equipamentos
+      finalRes.data.equipmentTypes.sort((a, b) => {
+        const orderA = (a as any).order ?? 0;
+        const orderB = (b as any).order ?? 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return (a.description || "").localeCompare(b.description || "");
+      });
     }
     return finalRes;
   });
