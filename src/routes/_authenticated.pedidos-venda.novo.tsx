@@ -323,9 +323,18 @@ function NewOrderPage() {
                       ? (productsQ.data as any).data.products 
                       : [];
                     
-                    const filteredList = productsList.filter((p: any) => 
-                      !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
-                    );
+                    // Sprint 8.5.9: Filtro LOCAL da lista já carregada e ordenada
+                    const filteredList = productsList.filter((p: any) => {
+                      const search = productSearch.toLowerCase();
+                      return !search || 
+                             p.description?.toLowerCase().includes(search) ||
+                             p.code?.toLowerCase().includes(search) ||
+                             p.id?.toString().includes(search);
+                    });
+
+                    if (productsQ.isLoading) {
+                      return null; // Loader já exibido acima
+                    }
 
                     if (!productsQ.isFetching && productsList.length === 0) {
                       return <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>;
@@ -338,13 +347,18 @@ function NewOrderPage() {
                     return filteredList.map((p: any) => {
                       const pid = p.id;
                       const pdesc = p.description;
+                      const pcode = p.code;
+                      const porder = (p as any).order;
                       if (pid === null || pdesc === null) return null;
                       return (
                         <div key={pid} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
                           <div className="flex-1 min-w-0 pr-4">
-                            <p className="font-medium truncate">{pdesc}</p>
+                            <div className="flex items-center gap-2">
+                              {porder > 0 && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-bold bg-muted/50">{porder}</Badge>}
+                              <p className="font-medium truncate">{pdesc}</p>
+                            </div>
                             <p className="text-xs text-muted-foreground">
-                              ID: {pid} {p.code ? `· ${p.code}` : ""}
+                              ID: {pid} {pcode ? `· ${pcode}` : ""}
                             </p>
                           </div>
                           <Button size="sm" variant="ghost" onClick={() => addItem({
