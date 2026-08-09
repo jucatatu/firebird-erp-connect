@@ -317,25 +317,30 @@ function NewOrderPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {productsQ.data?.data?.products?.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-medium truncate">{p.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          ID: {p.id} {p.code ? `· ${p.code}` : ""}
-                        </p>
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={() => addItem({
-                        productId: p.id,
-                        description: p.description,
-                        quantity: 1,
-                        unitPrice: 0,
-                        total: 0
-                      })}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                      {productsQ.data?.data?.products?.map((p) => {
+                        const pid = p.id;
+                        const pdesc = p.description;
+                        if (pid === null || pdesc === null) return null;
+                        return (
+                          <div key={pid} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
+                            <div className="flex-1 min-w-0 pr-4">
+                              <p className="font-medium truncate">{pdesc}</p>
+                              <p className="text-xs text-muted-foreground">
+                                ID: {pid} {p.code ? `· ${p.code}` : ""}
+                              </p>
+                            </div>
+                            <Button size="sm" variant="ghost" onClick={() => addItem({
+                              productId: pid,
+                              description: pdesc,
+                              quantity: 1,
+                              unitPrice: 0,
+                              total: 0
+                            })}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                   {productSearch.length >= 3 && !productsQ.isFetching && productsQ.data?.data?.products?.length === 0 && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Nenhum produto encontrado.</p>
                   )}
