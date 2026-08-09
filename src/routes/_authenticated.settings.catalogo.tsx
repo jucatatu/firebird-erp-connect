@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthSession, useMyRoles } from "@/hooks/use-auth";
 import { useErpEquipmentTypes, useErpProducts } from "@/hooks/use-erp";
+import { ErpEquipmentType } from "@/lib/erp-orders.functions";
 import { useCatalogSettings } from "@/hooks/use-catalog";
 import {
   CatalogItemDialog,
