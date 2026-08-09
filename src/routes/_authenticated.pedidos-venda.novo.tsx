@@ -304,7 +304,7 @@ function NewOrderPage() {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar produtos (min. 3 letras)..." 
+                    placeholder="Buscar produtos disponíveis..." 
                     className="pl-9"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
@@ -317,32 +317,34 @@ function NewOrderPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                      {productsQ.data?.data?.products?.map((p) => {
-                        const pid = p.id;
-                        const pdesc = p.description;
-                        if (pid === null || pdesc === null) return null;
-                        return (
-                          <div key={pid} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
-                            <div className="flex-1 min-w-0 pr-4">
-                              <p className="font-medium truncate">{pdesc}</p>
-                              <p className="text-xs text-muted-foreground">
-                                ID: {pid} {p.code ? `· ${p.code}` : ""}
-                              </p>
-                            </div>
-                            <Button size="sm" variant="ghost" onClick={() => addItem({
-                              productId: pid,
-                              description: pdesc,
-                              quantity: 1,
-                              unitPrice: 0,
-                              total: 0
-                            })}>
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                  {productsQ.data?.data?.products
+                    ?.filter(p => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
+                    .map((p) => {
+                      const pid = p.id;
+                      const pdesc = p.description;
+                      if (pid === null || pdesc === null) return null;
+                      return (
+                        <div key={pid} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="font-medium truncate">{pdesc}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ID: {pid} {p.code ? `· ${p.code}` : ""}
+                            </p>
                           </div>
-                        );
-                      })}
-                  {productSearch.length >= 3 && !productsQ.isFetching && productsQ.data?.data?.products?.length === 0 && (
-                    <p className="py-4 text-center text-xs text-muted-foreground">Nenhum produto encontrado.</p>
+                          <Button size="sm" variant="ghost" onClick={() => addItem({
+                            productId: pid,
+                            description: pdesc,
+                            quantity: 1,
+                            unitPrice: 0,
+                            total: 0
+                          })}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  {!productsQ.isFetching && productsQ.data?.data?.products?.length === 0 && (
+                    <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>
                   )}
                 </div>
               </div>
@@ -353,7 +355,7 @@ function NewOrderPage() {
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {(Array.isArray(equipmentTypesQ.data?.data?.equipmentTypes) ? equipmentTypesQ.data?.data?.equipmentTypes : []).map((et) => (
                     <Button 
                       key={et.id} 
@@ -370,6 +372,9 @@ function NewOrderPage() {
                       <span className="truncate">{et.description}</span>
                     </Button>
                   ))}
+                  {!equipmentTypesQ.isLoading && equipmentTypesQ.data?.data?.equipmentTypes?.length === 0 && (
+                    <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>
+                  )}
                 </div>
               </div>
             </CardContent>
