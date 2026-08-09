@@ -1,3 +1,31 @@
+// Execute esta instrucao no projeto: SPRINT 7 — CRIAÇÃO SEGURA DE PEDIDOS NO ERP FIREBIRD
+//
+// Contexto já confirmado:
+// - Sistema novo de Entregas.
+// - Node separado do legado.
+// - Firebird local.
+// - Empresas:
+//   - ID_EMPRESA = 1 → Graal
+//   - ID_EMPRESA = 3 → Grott
+// - Catálogo configurável já existe.
+// - Pricing já existe.
+// - Fluxo de criação foi investigado nas Sprints 6/6.1.
+// - Procedure principal confirmada:
+//   SP_CAD_ORDEM_VENDA_COMPLETO
+// - Procedures de itens/equipamentos confirmadas:
+//   SP_CAD_ITENS_ORDENS_VENDA
+//   SP_CAD_EQUIP_ORDENS_VENDA
+// - A criação deve preservar integralmente as regras do ERP.
+// - Não criar trigger, generator, tabela ou procedure nova.
+// - Não alterar procedures existentes.
+// - Não escrever diretamente nas tabelas de pedido se já existir procedure oficial para isso.
+//
+// OBJETIVO
+// Implementar o endpoint de criação de pedido no Node:
+// POST /api/v1/orders
+//
+// (Instruções detalhadas de contrato, resolução de empresa, cliente, produtos, equipamentos, totais, procedures, transação, numeração, resposta, erros, segurança, idempotência e testes registradas no briefing).
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";

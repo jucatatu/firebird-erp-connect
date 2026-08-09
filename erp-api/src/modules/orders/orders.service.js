@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 const firebird = require("../../shared/database/firebird-client");
 const { AppError } = require("../../shared/errors/app-error");
+const { env } = require("../../config/env");
 const { logger } = require("../../config/logger");
 const {
   getStore,
@@ -14,27 +15,16 @@ const {
 
 const mapper = require("./orders.mapper");
 const repository = require("./orders.repository");
-
-function sanitizedErrorLog(err) {
-  if (!err) return { message: "unknown" };
-  return { code: err.code, name: err.name, message: err.message };
-}
+const clientsService = require("../clients/clients.service");
+const productsService = require("../products/products.service");
+const pricingService = require("../pricing/pricing.service");
+const equipmentService = require("../equipment-types/equipment-types.service");
+const companyRule = require("../../shared/company/company-rule");
 
 /**
- * Mutex global in-process: serializa TODAS as criações de ordens.
- *
- * Motivo: SP_CAD_ORDEM_VENDA lê o ID recém-inserido via
- *   GEN_ID(GEN_ORDENS_VENDA_ID, 0)
- * Como o generator é global, duas criações simultâneas podem interferir
- * na leitura do ID entre INSERT e leitura.
- *
- * Diferente do lock por Idempotency-Key (que protege retries da MESMA
- * operação): este lock serializa criações DISTINTAS.
- *
- * IMPORTANTE: escopo é o PROCESSO Node atual. Alvo suportado hoje é
- * PM2 single-instance. Em cluster/multi-instância será necessário um
- * lock distribuído (ex.: SELECT ... WITH LOCK em tabela de coordenação
- * no próprio Firebird, ou Redis).
+ * Mutex global in-process para serializar criações de ordens.
+ * Necessário enquanto o ID_ORDENS_VENDA depender de GEN_ID(..., 0) 
+ * dentro da procedure sem lock distribuído.
  */
 let globalChain = Promise.resolve();
 async function withGlobalOrderLock(fn) {
@@ -53,146 +43,226 @@ async function withGlobalOrderLock(fn) {
 }
 
 /**
+ * Resolve e valida a empresa do pedido.
+ */
+async function resolveAndValidateCompany(tx, payload) {
+  // 1. Obter contexto do cliente para resolução de empresa (grupo, empresa vinculada)
+  const clientContext = await repository.fetchClientCompanyContext(tx, payload.clientId);
+  
+  const resolvedCompanyId = companyRule.resolveCompanyId({
+    explicitCompanyId: payload.companyId,
+    clientCompanyId: clientContext ? Number(clientContext.CLIENTE_ID_EMPRESA) : null,
+    groupDescription: clientContext ? clientContext.GRUPO_DESCRICAO : null
+  });
+
+  // No Sprint 7, companyId deve ser 1 ou 3.
+  if (resolvedCompanyId !== 1 && resolvedCompanyId !== 3) {
+    throw new AppError({
+      message: "Empresa resolvida inválida para operação.",
+      statusCode: 403,
+      code: "COMPANY_NOT_ALLOWED",
+      retryable: false
+    });
+  }
+
+  return resolvedCompanyId;
+}
+
+/**
+ * Valida se o cliente existe e pode operar.
+ */
+async function validateClient(clientId) {
+  // getClientById já lança CLIENT_NOT_FOUND (404) se não existir
+  const client = await clientsService.getClientById(clientId);
+  
+  // Auditoria: Sprint 7 exige endereço disponível
+  if (!client.address || !client.address.city || !client.address.state) {
+    throw new AppError({
+      message: "Cliente sem endereço completo para entrega.",
+      statusCode: 422,
+      code: "CLIENT_ADDRESS_INCOMPLETE",
+      retryable: false
+    });
+  }
+
+  return client;
+}
+
+/**
+ * Valida produtos e resolve preços.
+ */
+async function validateProductsAndPricing(items, clientId) {
+  const validatedItems = [];
+  let subtotal = 0;
+
+  for (const item of items) {
+    // 1. Validar produto
+    const product = await productsService.getProductById(item.productId);
+    
+    // 2. Verificar se está ativo (regra da Sprint 7)
+    if (product.active === false) {
+      throw new AppError({
+        message: `Produto ${item.productId} está inativo.`,
+        statusCode: 422,
+        code: "PRODUCT_INACTIVE",
+        retryable: false
+      });
+    }
+
+    // 3. Resolver preço exclusivamente pelo módulo de pricing
+    const pricing = await pricingService.resolvePrice({
+      productId: item.productId,
+      clientId: clientId
+    });
+
+    if (!pricing.priceFound) {
+      throw new AppError({
+        message: `Preço não encontrado para o produto ${item.productId}.`,
+        statusCode: 422,
+        code: "PRICE_NOT_FOUND",
+        retryable: false
+      });
+    }
+
+    const unitPrice = Number(pricing.unitPrice);
+    validatedItems.push({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: unitPrice,
+      strategy: pricing.strategy
+    });
+
+    subtotal += unitPrice * item.quantity;
+  }
+
+  return { validatedItems, subtotal };
+}
+
+/**
+ * Valida tipos de equipamento.
+ */
+async function validateEquipments(equipments) {
+  if (!equipments || equipments.length === 0) return [];
+
+  // Busca todos os tipos ativos
+  const { equipmentTypes } = await equipmentService.listEquipmentTypes({ limit: 500, active: true });
+  const activeIds = new Set(equipmentTypes.map(t => t.id));
+
+  for (const eq of equipments) {
+    if (!activeIds.has(eq.equipmentTypeId)) {
+      throw new AppError({
+        message: `Tipo de equipamento ${eq.equipmentTypeId} inválido ou inativo.`,
+        statusCode: 404,
+        code: "EQUIPMENT_NOT_FOUND",
+        retryable: false
+      });
+    }
+  }
+
+  return equipments;
+}
+
+/**
  * Executa a criação real da ordem dentro de UMA transação Firebird.
- *
- * Etapas:
- *   1. Resolver companyId oficial (payload → cliente → grupo → fallback).
- *   2. SP_CAD_ORDEM_VENDA_COMPLETO com CHAVE=NULL e GERA_COBRANCA=1.
- *   3. Para cada item, SP_CAD_ITENS_ORDENS_VENDA com CHAVE='I'.
- *   4. Para cada equipamento, SP_CAD_EQUIP_ORDENS_VENDA com CHAVE='I'.
- *   5. SELECT ORDENS_VENDA para retornar ID e N_PEDIDO reais.
- *   6. COMMIT (feito pelo withTransaction em caso de retorno normal).
- *
- * Qualquer exceção → ROLLBACK integral (garantido por withTransaction).
  */
 async function createOrderTransactional({ payload, correlationId }) {
   return withGlobalOrderLock(() => firebird.withTransaction(async (tx) => {
     const t0 = Date.now();
     logger.info({ correlationId, cadUser: mapper.CAD_USER }, "orders.create: início");
 
-    // 1. Resolução oficial de empresa.
-    let companyContext = null;
-    if (payload.companyId !== 1 && payload.companyId !== 3) {
-      companyContext = await repository.fetchClientCompanyContext(
-        tx,
-        payload.customerId,
-      );
-    }
-    const companyId = mapper.resolveCompanyId(
-      payload.companyId,
-      companyContext ? Number(companyContext.CLIENTE_ID_EMPRESA) : null,
-      companyContext ? companyContext.GRUPO_DESCRICAO : null,
-    );
+    // 1. Validar Cliente (Fora da transação para performance, mas relido dentro se necessário)
+    // Para Sprint 7, fazemos check inicial.
+    const client = await validateClient(payload.clientId);
 
-    // 2. Cabeçalho.
+    // 2. Validar Produtos e Resolver Preços
+    const { validatedItems, subtotal } = await validateProductsAndPricing(payload.items, payload.clientId);
+
+    // 3. Validar Equipamentos
+    await validateEquipments(payload.equipments);
+
+    // 4. Resolver Empresa (Dentro da transação para consistência)
+    const companyId = await resolveAndValidateCompany(tx, payload);
+
+    // 5. Calcular totais (Server-side)
+    const total = subtotal + payload.freightValue;
+    const totals = { subtotal, total };
+
+    // 6. Criar Cabeçalho via SP_CAD_ORDEM_VENDA_COMPLETO
     const completeParams = mapper.buildCompleteProcParams({
       payload,
       companyId,
+      clientContext: client,
+      totals
     });
-    logger.info(
-      { correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO" },
-      "orders.create: executando procedure principal",
-    );
+
+    logger.info({ correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO" }, "orders.create: procedure principal");
     const orderId = await repository.callCreateOrderComplete(tx, completeParams);
-    logger.info(
-      { correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO", orderId },
-      "orders.create: procedure principal retornou ID",
-    );
-
-    // 3. Itens.
-    for (let i = 0; i < payload.items.length; i++) {
-      const item = payload.items[i];
-      const params = mapper.buildItemProcParams(orderId, item);
-      await repository.callAddItem(tx, params);
-      logger.info(
-        { correlationId, step: "SP_CAD_ITENS_ORDENS_VENDA", index: i, orderId },
-        "orders.create: item incluído",
-      );
+    
+    // 7. Criar Itens
+    for (const item of validatedItems) {
+      const itemParams = mapper.buildItemProcParams(orderId, item);
+      await repository.callAddItem(tx, itemParams);
     }
 
-    // 4. Equipamentos.
-    for (let i = 0; i < payload.equipment.length; i++) {
-      const eq = payload.equipment[i];
-      const params = mapper.buildEquipmentProcParams(orderId, eq);
-      await repository.callAddEquipment(tx, params);
-      logger.info(
-        { correlationId, step: "SP_CAD_EQUIP_ORDENS_VENDA", index: i, orderId },
-        "orders.create: equipamento incluído",
-      );
+    // 8. Criar Equipamentos
+    for (const eq of payload.equipments) {
+      const eqParams = mapper.buildEquipmentProcParams(orderId, eq);
+      await repository.callAddEquipment(tx, eqParams);
     }
 
-    // 5. Confirmar dados finais do pedido.
+    // 9. Reler o pedido para obter N_PEDIDO atribuído pelo ERP
     const created = await repository.fetchCreatedOrder(tx, orderId);
     if (!created) {
       throw new AppError({
-        message: "Pedido criado mas não pôde ser confirmado.",
+        message: "Erro ao confirmar criação do pedido no ERP.",
         statusCode: 500,
         code: "ORDER_CONFIRMATION_FAILED",
-        retryable: false,
+        retryable: false
       });
     }
-
-    const finalCompanyId = Number(created.ID_EMPRESA);
-    const persistedCompanyId =
-      finalCompanyId === 1 || finalCompanyId === 3 ? finalCompanyId : companyId;
 
     const result = {
       id: Number(created.ID_ORDENS_VENDA),
       orderNumber: Number(created.N_PEDIDO),
-      companyId: persistedCompanyId,
-      status: created.STATUS_DESCRICAO
-        ? String(created.STATUS_DESCRICAO).trim() || null
-        : null,
+      companyId: Number(created.ID_EMPRESA),
+      clientId: payload.clientId,
+      total: totals.total,
+      status: created.STATUS_DESCRICAO ? String(created.STATUS_DESCRICAO).trim() : null,
+      deliveryAt: payload.deliveryAt,
+      items: validatedItems,
+      equipments: payload.equipments
     };
 
     logger.info(
-      {
-        correlationId,
-        orderId: result.id,
-        orderNumber: result.orderNumber,
-        companyId: result.companyId,
-        durationMs: Date.now() - t0,
-      },
-      "orders.create: commit",
+      { correlationId, orderNumber: result.orderNumber, durationMs: Date.now() - t0 },
+      "orders.create: commit"
     );
 
     return result;
   })).catch((err) => {
-    // Sanitiza qualquer erro cru do driver ANTES de subir.
-    if (err instanceof AppError) {
-      logger.warn(
-        { correlationId, code: err.code, statusCode: err.statusCode },
-        "orders.create: rollback",
-      );
-      throw err;
-    }
-    logger.error(
-      { correlationId, err: sanitizedErrorLog(err) },
-      "orders.create: rollback por erro não tratado",
-    );
+    if (err instanceof AppError) throw err;
+    
+    logger.error({ correlationId, message: err.message }, "orders.create: falha crítica/rollback");
+    
     throw new AppError({
       message: "Falha ao criar pedido no ERP.",
       statusCode: 500,
       code: "ORDER_CREATE_FAILED",
-      retryable: false,
+      retryable: false
     });
   });
 }
 
 /**
- * Camada de idempotência em torno da criação. Semânticas:
- *   - Mesma chave + mesmo payload → retorna resultado anterior.
- *   - Mesma chave + payload diferente → 409 IDEMPOTENCY_CONFLICT.
- *   - Duas execuções concorrentes → serializadas via withLock (in-process).
- *   - Produção exige store persistente (IDEMPOTENCY_STORE=file).
+ * Camada de idempotência em torno da criação.
  */
 async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) {
   if (!idempotencyKey || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
     throw new AppError({
-      message: "Header Idempotency-Key é obrigatório.",
+      message: "Header Idempotency-Key é obrigatório para criação de pedidos.",
       statusCode: 400,
       code: "IDEMPOTENCY_KEY_REQUIRED",
-      retryable: false,
+      retryable: false
     });
   }
   assertProductionReady();
@@ -207,22 +277,19 @@ async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) 
     if (existing) {
       if (existing.requestHash !== requestHash) {
         throw new AppError({
-          message: "Idempotency-Key já usada com payload diferente.",
+          message: "Idempotency-Key já utilizada com um payload diferente.",
           statusCode: 409,
-          code: "IDEMPOTENCY_CONFLICT",
-          retryable: false,
+          code: "ORDER_CONFLICT",
+          retryable: false
         });
       }
-      logger.info(
-        { correlationId, idempotencyKey: key },
-        "orders.create: replay via idempotency",
-      );
       return { replayed: true, order: existing.body.order, status: existing.status };
     }
 
     const order = await createOrderTransactional({ payload, correlationId });
     const body = { success: true, order };
     await store.put(key, buildEntry({ requestHash, status: 201, body }));
+    
     return { replayed: false, order, status: 201 };
   });
 }
@@ -233,6 +300,5 @@ function newCorrelationId() {
 
 module.exports = {
   createOrder,
-  createOrderTransactional,
   newCorrelationId,
 };
