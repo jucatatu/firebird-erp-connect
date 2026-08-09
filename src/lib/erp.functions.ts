@@ -582,7 +582,8 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     }
 
     const query: Record<string, string> = { q: data.q, limit: String(data.limit) };
-    if (data.companyId && !data.isAdminSearch) query.companyId = String(data.companyId);
+    // Sprint 8.5.8: REMOVER companyId da pesquisa de produtos no ERP. O ERP não possui esse vínculo.
+    // O filtro de empresa é aplicado exclusivamente via order_catalog_settings do Supabase no passo 1 acima.
     if (typeof data.active === "boolean") query.active = String(data.active);
     if (data.cursor) query.cursor = data.cursor;
     const res = await callErp<JsonValue>({

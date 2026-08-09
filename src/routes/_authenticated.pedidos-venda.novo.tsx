@@ -304,7 +304,7 @@ function NewOrderPage() {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input 
-                    placeholder="Buscar produtos disponíveis..." 
+                    placeholder="Filtrar produtos configurados..." 
                     className="pl-9"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
@@ -317,9 +317,24 @@ function NewOrderPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {(Array.isArray((productsQ.data as any)?.data?.products) ? (productsQ.data as any).data.products : [])
-                    .filter((p: any) => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
-                    .map((p: any) => {
+                  {(() => {
+                    const productsList = Array.isArray((productsQ.data as any)?.data?.products) 
+                      ? (productsQ.data as any).data.products 
+                      : [];
+                    
+                    const filteredList = productsList.filter((p: any) => 
+                      !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
+                    );
+
+                    if (!productsQ.isFetching && productsList.length === 0) {
+                      return <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>;
+                    }
+
+                    if (!productsQ.isFetching && filteredList.length === 0 && productSearch) {
+                      return <p className="py-4 text-center text-xs text-muted-foreground">Nenhum produto corresponde ao filtro.</p>;
+                    }
+
+                    return filteredList.map((p: any) => {
                       const pid = p.id;
                       const pdesc = p.description;
                       if (pid === null || pdesc === null) return null;
@@ -342,10 +357,8 @@ function NewOrderPage() {
                           </Button>
                         </div>
                       );
-                    })}
-                  {!productsQ.isFetching && (!(productsQ.data as any)?.data?.products || (productsQ.data as any).data.products.length === 0) && (
-                    <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>
-                  )}
+                    });
+                  })()}
                 </div>
               </div>
 
