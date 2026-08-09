@@ -569,6 +569,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
       if (supabaseErr) {
         console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
       }
+      (enabledProducts || []).forEach((p: any) => {
         const desc = (p.erp_description_snapshot || "").toUpperCase();
         const isChopp = desc.includes("CHOPP");
         const isGrowlerOrBottle = desc.includes("GROWLER") || desc.includes("GARRAFA");
@@ -580,6 +581,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
           quantity_step: Number(p.quantity_step || 1),
           requires_equipment: isChopp && !isGrowlerOrBottle
         };
+      });
     }
 
     // Se for busca administrativa e não houver termo, não chamamos o ERP
