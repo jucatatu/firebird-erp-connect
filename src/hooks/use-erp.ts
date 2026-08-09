@@ -14,6 +14,15 @@ import {
   type SearchProductsInput,
   type ListEquipmentTypesInput,
 } from "@/lib/erp.functions";
+import {
+  searchErpClients,
+  resolveErpPrice,
+  createErpOrder,
+  type CreateOrderInput,
+  type ErpResponse,
+  type ErpProduct,
+  type ErpEquipmentType,
+} from "@/lib/erp-orders.functions";
 
 /** Ping público /api/v1/health da API Node. */
 export function useErpHealth() {
@@ -93,7 +102,7 @@ export function useErpProducts(input: SearchProductsInput | null) {
     ],
     queryFn: () => {
       if (!input) throw new Error("input ausente");
-      return fn({ data: input });
+      return fn({ data: input }) as Promise<ErpResponse<{ products: ErpProduct[]; nextCursor: number | null }>>;
     },
     enabled: Boolean(input && input.q.trim().length >= 3),
     staleTime: 60_000,
@@ -105,7 +114,46 @@ export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
     queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
-    queryFn: () => fn({ data: input ?? {} }),
+    queryFn: () => fn({ data: input ?? {} }) as Promise<ErpResponse<ErpEquipmentType[]>>,
     staleTime: 60_000,
+  });
+}
+
+/** Busca clientes no ERP por nome, documento, código ou telefone. */
+export function useErpClients(input: { q: string; companyId?: 1 | 3; limit?: number; cursor?: number } | null) {
+  const fn = useServerFn(searchErpClients);
+  return useQuery({
+    queryKey: ["erp", "clients", input],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input && input.q.length >= 3),
+    staleTime: 30_000,
+  });
+}
+
+/** Resolve o preço de um produto para um cliente específico. */
+export function useErpPrice(input: { productId: number; clientId: number } | null) {
+  const fn = useServerFn(resolveErpPrice);
+  return useQuery({
+    queryKey: ["erp", "pricing", input?.productId, input?.clientId],
+    queryFn: () => {
+      if (!input) throw new Error("input ausente");
+      return fn({ data: input });
+    },
+    enabled: Boolean(input?.productId && input?.clientId),
+    staleTime: 60_000,
+  });
+}
+
+/** POST /api/v1/orders — cria pedido real no Firebird. */
+export function useCreateErpOrder() {
+  const fn = useServerFn(createErpOrder);
+  return useMutation({
+    mutationFn: (args: { data: CreateOrderInput; idempotencyKey: string }) => 
+      fn({ 
+        data: args 
+      }),
   });
 }

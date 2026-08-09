@@ -46,6 +46,8 @@ export interface ErpCallOptions {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Corpo JSON opcional (para POST/PUT/PATCH). */
   body?: JsonValue;
+  /** Headers extras opcionais. */
+  headers?: Record<string, string>;
   /** Timeout em ms (default 15000). */
   timeoutMs?: number;
 }
@@ -130,6 +132,7 @@ export async function callErp<T extends JsonValue = JsonValue>(
         "x-timestamp": timestamp,
         "x-nonce": nonce,
         "x-signature": signature,
+        ...(opts.headers ?? {}),
       },
       body: method === "GET" || method === "HEAD" ? undefined : rawBody,
       signal: controller.signal,
