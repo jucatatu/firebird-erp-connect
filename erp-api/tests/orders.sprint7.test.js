@@ -4,17 +4,18 @@ const test = require("node:test");
 const assert = require("node:assert");
 const request = require("supertest");
 const crypto = require("crypto");
-const { createApp } = require("../src/app");
-const firebird = require("../src/shared/database/firebird-client");
-const { _resetForTests } = require("../src/shared/idempotency/idempotency-store");
 
-// Mock de segurança HMAC conforme middleware real
+// Mock de segurança HMAC ANTES de carregar o app
 const API_KEY = "test-key-16-chars-min";
 const HMAC_SECRET = "test-secret-32-chars-min-at-least-longer";
 process.env.API_KEY = API_KEY;
 process.env.HMAC_SECRET = HMAC_SECRET;
 process.env.IDEMPOTENCY_STORE = "memory";
 process.env.NODE_ENV = "test";
+
+const { createApp } = require("../src/app");
+const firebird = require("../src/shared/database/firebird-client");
+const { _resetForTests } = require("../src/shared/idempotency/idempotency-store");
 
 function sign(method, path, body, timestamp, nonce, apiKey, secret) {
   const raw = body ? JSON.stringify(body) : "";
@@ -30,15 +31,15 @@ test("POST /api/v1/orders (Sprint 7 - Atomicidade)", async (t) => {
   await t.test("deve executar ROLLBACK se falhar na gravação de itens após o cabeçalho", async () => {
     // 1. Mocks de serviços para permitir chegar na transação
     const clientsService = require("../src/modules/clients/clients.service");
-    const getClientById = t.mock.method(clientsService, "getClientById", async () => ({ 
+    t.mock.method(clientsService, "getClientById", async () => ({ 
       id: 100, address: { city: "Joinville", state: "SC" } 
     }));
     
     const productsService = require("../src/modules/products/products.service");
-    const getProductById = t.mock.method(productsService, "getProductById", async () => ({ id: 1, active: true }));
+    t.mock.method(productsService, "getProductById", async () => ({ id: 1, active: true }));
     
     const pricingService = require("../src/modules/pricing/pricing.service");
-    const resolvePrice = t.mock.method(pricingService, "resolvePrice", async () => ({ 
+    t.mock.method(pricingService, "resolvePrice", async () => ({ 
       priceFound: true, unitPrice: 10.5, strategy: "fixed" 
     }));
 
