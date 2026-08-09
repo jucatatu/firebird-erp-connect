@@ -33,7 +33,7 @@ function Index() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
-      <h1 className="mb-4 text-4xl font-bold tracking-tight">Firebird ERP Bridge</h1>
+      <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground">Firebird ERP Bridge</h1>
       <p className="mb-8 max-w-lg text-lg text-muted-foreground">
         Integração operacional em tempo real entre o app de vendas e o banco de dados Firebird.
       </p>
