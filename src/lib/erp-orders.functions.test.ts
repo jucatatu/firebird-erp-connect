@@ -50,7 +50,7 @@ describe('createErpOrder Server Function', () => {
 
   it('deve resolver o sellerId real do banco e ignorar o do payload', async () => {
     const { callErp } = await import('./erp.server');
-    const result = await createErpOrder({ data: mockPayload, idempotencyKey: 'key-1' });
+    const result = await createErpOrder({ data: { data: mockPayload, idempotencyKey: 'key-1' } });
     
     expect(result.ok).toBe(true);
     // Verifica se o sellerId enviado ao callErp foi 4 (do mock do profile)
