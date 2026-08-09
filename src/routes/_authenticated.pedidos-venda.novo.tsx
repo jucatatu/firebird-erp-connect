@@ -373,11 +373,10 @@ function NewOrderPage() {
   const [suggestionDirty, setSuggestionDirty] = useState(false);
   useEffect(() => {
     if (equipments.length > 0 && choppItems.length > 0) {
-      // Verificação simplificada se a sugestão atende os itens atuais
       const viasValid = getAvailableVias() >= getRequiredVias();
       const litersValid = choppItems.every(it => {
         const cov = getProductCoverage(it.productId);
-        return cov.provided === cov.required;
+        return cov.provided >= cov.required; // Mudamos para >= para ser mais flexível se manual for maior
       });
       if (!viasValid || !litersValid) setSuggestionDirty(true);
       else setSuggestionDirty(false);
@@ -388,66 +387,112 @@ function NewOrderPage() {
     const newEquips: any[] = [];
     const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
     
+    // 1. Otimizar Vias (CHOPEIRAS)
     const requiredVias = getRequiredVias();
     if (requiredVias > 0) {
-      const chopeiras = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("chopeira"));
+      const chopeiras = allEquipTypes.filter((et: any) => 
+        et.equipment_mode === 'CHOPE' || et.equipment_role === 'TAP' || et.description?.toLowerCase().includes("chopeira")
+      );
+
       let remainingVias = requiredVias;
+      // Ordenar por maior número de vias para usar menos equipamentos
       const sortedChopeiras = [...chopeiras].sort((a, b) => {
-         const vA = Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-         const vB = Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vA = a.tap_lines || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vB = b.tap_lines || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          return vB - vA;
       });
 
       for (const ch of sortedChopeiras) {
-        const vias = Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+        const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+        if (remainingVias <= 0) break;
         const qty = Math.floor(remainingVias / vias);
         if (qty > 0) {
-          newEquips.push({ equipmentTypeId: ch.id, description: ch.description, quantity: qty });
+          newEquips.push({ 
+            equipmentTypeId: ch.id, 
+            description: ch.description, 
+            quantity: qty,
+            role: "TAP",
+            tapLines: vias
+          });
           remainingVias -= qty * vias;
         }
       }
+
+      // Se sobrar, pegar a menor chopeira que cubra o resto
       if (remainingVias > 0 && sortedChopeiras.length > 0) {
-        const smallestToCover = [...sortedChopeiras].reverse().find(ch => Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1) >= remainingVias);
+        const smallestToCover = [...sortedChopeiras].reverse().find(ch => {
+          const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+          return vias >= remainingVias;
+        });
         if (smallestToCover) {
+          const vias = smallestToCover.tap_lines || Number(smallestToCover.description.match(/(\d+)\s*vias/i)?.[1] || 1);
           const existing = newEquips.find(e => e.equipmentTypeId === smallestToCover.id);
           if (existing) existing.quantity += 1;
-          else newEquips.push({ equipmentTypeId: smallestToCover.id, description: smallestToCover.description, quantity: 1 });
+          else newEquips.push({ 
+            equipmentTypeId: smallestToCover.id, 
+            description: smallestToCover.description, 
+            quantity: 1,
+            role: "TAP",
+            tapLines: vias
+          });
         }
       }
     }
 
+    // 2. Otimizar Barris (KEG) - CÁLCULO POR PRODUTO INDIVIDUAL
     choppItems.forEach(it => {
       let remainingLiters = it.quantity;
       const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-      const style = p?.description?.split(" ")[0]?.toUpperCase() || "";
+      const style = p?.description?.split(" ")[0]?.toUpperCase() || "CHOPE";
       
-      const barris = allEquipTypes.filter((et: any) => et.description?.toLowerCase().includes("barril"));
+      const barris = allEquipTypes.filter((et: any) => 
+        et.equipment_role === 'KEG' || et.description?.toLowerCase().includes("barril")
+      );
+
       const sortedBarris = [...barris].sort((a, b) => {
-         const lA = Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
-         const lB = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lA = a.capacity_liters || Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lB = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
          return lB - lA;
       });
 
       for (const b of sortedBarris) {
-        const capacity = Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
-        if (capacity === 0) continue;
+        const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+        if (capacity <= 0 || remainingLiters <= 0) continue;
         const qty = Math.floor(remainingLiters / capacity);
         if (qty > 0) {
-          newEquips.push({ equipmentTypeId: b.id, description: `${b.description} (${style})`, quantity: qty });
+          newEquips.push({ 
+            equipmentTypeId: b.id, 
+            description: `${b.description} (${style})`, 
+            quantity: qty,
+            role: "KEG",
+            capacityLiters: capacity
+          });
           remainingLiters -= qty * capacity;
         }
       }
+
+      // Se sobrar, pegar o menor barril que cubra o resto do produto
       if (remainingLiters > 0 && sortedBarris.length > 0) {
-        const smallestToCover = [...sortedBarris].reverse().find(b => Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0) >= remainingLiters);
+        const smallestToCover = [...sortedBarris].reverse().find(b => {
+          const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+          return capacity >= remainingLiters;
+        });
         if (smallestToCover) {
-           newEquips.push({ equipmentTypeId: smallestToCover.id, description: `${smallestToCover.description} (${style})`, quantity: 1 });
+           const capacity = smallestToCover.capacity_liters || Number(smallestToCover.description.match(/(\d+)\s*l/i)?.[1] || 0);
+           newEquips.push({ 
+             equipmentTypeId: smallestToCover.id, 
+             description: `${smallestToCover.description} (${style})`, 
+             quantity: 1,
+             role: "KEG",
+             capacityLiters: capacity
+           });
         }
       }
     });
 
     useOrderFormStore.setState({ equipments: newEquips });
     setSuggestionDirty(false);
-    toast.success("Sugestão de equipamentos aplicada");
+    toast.success("Sugestão otimizada de equipamentos aplicada");
   };
 
   const updateEquipmentQty = (id: number, qty: number) => {
