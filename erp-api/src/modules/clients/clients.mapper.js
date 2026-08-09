@@ -35,24 +35,17 @@ function stripAccents(value) {
 function foldToLikePattern(term) {
   const upper = stripAccents(term)
     .toUpperCase()
-    .replace(/[%_]/g, " ") // neutraliza coringas vindos do usuário
+    .replace(/[%_]/g, " ")
     .trim();
   
   if (!upper) return "%%";
 
-  // Se o termo tem 3 ou mais caracteres, aplicamos folding seletivo.
-  // Substituímos apenas a PRIMEIRA vogal acentuável de cada bloco ou limitamos coringas.
-  // Para a Sprint 8.5.4, vamos ser mais conservadores: 
-  // O padrão folding agora exige que o termo comece exatamente com a primeira letra 
-  // (removendo o % inicial se for alfabético) OU limitamos a um único coringa central.
-  
-  // Decisão: Substituir vogais apenas se o termo for longo o suficiente e manter 
-  // a estrutura das consoantes intacta.
   let out = "";
   let wildcardsCount = 0;
   for (const ch of upper) {
     if (ACCENT_CLASSES.includes(ch)) {
-      // Se já usamos 2 wildcards, paramos de substituir para evitar %_ _ _ _%
+      // Sprint 8.5.4: Limita a no máximo 2 coringas por termo para evitar %_M__%
+      // que casa com "EDIMAR MIRANDA" para o termo "Romeu".
       if (wildcardsCount < 2) {
         out += "_";
         wildcardsCount++;
@@ -63,9 +56,21 @@ function foldToLikePattern(term) {
       out += ch;
     }
   }
-
-  // Se o folding não mudou nada, não precisamos de duplicata.
   return `%${out}%`;
+}
+
+/** Padrão LIKE exato (sem folding) — usado como primeira alternativa. */
+function exactLikePattern(term) {
+  const upper = String(term).toUpperCase().replace(/[%_]/g, " ").trim();
+  return `%${upper}%`;
+}
+
+function buildQPatterns(term) {
+  const exact = exactLikePattern(term);
+  if (term.length < 3) return [exact]; // Termos curtos: apenas exato.
+
+  const folded = foldToLikePattern(term);
+  return folded === exact ? [exact] : [exact, folded];
 }
 
 /** Padrão LIKE exato (sem folding) — usado como primeira alternativa. */
