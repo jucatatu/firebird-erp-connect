@@ -94,7 +94,7 @@ function NewOrderPage() {
     }
   };
 
-  const totalItems = items.reduce((acc, i) => acc + i.total, 0);
+  // const totalItems = items.reduce((acc, i) => acc + i.total, 0);
 
   return (
     <div className="container max-w-5xl py-6">
@@ -187,48 +187,48 @@ function NewOrderPage() {
                 </div>
                 
                 <div className="max-h-60 space-y-2 overflow-y-auto">
-                  {productsQ.data?.data?.products?.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
-                      <div className="flex-1">
-                        <p className="font-medium">{p.description}</p>
-                        <p className="text-xs text-muted-foreground">ID: {p.id} · Preço: R$ {p.price?.toFixed(2) || '---'}</p>
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={() => addItem({
-                        productId: p.id,
-                        description: p.description,
-                        quantity: 1,
-                        unitPrice: p.price || 0,
-                        total: p.price || 0
-                      })}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+              {productsQ.data?.data?.products?.map((p) => (
+                <div key={p.id} className="flex items-center justify-between rounded-md border p-2 text-sm">
+                  <div className="flex-1">
+                    <p className="font-medium">{p.description}</p>
+                    <p className="text-xs text-muted-foreground">ID: {p.id}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => addItem({
+                    productId: p.id,
+                    description: p.description,
+                    quantity: 1,
+                    unitPrice: 0, // Será resolvido no backend
+                    total: 0
+                  })}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              <Separator />
+          <Separator />
 
-              <div className="space-y-4">
-                <Label>Equipamentos</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {equipmentTypesQ.data?.data?.map((et) => (
-                    <Button 
-                      key={et.id} 
-                      variant="outline" 
-                      size="sm" 
-                      className="justify-start"
-                      onClick={() => addEquipment({
-                        equipmentTypeId: et.id,
-                        description: et.description,
-                        quantity: 1
-                      })}
-                    >
-                      <Plus className="mr-2 h-3 w-3" /> {et.description}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+          <div className="space-y-4">
+            <Label>Equipamentos</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {equipmentTypesQ.data?.data?.map((et) => (
+                <Button 
+                  key={et.id} 
+                  variant="outline" 
+                  size="sm" 
+                  className="justify-start"
+                  onClick={() => addEquipment({
+                    equipmentTypeId: et.id,
+                    description: et.description,
+                    quantity: 1
+                  })}
+                >
+                  <Plus className="mr-2 h-3 w-3" /> {et.description}
+                </Button>
+              ))}
+            </div>
+          </div>
             </CardContent>
           </Card>
 
@@ -262,9 +262,7 @@ function NewOrderPage() {
                             onChange={(e) => updateItemQuantity(it.productId, Number(e.target.value))}
                             className="h-7 w-16 px-2 py-0"
                           />
-                          <span className="text-xs">x R$ {it.unitPrice.toFixed(2)}</span>
                         </div>
-                        <span className="font-semibold">R$ {it.total.toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -291,8 +289,8 @@ function NewOrderPage() {
               <Separator />
               
               <div className="flex justify-between font-bold">
-                <span>Total Estimado</span>
-                <span>R$ {totalItems.toFixed(2)}</span>
+                <span>Itens Selecionados</span>
+                <span>{items.length} produto(s)</span>
               </div>
 
               <div className="flex flex-col gap-2 pt-4">
@@ -495,19 +493,17 @@ function NewOrderPage() {
                   {items.map(i => (
                     <div key={i.productId} className="flex justify-between border-b border-muted py-1 last:border-0">
                       <span>{i.quantity}x {i.description}</span>
-                      <span className="font-medium">R$ {i.total.toFixed(2)}</span>
                     </div>
                   ))}
                   {equipments.map(e => (
                     <div key={e.equipmentTypeId} className="flex justify-between border-b border-muted py-1 last:border-0 italic text-muted-foreground">
                       <span>Equip: {e.quantity}x {e.description}</span>
-                      <span>---</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-between text-lg font-bold">
-                  <span>Total</span>
-                  <span className="text-primary">R$ {totalItems.toFixed(2)}</span>
+                  <span>Preços</span>
+                  <span className="text-primary text-sm font-normal">Calculados no ERP</span>
                 </div>
               </div>
             </div>
