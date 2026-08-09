@@ -127,8 +127,8 @@ function ProductsTab({
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState<string>("");
   const productsQ = useErpProducts({ q: query, limit: 50, isAdminSearch: true, companyId: 1 });
-  const payload = productsQ.data?.ok ? productsQ.data.data : null;
-  const apiError = productsQ.data && !productsQ.data.ok ? productsQ.data.error : null;
+  const payload = (productsQ.data as any)?.ok ? (productsQ.data as any).data : null;
+  const apiError = productsQ.data && !(productsQ.data as any).ok ? (productsQ.data as any).error : null;
 
   const configuredProducts = useMemo(() => {
     return Array.from(settingsByKey.values()).filter(s => s.item_type === 'product');
