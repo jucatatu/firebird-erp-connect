@@ -2,21 +2,8 @@
 
 /**
  * Padrões LIKE seguros para busca textual no Firebird.
- *
- * O Firebird desta instalação usa WIN1252 e a collation padrão NÃO é
- * accent-insensitive (comprovado em `scripts/diagnose-search-collation.js`,
- * Sprint 2). Em vez de carregar o cadastro para filtrar em memória, o termo
- * vira um padrão LIKE onde cada letra com variantes acentuadas é trocada
- * pelo coringa de UM caractere (`_`).
- *
- *   "Eletrica" → "%_L_TR_C_%"  casa com ELETRICA e ELÉTRICA
- *   "Garrafao" → "%G_RR_F__%"  casa com GARRAFAO e GARRAFÃO
- *
- * O padrão é sempre um VALOR parametrizado — nunca é concatenado na SQL.
- * Coringas digitados pelo usuário (`%`, `_`) são neutralizados.
- *
- * Este módulo é compartilhado por products e equipment-types (reutilização
- * concreta). O módulo de clientes mantém sua própria cópia intocada.
+ * 
+ * Atualizado na Sprint 8.5.7 para prevenir padrões excessivamente genéricos.
  */
 
 const ACCENT_CLASSES = "AEIOUCN";
@@ -37,23 +24,62 @@ function normalizeTerm(term) {
 
 /** Padrão exato (sem folding), já em maiúsculas e sem coringas do usuário. */
 function exactLikePattern(term) {
-  return `%${String(term).toUpperCase().replace(/[%_]/g, " ").trim()}%`;
+  const upper = normalizeTerm(term);
+  return upper ? `%${upper}%` : "%%";
 }
 
-/** Padrão com folding de acentos. */
+/** 
+ * Padrão com folding de acentos.
+ * 
+ * Regra de Segurança Sprint 8.5.7:
+ * - Limite de 2 coringas por termo.
+ * - Deve preservar pelo menos 2 caracteres literais fixos (não coringas).
+ */
 function foldToLikePattern(term) {
+  const normalized = normalizeTerm(term);
+  if (!normalized) return "%%";
+
   let out = "";
-  for (const ch of normalizeTerm(term)) {
-    out += ACCENT_CLASSES.includes(ch) ? "_" : ch;
+  let wildcardsCount = 0;
+  let literalCount = 0;
+
+  for (const ch of normalized) {
+    if (ACCENT_CLASSES.includes(ch)) {
+      if (wildcardsCount < 2) {
+        out += "_";
+        wildcardsCount++;
+      } else {
+        out += ch;
+        literalCount++;
+      }
+    } else {
+      out += ch;
+      literalCount++;
+    }
   }
+
+  // Se o folding resultou em algo muito vago (ex: Ipa -> _P_),
+  // invalidamos o pattern aproximado retornando null.
+  if (literalCount < 2) {
+    return null;
+  }
+
   return `%${out}%`;
 }
 
-/** Padrão exato + padrão com folding (sem duplicar quando são iguais). */
+/** Padrão exato + padrão com folding seguro. */
 function buildQPatterns(term) {
   const exact = exactLikePattern(term);
+  if (term.length < 3) return [exact];
+
   const folded = foldToLikePattern(term);
-  return folded === exact ? [exact] : [exact, folded];
+  
+  // Se folded for nulo ou igual ao exato, usamos apenas o exato.
+  if (!folded || folded === exact) {
+    return [exact];
+  }
+
+  return [exact, folded];
 }
 
 module.exports = { stripAccents, exactLikePattern, foldToLikePattern, buildQPatterns };
