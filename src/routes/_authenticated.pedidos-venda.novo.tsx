@@ -155,7 +155,7 @@ function NewOrderPage() {
         setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
         toast.success(`Pedido criado! Nº ERP: ${result.data.orderNumber}`);
         reset();
-        navigate({ to: "/pedidos-venda" });
+        navigate({ to: "/pedidos-venda", search: {} as any });
       } else {
         setSubmissionStatus(result.status === 409 ? "created" : "failed");
         toast.error("Erro ao criar pedido");
