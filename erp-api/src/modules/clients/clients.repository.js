@@ -244,6 +244,7 @@ async function searchClients(input) {
   }
 
 
+  const sql = `
     SELECT
       ${buildSelectList(schema)}
     FROM CLIENTES cl
