@@ -65,10 +65,27 @@ function NewOrderPage() {
   }, []);
 
   const [clientSearch, setClientSearch] = useState("");
-  const clientsQ = useErpClients(clientSearch.length >= 3 ? { q: clientSearch } : null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(clientSearch);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [clientSearch]);
+
+  const clientsQ = useErpClients(
+    debouncedSearch.length >= 3 
+      ? { q: debouncedSearch, companyId: companyId as 1 | 3 } 
+      : null
+  );
 
   const [productSearch, setProductSearch] = useState("");
-  const productsQ = useErpProducts(productSearch.length >= 3 ? { q: productSearch } : null);
+  const productsQ = useErpProducts(
+    productSearch.length >= 3 
+      ? { q: productSearch, companyId: companyId as 1 | 3 } 
+      : null
+  );
   
   const equipmentTypesQ = useErpEquipmentTypes();
 
@@ -236,13 +253,16 @@ function NewOrderPage() {
               
               {clientsQ.data?.data?.clients?.map((c) => (
                 <div 
-                  key={c.id} 
+                  key={`${c.companyId}-${c.id}`} 
                   className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50 ${clientId === c.id ? 'border-primary bg-primary/5' : ''}`}
                   onClick={() => setClient(c.id, c.name)}
                 >
                   <div>
                     <p className="font-medium">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.document || 'Sem documento'} · ID: {c.id}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.document || 'Sem documento'} · ID: {c.id} 
+                      {myCompanies.data && myCompanies.data.length > 1 && ` · Empresa: ${c.companyId === 1 ? 'Graal' : 'Grott'}`}
+                    </p>
                   </div>
                   {clientId === c.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
                 </div>
@@ -262,7 +282,7 @@ function NewOrderPage() {
         </Card>
       )}
 
-      {step === "items" && (
+      {step === "items" && clientId && companyId && (
         <div className="grid gap-6 md:grid-cols-3">
           <Card className="md:col-span-2">
             <CardHeader>
