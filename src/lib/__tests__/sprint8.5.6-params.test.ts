@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'vitest';
-import { searchErpProducts } from '../lib/erp.functions';
+import { searchErpProducts } from '../erp.functions';
 
 describe('Sprint 8.5.6 - Remoção de companyId na busca administrativa', () => {
   it('NÃO deve enviar companyId quando isAdminSearch=true', async () => {
