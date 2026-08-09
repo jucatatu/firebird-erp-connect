@@ -57,6 +57,7 @@ function SubtotalDisplay({ productId, clientId, quantity }: { productId: number,
 
 function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { product: any, clientId: number, addItem: any, removeItem: any, cartItem: any }) {
   const punit = product.unit?.code || "UN";
+  const isChopp = product.requires_equipment || punit === "L";
   const pstep = Number(product.quantity_step || 1);
   const pinitial = Number(product.default_quantity || 1);
   const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
@@ -73,15 +74,33 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
     }
   };
 
+  const shortcuts = isChopp ? [10, 20, 30, 50] : [];
+
   return (
     <div className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
       <div className="flex justify-between items-start">
-        <div>
+        <div className="flex-1">
           <h4 className="font-bold text-sm leading-tight">{product.description}</h4>
           <ProductPriceDisplay productId={product.id} clientId={clientId} unit={punit} />
         </div>
-        {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
+        {cartItem && <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] h-5 shrink-0"><CheckCircle2 className="h-3 w-3 mr-1"/> Adicionado</Badge>}
       </div>
+
+      {isChopp && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {shortcuts.map(val => (
+            <Button 
+              key={val} 
+              variant="outline" 
+              size="sm" 
+              className="h-6 px-2 text-[10px] font-bold"
+              onClick={() => handleQtyChange(val)}
+            >
+              {val}L
+            </Button>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center justify-between mt-auto pt-2">
         <div className="flex items-center bg-muted/50 rounded-lg p-0.5 border">
@@ -92,12 +111,15 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
             onClick={() => handleQtyChange(localQty - pstep)}
             disabled={localQty <= 0}
           >-</Button>
-          <Input 
-            type="number"
-            className="h-7 w-12 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
-            value={localQty}
-            onChange={(e) => handleQtyChange(Number(e.target.value))}
-          />
+          <div className="flex items-center px-1">
+            <Input 
+              type="number"
+              className="h-7 w-10 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
+              value={localQty}
+              onChange={(e) => handleQtyChange(Number(e.target.value))}
+            />
+            {isChopp && <span className="text-[10px] font-bold text-muted-foreground ml-0.5">L</span>}
+          </div>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -220,6 +242,8 @@ function NewOrderPage() {
     equipments.forEach(eq => {
       const desc = eq.description.toLowerCase();
       if (desc.includes("barril")) {
+        // Regra: se houver apenas um estilo, qualquer barril conta.
+        // Se houver múltiplos, o barril deve conter o nome do estilo (descrito no suggestEquipments)
         if (choppItems.length === 1 || desc.includes(pName.split(" ")[0])) {
            const litersMatch = desc.match(/(\d+)\s*l/i);
            if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
@@ -229,6 +253,20 @@ function NewOrderPage() {
 
     return { required: it.quantity, provided };
   };
+
+  const [suggestionDirty, setSuggestionDirty] = useState(false);
+  useEffect(() => {
+    if (equipments.length > 0 && choppItems.length > 0) {
+      // Verificação simplificada se a sugestão atende os itens atuais
+      const viasValid = getAvailableVias() >= getRequiredVias();
+      const litersValid = choppItems.every(it => {
+        const cov = getProductCoverage(it.productId);
+        return cov.provided === cov.required;
+      });
+      if (!viasValid || !litersValid) setSuggestionDirty(true);
+      else setSuggestionDirty(false);
+    }
+  }, [items, equipments]);
 
   const suggestEquipments = () => {
     const newEquips: any[] = [];
@@ -292,6 +330,7 @@ function NewOrderPage() {
     });
 
     useOrderFormStore.setState({ equipments: newEquips });
+    setSuggestionDirty(false);
     toast.success("Sugestão de equipamentos aplicada");
   };
 
@@ -318,35 +357,43 @@ function NewOrderPage() {
   };
 
   const EquipmentCoverageIndicators = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="p-3 border rounded-lg bg-muted/10">
-        <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Vias (Chopeiras)</p>
-        <div className="flex justify-between items-center">
-          <span className="text-sm">Requeridas: {getRequiredVias()}</span>
-          <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
-             {getAvailableVias()} disponíveis
-          </Badge>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {choppItems.length === 0 ? (
+        <div className="col-span-full py-4 text-center border rounded-lg bg-muted/5">
+          <p className="text-xs text-muted-foreground">Adicione um produto de chope para calcular os equipamentos.</p>
         </div>
-      </div>
-      {choppItems.map(it => {
-        const cov = getProductCoverage(it.productId);
-        const diff = cov.required - cov.provided;
-        return (
-          <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
-            <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate">{it.description}</p>
+      ) : (
+        <>
+          <div className="p-3 border rounded-lg bg-muted/10">
+            <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Vias (Chopeiras)</p>
             <div className="flex justify-between items-center">
-               <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
-               {diff > 0 ? (
-                 <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
-               ) : diff < 0 ? (
-                 <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
-               ) : (
-                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-               )}
+              <span className="text-sm">Requeridas: {getRequiredVias()}</span>
+              <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
+                {getAvailableVias()} disponíveis
+              </Badge>
             </div>
           </div>
-        );
-      })}
+          {choppItems.map(it => {
+            const cov = getProductCoverage(it.productId);
+            const diff = cov.required - cov.provided;
+            return (
+              <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate">{it.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
+                  {diff > 0 ? (
+                    <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
+                  ) : diff < 0 ? (
+                    <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 
@@ -498,7 +545,7 @@ function NewOrderPage() {
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-xl">2. Equipamentos</CardTitle>
                 <div className="flex gap-2">
-                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => suggestEquipments()}>
+                   <Button variant="outline" size="sm" className="text-xs h-8" onClick={suggestEquipments} disabled={choppItems.length === 0}>
                      ✨ Sugerir
                    </Button>
                    <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => setShowAddEquip(true)}>
@@ -507,6 +554,13 @@ function NewOrderPage() {
                 </div>
               </CardHeader>
               <CardContent>
+                 {suggestionDirty && (
+                    <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                      <p className="text-[10px] text-yellow-800 font-medium">Produtos alterados. Recalcular equipamentos?</p>
+                      <Button variant="link" size="sm" className="h-6 text-[10px] text-yellow-800 underline" onClick={suggestEquipments}>Recalcular sugestão</Button>
+                    </div>
+                 )}
+                 
                  <EquipmentCoverageIndicators />
                  
                  <div className="space-y-2 mt-4">
@@ -537,7 +591,7 @@ function NewOrderPage() {
                   {items.map(it => (
                     <div key={it.productId} className="flex justify-between items-center text-xs py-1 border-b border-dashed">
                        <span className="truncate max-w-[120px]">{it.description}</span>
-                       <span className="font-mono">{it.quantity}x</span>
+                       <span className="font-mono">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? "L" : ""}</span>
                     </div>
                   ))}
                   {items.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum item adicionado</p>}
