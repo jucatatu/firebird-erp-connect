@@ -90,18 +90,23 @@ export const useOrderFormStore = create<OrderFormStore>()(
         erpOrderId: erpData?.orderId ?? null,
         erpOrderNumber: erpData?.orderNumber ?? null
       }),
-      addItem: (item: OrderItem) => set((state: OrderFormStore) => {
+      addItem: (item) => set((state: OrderFormStore) => {
         const exists = state.items.find(i => i.productId === item.productId);
+        const finalItem: OrderItem = {
+          ...item,
+          manualPrice: item.manualUnitPrice !== undefined && item.manualUnitPrice !== null,
+          appliedUnitPrice: item.manualUnitPrice ?? item.unitPrice,
+          total: (item.manualUnitPrice ?? item.unitPrice) * item.quantity
+        };
+
         if (exists) {
           return {
             items: state.items.map(i => 
-              i.productId === item.productId 
-                ? { ...i, quantity: item.quantity, total: item.quantity * i.unitPrice }
-                : i
+              i.productId === item.productId ? finalItem : i
             )
           };
         }
-        return { items: [...state.items, item] };
+        return { items: [...state.items, finalItem] };
       }),
       removeItem: (productId: number) => set((state: OrderFormStore) => ({
         items: state.items.filter(i => i.productId !== productId)
@@ -109,9 +114,21 @@ export const useOrderFormStore = create<OrderFormStore>()(
       updateItemQuantity: (productId: number, quantity: number) => set((state: OrderFormStore) => ({
         items: state.items.map(i => 
           i.productId === productId 
-            ? { ...i, quantity, total: quantity * i.unitPrice }
+            ? { ...i, quantity, total: quantity * i.appliedUnitPrice }
             : i
         )
+      })),
+      updateItemPrice: (productId: number, manualUnitPrice: number | null) => set((state: OrderFormStore) => ({
+        items: state.items.map(i => {
+          if (i.productId !== productId) return i;
+          const applied = manualUnitPrice ?? i.unitPrice;
+          return {
+            ...i,
+            manualPrice: manualUnitPrice !== null,
+            appliedUnitPrice: applied,
+            total: i.quantity * applied
+          };
+        })
       })),
       addEquipment: (eq: OrderEquipment) => set((state: OrderFormStore) => {
         const exists = state.equipments.find(e => e.equipmentTypeId === eq.equipmentTypeId);
