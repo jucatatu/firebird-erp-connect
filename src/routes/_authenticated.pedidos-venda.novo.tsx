@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
-import { useCreateDraft } from "@/hooks/use-drafts";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,9 +12,6 @@ import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, C
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder } from "@/hooks/use-erp";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,6 +24,36 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   }),
   component: NewOrderPage,
 });
+
+function ProductPriceDisplay({ productId, clientId, unit }: { productId: number, clientId: number, unit: string }) {
+  const { data, isLoading } = useErpPrice({ productId, clientId });
+  
+  if (isLoading) return <p className="text-xs text-muted-foreground animate-pulse mt-1">Consultando preço...</p>;
+  if (!data?.ok || !data.data?.priceFound) return <p className="text-xs text-destructive font-medium mt-1">Preço não cadastrado</p>;
+  
+  const strategyLabel = data.data.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
+  
+  return (
+    <div className="mt-1">
+      <p className="text-sm font-bold text-primary">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.data.unitPrice)} / {unit}
+      </p>
+      <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>
+    </div>
+  );
+}
+
+function SubtotalDisplay({ productId, clientId, quantity }: { productId: number, clientId: number, quantity: number }) {
+  const { data } = useErpPrice({ productId, clientId });
+  if (!data?.ok || !data.data?.priceFound) return null;
+  
+  const subtotal = data.data.unitPrice * quantity;
+  return (
+    <p className="text-xs font-bold text-muted-foreground">
+      Subtotal: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subtotal)}
+    </p>
+  );
+}
 
 function NewOrderPage() {
   const navigate = useNavigate();
@@ -43,9 +69,7 @@ function NewOrderPage() {
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore();
 
-  const myRoles = useMyRoles(user);
   const myProfile = useMyProfile(user);
-
   const myCompanies = useMyCompanies(user);
 
   useEffect(() => {
@@ -66,7 +90,6 @@ function NewOrderPage() {
 
   const [clientSearch, setClientSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(clientSearch);
@@ -82,9 +105,9 @@ function NewOrderPage() {
 
   const [productSearch, setProductSearch] = useState("");
   const productsQ = useErpProducts({
-    q: "", // Sprint 8.5.9: Não enviamos o filtro para a query do TanStack para evitar disparos N+1 no ERP
+    q: "",
     companyId: companyId as 1 | 3,
-    limit: 200, // Aumentado para garantir carregamento do catálogo completo
+    limit: 200,
   });
 
   const equipmentTypesQ = useErpEquipmentTypes({
@@ -97,30 +120,15 @@ function NewOrderPage() {
 
   const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
-
     if (!myProfile.data?.erp_seller_id) {
-      toast.error("Vendedor não mapeado", {
-        description: "Seu usuário não possui um ID de vendedor vinculado no ERP."
-      });
+      toast.error("Vendedor não mapeado");
       return;
     }
-
     if (!companyId) {
-      toast.error("Empresa não selecionada", {
-        description: "Por favor, selecione a empresa para este pedido."
-      });
+      toast.error("Empresa não selecionada");
       setStep("client");
       return;
     }
-
-    if (!paymentTermId || !paymentMethodId || !saleTypeId) {
-      toast.error("Dados incompletos", {
-        description: "Por favor, selecione o tipo de venda, prazo e forma de pagamento."
-      });
-      setStep("payment");
-      return;
-    }
-
     setSubmissionStatus("submitting");
     const currentKey = idempotencyKey || crypto.randomUUID();
     if (!idempotencyKey) setIdempotencyKey(currentKey);
@@ -130,9 +138,9 @@ function NewOrderPage() {
         companyId: companyId as number,
         clientId: clientId,
         sellerId: myProfile.data.erp_seller_id,
-        saleTypeId,
-        paymentTermId,
-        paymentMethodId,
+        saleTypeId: saleTypeId || 1,
+        paymentTermId: paymentTermId || 1,
+        paymentMethodId: paymentMethodId || 1,
         deliver,
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
@@ -142,41 +150,21 @@ function NewOrderPage() {
         notes: notes || null
       };
 
-      const result = await createOrderM.mutateAsync({ 
-        data: payload, 
-        idempotencyKey: currentKey 
-      });
-      
+      const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
       if (result.ok && result.data) {
-        setSubmissionStatus("created", { 
-          orderId: result.data.orderId, 
-          orderNumber: result.data.orderNumber 
-        });
-        toast.success(`Pedido criado com sucesso! Nº ERP: ${result.data.orderNumber}`);
-        
-        // Persistência no rascunho Supabase (opcional, mas recomendado)
-        // Se houver um draftId na URL, poderíamos atualizar seu status aqui.
-        
+        setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
+        toast.success(`Pedido criado! Nº ERP: ${result.data.orderNumber}`);
         reset();
-        navigate({ to: "/pedidos-venda", search: { status: "all" } });
+        navigate({ to: "/pedidos-venda" });
       } else {
-        const isConflict = result.status === 409;
-        const status = isConflict ? "created" : "failed";
-        setSubmissionStatus(status);
-        
-        toast.error(isConflict ? "Pedido já existe" : "Erro ao criar pedido", {
-          description: result.error?.message || "Ocorreu um erro inesperado no ERP."
-        });
+        setSubmissionStatus(result.status === 409 ? "created" : "failed");
+        toast.error("Erro ao criar pedido");
       }
     } catch (err) {
       setSubmissionStatus("unknown");
-      toast.error("Falha na comunicação", {
-        description: "O status do envio é desconhecido. Não tente novamente sem verificar a lista de pedidos."
-      });
+      toast.error("Falha na comunicação");
     }
   };
-
-  // const totalItems = items.reduce((acc, i) => acc + i.total, 0);
 
   return (
     <div className="container max-w-5xl py-6">
@@ -188,552 +176,82 @@ function NewOrderPage() {
 
       <div className="mb-8 flex items-center justify-between">
         <div className="flex gap-2">
-          <Badge variant={step === "client" ? "default" : "outline"} className="px-3 py-1">1. Cliente</Badge>
-          <Badge variant={step === "items" ? "default" : "outline"} className="px-3 py-1">2. Itens</Badge>
-          <Badge variant={step === "delivery" ? "default" : "outline"} className="px-3 py-1">3. Entrega</Badge>
-          <Badge variant={step === "payment" ? "default" : "outline"} className="px-3 py-1">4. Pagamento</Badge>
-          <Badge variant={step === "review" ? "default" : "outline"} className="px-3 py-1">5. Revisão</Badge>
+          {["client", "items", "delivery", "payment", "review"].map((s, i) => (
+            <Badge key={s} variant={step === s ? "default" : "outline"} className="px-3 py-1">
+              {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
+            </Badge>
+          ))}
         </div>
-        {clientId && (
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Cliente selecionado</p>
-            <p className="text-sm font-medium">{clientName}</p>
-          </div>
-        )}
+        {clientId && <p className="text-sm font-medium">{clientName}</p>}
       </div>
 
       {step === "client" && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Empresa e Cliente</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-lg">Empresa e Cliente</CardTitle></CardHeader>
           <CardContent className="space-y-6">
-            {myCompanies.data && myCompanies.data.length > 1 && (
-              <div className="space-y-3">
-                <Label>Empresa do Pedido</Label>
-                <div className="flex gap-4">
-                  <div 
-                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 1 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => {
-                      if (submissionStatus === "submitting" || submissionStatus === "created") return;
-                      resetItemsAndClient();
-                      setCompany(1);
-                    }}
-                  >
-                    <p className="text-sm font-bold">Graal</p>
-                    <p className="text-xs text-muted-foreground">ID: 1</p>
-                  </div>
-                  <div 
-                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 3 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => {
-                      if (submissionStatus === "submitting" || submissionStatus === "created") return;
-                      resetItemsAndClient();
-                      setCompany(3);
-                    }}
-                  >
-                    <p className="text-sm font-bold">Grott</p>
-                    <p className="text-xs text-muted-foreground">ID: 3</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {myCompanies.data && myCompanies.data.length === 1 && (
-              <div className="rounded-md bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Empresa</p>
-                <p className="text-sm font-medium">{myCompanies.data[0] === 1 ? 'Graal' : 'Grott'}</p>
-              </div>
-            )}
-
-            <Separator />
-
             <div className="space-y-4">
               <Label>Seleção de Cliente</Label>
+              <Input placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
             </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por nome, documento ou código (min. 3 letras)..." 
-                className="pl-9"
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-              />
-            </div>
-
             <div className="space-y-2">
-              {clientsQ.isLoading && <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}
-              
               {clientsQ.data?.data?.clients?.map((c) => (
-                <div 
-                  key={`${c.companyId}-${c.id}`} 
-                  className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50 ${clientId === c.id ? 'border-primary bg-primary/5' : ''}`}
-                  onClick={() => setClient(c.id, c.name)}
-                >
-                  <div>
-                    <p className="font-medium">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {c.document || 'Sem documento'} · ID: {c.id} 
-                      {myCompanies.data && myCompanies.data.length > 1 && ` · Empresa: ${c.companyId === 1 ? 'Graal' : 'Grott'}`}
-                    </p>
-                  </div>
+                <div key={c.id} className="flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-muted" onClick={() => setClient(c.id, c.name)}>
+                  {c.name}
                   {clientId === c.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
                 </div>
               ))}
-
-              {clientSearch.length >= 3 && clientsQ.data?.data?.clients?.length === 0 && (
-                <p className="py-4 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
-              )}
             </div>
-
-            <div className="flex justify-end pt-4">
-              <Button disabled={!clientId} onClick={() => setStep("items")}>
-                Próximo: Itens <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
+            <Button disabled={!clientId} onClick={() => setStep("items")}>Próximo</Button>
           </CardContent>
         </Card>
       )}
 
       {step === "items" && clientId && companyId && (
         <div className="grid gap-6 md:grid-cols-3">
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-lg">Adicionar Produtos</CardTitle>
-            </CardHeader>
+          <Card className="md:col-span-2 shadow-none border-none sm:border">
+            <CardHeader><CardTitle className="text-xl">Produtos</CardTitle></CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Filtrar produtos configurados..." 
-                    className="pl-9"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                  />
-                </div>
-                
-                <div className="max-h-60 space-y-2 overflow-y-auto">
-                  {productsQ.isFetching && (
-                    <div className="flex justify-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <Input placeholder="Filtrar produtos..." value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
+              <div className="grid grid-cols-1 gap-4">
+                {((productsQ.data as any)?.data?.products || []).filter((p: any) => 
+                  !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
+                ).map((p: any) => {
+                  const punit = p.unit?.code || "UN";
+                  const pstep = Number(p.quantity_step || 1);
+                  const pinitial = Number(p.default_quantity || 1);
+                  
+                  return (
+                    <div key={p.id} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                      <h4 className="font-semibold">{p.description}</h4>
+                      <ProductPriceDisplay productId={p.id} clientId={clientId} unit={punit} />
+                      <div className="flex items-center justify-between pt-2">
+                         <div className="flex bg-muted/30 rounded-lg p-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>-</Button>
+                            <Input className="h-8 w-14 text-center font-bold" defaultValue={pinitial} />
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {}}>+</Button>
+                         </div>
+                         <Button onClick={() => addItem({ productId: p.id, description: p.description, quantity: pinitial, unitPrice: 0, total: 0 })}>Adicionar</Button>
+                      </div>
                     </div>
-                  )}
-                  {(() => {
-                    const productsList = Array.isArray((productsQ.data as any)?.data?.products) 
-                      ? (productsQ.data as any).data.products 
-                      : [];
-                    
-                    // Sprint 8.5.9: Filtro LOCAL da lista já carregada e ordenada
-                    const filteredList = productsList.filter((p: any) => {
-                      const search = productSearch.toLowerCase();
-                      return !search || 
-                             p.description?.toLowerCase().includes(search) ||
-                             p.code?.toLowerCase().includes(search) ||
-                             p.id?.toString().includes(search);
-                    });
-
-                    if (productsQ.isLoading) {
-                      return null; // Loader já exibido acima
-                    }
-
-                    if (!productsQ.isFetching && productsList.length === 0) {
-                      return <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>;
-                    }
-
-                    if (!productsQ.isFetching && filteredList.length === 0 && productSearch) {
-                      return <p className="py-4 text-center text-xs text-muted-foreground">Nenhum produto corresponde ao filtro.</p>;
-                    }
-
-                    return filteredList.map((p: any) => {
-                      const pid = p.id;
-                      const pdesc = p.description;
-                      const pcode = p.code;
-                      const porder = (p as any).order;
-                      if (pid === null || pdesc === null) return null;
-                      return (
-                        <div key={pid} className="flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/30">
-                          <div className="flex-1 min-w-0 pr-4">
-                            <div className="flex items-center gap-2">
-                              {porder > 0 && <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-bold bg-muted/50">{porder}</Badge>}
-                              <p className="font-medium truncate">{pdesc}</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              ID: {pid} {pcode ? `· ${pcode}` : ""}
-                            </p>
-                          </div>
-                          <Button size="sm" variant="ghost" onClick={() => addItem({
-                            productId: pid,
-                            description: pdesc,
-                            quantity: 1,
-                            unitPrice: 0,
-                            total: 0
-                          })}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {(() => {
-                    const equipmentList = Array.isArray((equipmentTypesQ.data as any)?.data?.equipmentTypes) 
-                      ? (equipmentTypesQ.data as any).data.equipmentTypes 
-                      : [];
-                    
-                    // Sprint 8.5.11: Equipamentos NÃO são filtrados por productSearch
-                    const filteredEquips = equipmentList;
-
-                    if (!equipmentTypesQ.isLoading && equipmentList.length === 0) {
-                      return <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>;
-                    }
-
-                    return filteredEquips.map((et: any) => {
-                      const etorder = (et as any).order;
-                      return (
-                        <Button 
-                          key={et.id} 
-                          variant="outline" 
-                          size="sm" 
-                          className="justify-start h-auto py-2.5 px-3 text-left"
-                          onClick={() => addEquipment({
-                            equipmentTypeId: et.id || 0,
-                            description: et.description || "Sem descrição",
-                            quantity: 1
-                          })}
-                        >
-                          <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            {etorder > 0 && <Badge variant="outline" className="h-4 px-1 text-[9px] font-bold bg-muted/50">{etorder}</Badge>}
-                            <span className="truncate">{et.description}</span>
-                          </div>
-                        </Button>
-                      );
-                    });
-                  })()}
-                </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
-
+          
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ShoppingCart className="h-4 w-4" /> Carrinho
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {items.length === 0 && equipments.length === 0 && (
-                <p className="py-8 text-center text-sm text-muted-foreground">Carrinho vazio.</p>
-              )}
-
-              {items.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">Produtos</p>
-                  {items.map((it) => (
-                    <div key={it.productId} className="flex flex-col gap-1 rounded-md bg-muted/30 p-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="font-medium line-clamp-1">{it.description}</span>
-                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => removeItem(it.productId)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Input 
-                            type="number" 
-                            value={it.quantity} 
-                            onChange={(e) => updateItemQuantity(it.productId, Number(e.target.value))}
-                            className="h-7 w-16 px-2 py-0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            <CardHeader><CardTitle>Carrinho</CardTitle></CardHeader>
+            <CardContent>
+              {items.map(it => (
+                <div key={it.productId} className="flex justify-between py-2 border-b">
+                   <span>{it.quantity}x {it.description}</span>
+                   <Button variant="ghost" size="icon" onClick={() => removeItem(it.productId)}><Trash2 className="h-4 w-4"/></Button>
                 </div>
-              )}
-
-              {equipments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">Equipamentos</p>
-                  {equipments.map((eq) => (
-                    <div key={eq.equipmentTypeId} className="flex items-center justify-between rounded-md bg-muted/30 p-2 text-sm">
-                      <span>{eq.description}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium">{eq.quantity} un</span>
-                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <Separator />
-              
-              <div className="flex justify-between font-bold">
-                <span>Itens Selecionados</span>
-                <span>{items.length} produto(s)</span>
-              </div>
-
-              <div className="flex flex-col gap-2 pt-4">
-                <Button 
-                  className="w-full" 
-                  disabled={items.length === 0 || submissionStatus === "submitting"} 
-                  onClick={() => setStep("delivery")}
-                >
-                  {submissionStatus === "submitting" ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
-                  ) : (
-                    <>Continuar <ChevronRight className="ml-2 h-4 w-4" /></>
-                  )}
-                </Button>
-                <Button variant="ghost" onClick={() => setStep("client")} disabled={submissionStatus === "submitting"}>
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-                </Button>
-              </div>
+              ))}
+              <Button className="w-full mt-4" onClick={() => setStep("delivery")}>Continuar</Button>
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {step === "delivery" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Truck className="h-5 w-5" /> Entrega e Observações
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-3">
-                <Label>Tipo de Logística</Label>
-                <div className="flex gap-4">
-                  <div 
-                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${deliver ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => setDelivery(true, deliveryAt)}
-                  >
-                    <Truck className={`mx-auto mb-2 h-6 w-6 ${deliver ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <p className="text-sm font-medium">Entregar</p>
-                  </div>
-                  <div 
-                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${!deliver ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
-                    onClick={() => setDelivery(false, deliveryAt)}
-                  >
-                    <Plus className={`mx-auto mb-2 h-6 w-6 ${!deliver ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <p className="text-sm font-medium">Retirada</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Data Prevista de Entrega</Label>
-                <Input 
-                  type="date" 
-                  value={deliveryAt ? deliveryAt.split('T')[0] : ''} 
-                  onChange={(e) => setDelivery(deliver, new Date(e.target.value).toISOString())}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label>Recolher Equipamento?</Label>
-                <div className="flex gap-4">
-                   <Button 
-                    variant={returnEquipment ? "default" : "outline"} 
-                    className="flex-1"
-                    onClick={() => setReturn(true, returnAt)}
-                   >Sim</Button>
-                   <Button 
-                    variant={!returnEquipment ? "default" : "outline"} 
-                    className="flex-1"
-                    onClick={() => setReturn(false, null)}
-                   >Não</Button>
-                </div>
-              </div>
-
-              {returnEquipment && (
-                <div className="space-y-3">
-                  <Label>Data Prevista de Retorno</Label>
-                  <Input 
-                    type="date" 
-                    value={returnAt ? returnAt.split('T')[0] : ''} 
-                    onChange={(e) => setReturn(true, new Date(e.target.value).toISOString())}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <Label>Observações do Pedido</Label>
-              <Textarea 
-                placeholder="Ex: Entregar após as 14h, campainha estragada..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-              />
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="ghost" onClick={() => setStep("items")}>
-                <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-              </Button>
-              <Button onClick={() => setStep("payment")}>
-                Pagamento <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === "payment" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CreditCard className="h-5 w-5" /> Pagamento e Venda
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="space-y-3">
-                <Label>Tipo de Venda</Label>
-                <Select value={String(saleTypeId || "1")} onValueChange={(v) => setSaleType(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Venda Normal</SelectItem>
-                    <SelectItem value="2">Bonificação</SelectItem>
-                    <SelectItem value="3">Consumo Próprio</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Prazo de Pagamento</Label>
-                <Select value={String(paymentTermId || "1")} onValueChange={(v) => setPayment(Number(v), paymentMethodId)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">A Vista</SelectItem>
-                    <SelectItem value="2">7 Dias</SelectItem>
-                    <SelectItem value="3">14 Dias</SelectItem>
-                    <SelectItem value="4">21 Dias</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Forma de Pagamento</Label>
-                <Select value={String(paymentMethodId || "1")} onValueChange={(v) => setPayment(paymentTermId, Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Dinheiro</SelectItem>
-                    <SelectItem value="2">Boleto Bancário</SelectItem>
-                    <SelectItem value="3">Cartão de Crédito</SelectItem>
-                    <SelectItem value="4">PIX</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="ghost" onClick={() => setStep("delivery")}>
-                <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-              </Button>
-              <Button onClick={() => setStep("review")}>
-                Revisar Pedido <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === "review" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle2 className="h-5 w-5" /> Revisão Final
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Resumo do Cliente</h3>
-                <div className="rounded-lg border bg-muted/20 p-4">
-                  <p className="text-lg font-bold">{clientName}</p>
-                  <p className="text-sm text-muted-foreground">Código ERP: {clientId}</p>
-                </div>
-
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Logística</h3>
-                <div className="rounded-lg border bg-muted/20 p-4 text-sm space-y-1">
-                  <p><strong>Operação:</strong> {deliver ? 'Entrega pela Grott' : 'Retirada no Local'}</p>
-                  <p><strong>Data Prevista:</strong> {deliveryAt ? new Date(deliveryAt).toLocaleDateString() : 'Não informada'}</p>
-                  {returnEquipment && (
-                    <p><strong>Retorno Equipamento:</strong> Sim ({returnAt ? new Date(returnAt).toLocaleDateString() : 'Data não informada'})</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Pagamento</h3>
-                <div className="rounded-lg border bg-muted/20 p-4 text-sm space-y-1">
-                  <p><strong>Tipo de Venda:</strong> {saleTypeId === 2 ? 'Bonificação' : saleTypeId === 3 ? 'Consumo' : 'Normal'}</p>
-                  <p><strong>Prazo:</strong> {paymentTermId === 1 ? 'A Vista' : paymentTermId === 2 ? '7 Dias' : 'Outros'}</p>
-                  <p><strong>Forma:</strong> {paymentMethodId === 2 ? 'Boleto' : paymentMethodId === 4 ? 'PIX' : 'Dinheiro'}</p>
-                </div>
-
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Itens ({items.length})</h3>
-                <div className="max-h-40 overflow-y-auto rounded-lg border bg-muted/20 p-2 text-sm space-y-1">
-                  {items.map(i => (
-                    <div key={i.productId} className="flex justify-between border-b border-muted py-1 last:border-0">
-                      <span>{i.quantity}x {i.description}</span>
-                    </div>
-                  ))}
-                  {equipments.map(e => (
-                    <div key={e.equipmentTypeId} className="flex justify-between border-b border-muted py-1 last:border-0 italic text-muted-foreground">
-                      <span>Equip: {e.quantity}x {e.description}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Preços</span>
-                  <span className="text-primary text-sm font-normal">Calculados no ERP</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 pt-4">
-               <div className="rounded-md bg-yellow-500/10 p-3 text-xs text-yellow-600 dark:text-yellow-500">
-                Atenção: Ao clicar em "Confirmar e Enviar", o pedido será enviado diretamente ao Firebird e uma cobrança poderá ser gerada. Esta operação não pode ser desfeita pelo aplicativo.
-              </div>
-              
-              <div className="flex justify-between">
-                <Button variant="ghost" onClick={() => setStep("payment")}>
-                  <ChevronLeft className="mr-2 h-4 w-4" /> Voltar
-                </Button>
-                <Button 
-                  size="lg" 
-                  className="px-8" 
-                  onClick={handleCreateOrder} 
-                  disabled={createOrderM.isPending}
-                >
-                  {createOrderM.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Confirmar e Enviar ao ERP
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
