@@ -14,6 +14,8 @@ import { useOrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -838,7 +840,7 @@ function NewOrderPage() {
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-2">
-                <Checkbox id="deliver" checked={deliver} onCheckedChange={(checked) => setDelivery(!!checked, deliveryAt)} />
+                <Checkbox id="deliver" checked={deliver} onCheckedChange={(checked: boolean) => setDelivery(!!checked, deliveryAt)} />
                 <Label htmlFor="deliver">Deseja entrega?</Label>
               </div>
 
@@ -861,7 +863,7 @@ function NewOrderPage() {
               )}
 
               <div className="flex items-center space-x-2">
-                <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked) => setReturn(!!checked, returnAt)} />
+                <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} />
                 <Label htmlFor="returnEq">Recolher equipamentos?</Label>
               </div>
 
@@ -874,7 +876,7 @@ function NewOrderPage() {
 
               <div className="space-y-2">
                 <Label>Observações do Pedido</Label>
-                <Textarea placeholder="Instruções de entrega, detalhes adicionais..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Textarea placeholder="Instruções de entrega, detalhes adicionais..." value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} />
               </div>
 
               <div className="flex justify-between pt-4">
