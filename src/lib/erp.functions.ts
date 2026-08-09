@@ -623,7 +623,8 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
     });
     const finalRes = res as unknown as ErpEnvelope<ErpEquipmentTypesPayload>;
     if (finalRes.ok && finalRes.data && !data.isAdminSearch) {
-      finalRes.data.equipmentTypes = finalRes.data.equipmentTypes.filter((et) => 
+      const list = Array.isArray(finalRes.data.equipmentTypes) ? finalRes.data.equipmentTypes : [];
+      finalRes.data.equipmentTypes = list.filter((et) => 
         et.id !== null && enabledIds.includes(et.id)
       );
     }

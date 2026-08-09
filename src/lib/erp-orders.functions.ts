@@ -59,7 +59,9 @@ export interface ErpEquipmentType {
 export const searchErpClients = createServerFn({ method: "GET" })
   .inputValidator((d) => 
     z.object({
-      q: z.string().min(3),
+      q: z.string().min(3).optional(),
+      document: z.string().optional(),
+      phone: z.string().optional(),
       companyId: z.union([z.literal(1), z.literal(3)]).optional(),
       limit: z.number().optional().default(20),
       cursor: z.number().optional()
@@ -67,7 +69,10 @@ export const searchErpClients = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
-    const query: Record<string, string> = { q: data.q };
+    const query: Record<string, string> = {};
+    if (data.q) query.q = data.q;
+    if (data.document) query.document = data.document;
+    if (data.phone) query.phone = data.phone;
     if (data.companyId) query.companyId = String(data.companyId);
     if (data.limit) query.limit = String(data.limit);
     if (data.cursor) query.cursor = String(data.cursor);
