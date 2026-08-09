@@ -60,8 +60,8 @@ export const useOrderFormStore = create<OrderFormStore>()(
       paymentMethodId: null,
       saleTypeId: null,
 
-      setClient: (id, name) => set({ clientId: id, clientName: name }),
-      addItem: (item) => set((state) => {
+      setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      addItem: (item: OrderItem) => set((state: OrderFormStore) => {
         const exists = state.items.find(i => i.productId === item.productId);
         if (exists) {
           return {
@@ -74,17 +74,17 @@ export const useOrderFormStore = create<OrderFormStore>()(
         }
         return { items: [...state.items, item] };
       }),
-      removeItem: (productId) => set((state) => ({
+      removeItem: (productId: number) => set((state: OrderFormStore) => ({
         items: state.items.filter(i => i.productId !== productId)
       })),
-      updateItemQuantity: (productId, quantity) => set((state) => ({
+      updateItemQuantity: (productId: number, quantity: number) => set((state: OrderFormStore) => ({
         items: state.items.map(i => 
           i.productId === productId 
             ? { ...i, quantity, total: quantity * i.unitPrice }
             : i
         )
       })),
-      addEquipment: (eq) => set((state) => {
+      addEquipment: (eq: OrderEquipment) => set((state: OrderFormStore) => {
         const exists = state.equipments.find(e => e.equipmentTypeId === eq.equipmentTypeId);
         if (exists) {
           return {
@@ -97,14 +97,14 @@ export const useOrderFormStore = create<OrderFormStore>()(
         }
         return { equipments: [...state.equipments, eq] };
       }),
-      removeEquipment: (typeId) => set((state) => ({
+      removeEquipment: (typeId: number) => set((state: OrderFormStore) => ({
         equipments: state.equipments.filter(e => e.equipmentTypeId !== typeId)
       })),
-      setDelivery: (deliver, date) => set({ deliver, deliveryAt: date }),
-      setReturn: (ret, date) => set({ returnEquipment: ret, returnAt: date }),
-      setNotes: (notes) => set({ notes }),
-      setPayment: (termId, methodId) => set({ paymentTermId: termId, paymentMethodId: methodId }),
-      setSaleType: (typeId) => set({ saleTypeId: typeId }),
+      setDelivery: (deliver: boolean, date: string | null) => set({ deliver, deliveryAt: date }),
+      setReturn: (ret: boolean, date: string | null) => set({ returnEquipment: ret, returnAt: date }),
+      setNotes: (notes: string) => set({ notes }),
+      setPayment: (termId: number | null, methodId: number | null) => set({ paymentTermId: termId, paymentMethodId: methodId }),
+      setSaleType: (typeId: number | null) => set({ saleTypeId: typeId }),
       reset: () => set({
         clientId: null,
         clientName: null,
