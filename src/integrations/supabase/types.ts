@@ -380,6 +380,7 @@ export type Database = {
           erp_order_number: number | null
           id: string
           idempotency_key: string
+          last_attempt_at: string | null
           last_send_error: string | null
           payload: Json
           rejected_at: string | null
@@ -388,6 +389,7 @@ export type Database = {
           send_attempts: number
           sent_at: string | null
           status: Database["public"]["Enums"]["order_draft_status"]
+          submission_status: string | null
           title: string | null
           updated_at: string
           updated_by: string
@@ -401,6 +403,7 @@ export type Database = {
           erp_order_number?: number | null
           id?: string
           idempotency_key?: string
+          last_attempt_at?: string | null
           last_send_error?: string | null
           payload?: Json
           rejected_at?: string | null
@@ -409,6 +412,7 @@ export type Database = {
           send_attempts?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["order_draft_status"]
+          submission_status?: string | null
           title?: string | null
           updated_at?: string
           updated_by: string
@@ -422,6 +426,7 @@ export type Database = {
           erp_order_number?: number | null
           id?: string
           idempotency_key?: string
+          last_attempt_at?: string | null
           last_send_error?: string | null
           payload?: Json
           rejected_at?: string | null
@@ -430,6 +435,7 @@ export type Database = {
           send_attempts?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["order_draft_status"]
+          submission_status?: string | null
           title?: string | null
           updated_at?: string
           updated_by?: string
@@ -440,6 +446,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          erp_seller_id: number | null
           full_name: string
           id: string
           updated_at: string
@@ -447,6 +454,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          erp_seller_id?: number | null
           full_name: string
           id: string
           updated_at?: string
@@ -454,6 +462,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          erp_seller_id?: number | null
           full_name?: string
           id?: string
           updated_at?: string
@@ -713,6 +722,7 @@ export type Database = {
           erp_order_number: number | null
           id: string
           idempotency_key: string
+          last_attempt_at: string | null
           last_send_error: string | null
           payload: Json
           rejected_at: string | null
@@ -721,6 +731,7 @@ export type Database = {
           send_attempts: number
           sent_at: string | null
           status: Database["public"]["Enums"]["order_draft_status"]
+          submission_status: string | null
           title: string | null
           updated_at: string
           updated_by: string

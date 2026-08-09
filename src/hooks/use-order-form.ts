@@ -18,6 +18,11 @@ export interface OrderEquipment {
 interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
+  idempotencyKey: string | null;
+  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
+  lastAttemptAt: string | null;
+  erpOrderId: number | null;
+  erpOrderNumber: number | null;
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
@@ -31,6 +36,8 @@ interface OrderFormStore {
   
   // Actions
   setClient: (id: number, name: string) => void;
+  setIdempotencyKey: (key: string) => void;
+  setSubmissionStatus: (status: OrderFormStore["submissionStatus"], erpData?: { orderId?: number; orderNumber?: number }) => void;
   addItem: (item: OrderItem) => void;
   removeItem: (productId: number) => void;
   updateItemQuantity: (productId: number, quantity: number) => void;
@@ -49,6 +56,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
     (set) => ({
       clientId: null,
       clientName: null,
+      idempotencyKey: null,
+      submissionStatus: "draft",
+      lastAttemptAt: null,
+      erpOrderId: null,
+      erpOrderNumber: null,
       items: [],
       equipments: [],
       deliver: true,
@@ -61,6 +73,13 @@ export const useOrderFormStore = create<OrderFormStore>()(
       saleTypeId: null,
 
       setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
+      setSubmissionStatus: (status, erpData) => set({ 
+        submissionStatus: status,
+        lastAttemptAt: new Date().toISOString(),
+        erpOrderId: erpData?.orderId ?? null,
+        erpOrderNumber: erpData?.orderNumber ?? null
+      }),
       addItem: (item: OrderItem) => set((state: OrderFormStore) => {
         const exists = state.items.find(i => i.productId === item.productId);
         if (exists) {
@@ -108,6 +127,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
       reset: () => set({
         clientId: null,
         clientName: null,
+        idempotencyKey: null,
+        submissionStatus: "draft",
+        lastAttemptAt: null,
+        erpOrderId: null,
+        erpOrderNumber: null,
         items: [],
         equipments: [],
         deliver: true,

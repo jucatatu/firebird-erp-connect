@@ -118,11 +118,62 @@ export const createErpOrder = createServerFn({ method: "POST" })
   .inputValidator((d: { data: CreateOrderInput; idempotencyKey?: string }) => d)
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
-    
-    return callErp({
-      method: "POST",
-      path: "/api/v1/orders",
-      body: data.data as unknown as JsonValue,
-      headers: data.idempotencyKey ? { "x-idempotency-key": data.idempotencyKey } : undefined
-    }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    return handleCreateErpOrder(data.data, data.idempotencyKey, supabaseAdmin);
   });
+
+/**
+ * Lógica interna testável sem dependência de AsyncLocalStorage do createServerFn.
+ */
+export async function handleCreateErpOrder(
+  input: CreateOrderInput,
+  idempotencyKey: string | undefined,
+  supabaseAdmin: any
+): Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>> {
+  const { callErp } = await import("./erp.server");
+
+  // 1. Resolver o sellerId a partir do auth.uid()
+  const { data: { user } } = await supabaseAdmin.auth.getUser();
+  if (!user) {
+    return {
+      ok: false,
+      status: 401,
+      data: null,
+      error: { code: "UNAUTHORIZED", message: "Usuário não autenticado no servidor.", retryable: false }
+    };
+  }
+
+  // Buscar perfil para pegar o erp_seller_id
+  const { data: profile, error: profileErr } = await supabaseAdmin
+    .from("profiles")
+    .select("erp_seller_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileErr || !profile?.erp_seller_id) {
+    return {
+      ok: false,
+      status: 422,
+      data: null,
+      error: { 
+        code: "SELLER_NOT_MAPPED", 
+        message: "Vendedor não mapeado para o ERP. Contate o administrador.", 
+        retryable: false 
+      }
+    };
+  }
+
+  // Sobrescrever sellerId do payload com o valor real do banco
+  const finalPayload = {
+    ...input,
+    sellerId: profile.erp_seller_id
+  };
+  
+  return callErp({
+    method: "POST",
+    path: "/api/v1/orders",
+    body: finalPayload as unknown as JsonValue,
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
+  }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
+}

@@ -50,7 +50,7 @@ export function useMyProfile(user: User | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, active")
+        .select("id, full_name, active, erp_seller_id")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
