@@ -52,6 +52,8 @@ export interface ErpEquipmentType {
   code: string | null;
   description: string;
   active: boolean | null;
+  category?: string | null;
+  returnable?: boolean | null;
 }
 
 export const searchErpClients = createServerFn({ method: "GET" })
