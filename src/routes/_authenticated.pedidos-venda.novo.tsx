@@ -96,7 +96,7 @@ function NewDraftPage() {
         notes: notes.trim(),
       });
       toast.success("Rascunho criado");
-      navigate({ to: "/orders/$draftId", params: { draftId: draft.id } });
+      navigate({ to: "/pedidos-venda/$draftId", params: { draftId: draft.id } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error("Não foi possível criar", { description: msg });
@@ -168,7 +168,7 @@ function NewDraftPage() {
             </div>
             <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
               <Button asChild type="button" variant="outline">
-                <Link to="/pedidos-venda">Cancelar</Link>
+                <Link to="/pedidos-venda" search={{ status: "all" }}>Cancelar</Link>
               </Button>
               <Button type="submit" disabled={create.isPending}>
                 {create.isPending ? (

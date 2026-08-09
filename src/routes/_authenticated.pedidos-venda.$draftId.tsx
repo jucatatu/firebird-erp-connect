@@ -103,7 +103,7 @@ function DraftDetailPage() {
       <div className="rounded-md border p-6 text-center">
         <p className="text-sm">Pedido não encontrado.</p>
         <Button asChild size="sm" variant="outline" className="mt-3">
-          <Link to="/pedidos-venda">Voltar</Link>
+          <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar</Link>
         </Button>
       </div>
     );
@@ -377,7 +377,7 @@ function DraftDetailPage() {
                 className="w-full"
                 variant="outline"
               >
-                <Link to="/pedidos-venda">Voltar à lista</Link>
+                <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar à lista</Link>
               </Button>
             </CardContent>
           </Card>
