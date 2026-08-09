@@ -544,7 +544,7 @@ function NewOrderPage() {
             <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
               <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate flex items-center gap-2">
                 {it.description}
-                {diff === 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
+                {diff <= 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
               </p>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
@@ -613,7 +613,7 @@ function NewOrderPage() {
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
         returnAt: returnEquipment ? returnAt : null,
-        items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
+        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined })),
         equipments: equipments.map(e => ({ equipmentTypeId: e.equipmentTypeId, quantity: e.quantity })),
         notes: notes || null
       };
