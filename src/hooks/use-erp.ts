@@ -98,16 +98,16 @@ export function useErpProducts(input: { q?: string; companyId?: 1 | 3; limit?: n
     queryKey: [
       "erp",
       "products",
-      "search",
+      "catalog", // Sprint 8.5.9: Alterado de 'search' para 'catalog' para refletir a nova regra
       query,
       input.companyId,
       input.cursor ?? "",
       !!input.isAdminSearch,
     ],
     queryFn: async (): Promise<ErpResponse<ErpProductsPayload>> => {
-      // Sprint 8.5.8: A etapa de Itens no Novo Pedido deve listar automaticamente o catálogo configurado.
-      // Se não for isAdminSearch, enviamos q="" para disparar a busca do catálogo habilitado no serverFn.
-      const searchTerm = !input.isAdminSearch ? query : query;
+      // Sprint 8.5.9: No Novo Pedido, NÃO enviamos termo de busca para o servidor. 
+      // O servidor retorna o catálogo completo e o filtro é local.
+      const searchTerm = input.isAdminSearch ? query : "";
 
       if (!searchTerm && input.isAdminSearch) {
         return { 
@@ -119,8 +119,7 @@ export function useErpProducts(input: { q?: string; companyId?: 1 | 3; limit?: n
       }
       return fn({ data: { ...input, q: searchTerm } }) as Promise<ErpResponse<ErpProductsPayload>>;
     },
-    // Sprint 8.5.8: Habilitado sempre para listagem automática no Novo Pedido. 
-    // Para busca administrativa, mantemos a trava de 3 caracteres.
+    // No Novo Pedido (catalog), está sempre habilitado para carregar a lista inicial.
     enabled: !input.isAdminSearch || query.length >= 3,
     staleTime: 60_000,
   });

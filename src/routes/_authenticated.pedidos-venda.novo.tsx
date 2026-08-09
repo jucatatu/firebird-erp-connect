@@ -82,12 +82,13 @@ function NewOrderPage() {
 
   const [productSearch, setProductSearch] = useState("");
   const productsQ = useErpProducts({
-    q: productSearch,
+    q: "", // Sprint 8.5.9: Não enviamos o filtro para a query do TanStack para evitar disparos N+1 no ERP
     companyId: companyId as 1 | 3,
-    limit: 100,
+    limit: 200, // Aumentado para garantir carregamento do catálogo completo
   });
 
   const equipmentTypesQ = useErpEquipmentTypes({
+    q: "",
     companyId: companyId as 1 | 3,
     active: true,
   });
@@ -369,25 +370,37 @@ function NewOrderPage() {
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Equipamentos Disponíveis</Label>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                  {(Array.isArray((equipmentTypesQ.data as any)?.data?.equipmentTypes) ? (equipmentTypesQ.data as any).data.equipmentTypes : []).map((et: any) => (
-                    <Button 
-                      key={et.id} 
-                      variant="outline" 
-                      size="sm" 
-                      className="justify-start h-auto py-2.5 px-3 text-left"
-                      onClick={() => addEquipment({
-                        equipmentTypeId: et.id || 0,
-                        description: et.description || "Sem descrição",
-                        quantity: 1
-                      })}
-                    >
-                      <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span className="truncate">{et.description}</span>
-                    </Button>
-                  ))}
-                  {!equipmentTypesQ.isLoading && equipmentTypesQ.data?.data?.equipmentTypes?.length === 0 && (
-                    <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>
-                  )}
+                  {(() => {
+                    const equipmentList = Array.isArray((equipmentTypesQ.data as any)?.data?.equipmentTypes) 
+                      ? (equipmentTypesQ.data as any).data.equipmentTypes 
+                      : [];
+                    
+                    // Filtro local de equipamentos (mesma lógica de produtos se houver campo de busca unificado no futuro)
+                    const filteredEquips = equipmentList.filter((et: any) => 
+                      !productSearch || et.description?.toLowerCase().includes(productSearch.toLowerCase())
+                    );
+
+                    if (!equipmentTypesQ.isLoading && equipmentList.length === 0) {
+                      return <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>;
+                    }
+
+                    return filteredEquips.map((et: any) => (
+                      <Button 
+                        key={et.id} 
+                        variant="outline" 
+                        size="sm" 
+                        className="justify-start h-auto py-2.5 px-3 text-left"
+                        onClick={() => addEquipment({
+                          equipmentTypeId: et.id || 0,
+                          description: et.description || "Sem descrição",
+                          quantity: 1
+                        })}
+                      >
+                        <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="truncate">{et.description}</span>
+                      </Button>
+                    ));
+                  })()}
                 </div>
               </div>
             </CardContent>
