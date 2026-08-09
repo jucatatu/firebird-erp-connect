@@ -130,7 +130,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
                 type="number"
                 step="0.01"
                 className="h-8 w-24 text-sm font-bold"
-                defaultValue={cartItem?.appliedUnitPrice ?? erpPrice ?? 0}
+                defaultValue={cartItem?.appliedUnitPrice ?? (erpPrice || 0)}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -240,7 +240,6 @@ function NewOrderPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
-  const [user, setUser] = useState<User | null>(null);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
