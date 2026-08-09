@@ -157,8 +157,14 @@ export const useOrderFormStore = create<OrderFormStore>()(
         paymentTermId: null,
         paymentMethodId: null,
         saleTypeId: null,
-        idempotencyKey: crypto.randomUUID(), // Renovação forçada
+        idempotencyKey: crypto.randomUUID(), 
         submissionStatus: "draft",
+        lastAttemptAt: null,
+        erpOrderId: null,
+        erpOrderNumber: null,
+        notes: "",
+        deliveryAt: null,
+        returnAt: null,
       }),
     }),
     { name: "order-form-storage" }
