@@ -176,9 +176,15 @@ function NewOrderPage() {
 
       <div className="mb-8 flex items-center justify-between">
         <div className="flex gap-2">
-          {["client", "items", "delivery", "payment", "review"].map((s, i) => (
-            <Badge key={s} variant={step === s ? "default" : "outline"} className="px-3 py-1">
-              {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
+          {[
+            { id: "client", label: "Cliente" },
+            { id: "items", label: "Itens + Equipamentos" },
+            { id: "delivery", label: "Entrega" },
+            { id: "payment", label: "Pagamento" },
+            { id: "review", label: "Revisão" }
+          ].map((s, i) => (
+            <Badge key={s.id} variant={step === s.id ? "default" : "outline"} className="px-3 py-1">
+              {i + 1}. {s.label}
             </Badge>
           ))}
         </div>
