@@ -58,6 +58,7 @@ describe('Sprint 8.5.9 - Listagem Automática e Ordenada', () => {
     });
 
     expect(res.ok).toBe(true);
+    if (!res.data) throw new Error('res.data is null');
     expect(res.data.products).toHaveLength(2);
     // Ordem 1: PILSEN, Ordem 2: IPA
     expect(res.data.products[0].id).toBe(1);
@@ -72,6 +73,7 @@ describe('Sprint 8.5.9 - Listagem Automática e Ordenada', () => {
     });
 
     expect(res.ok).toBe(true);
+    if (!res.data) throw new Error('res.data is null');
     expect(res.data.products).toHaveLength(1);
     expect(res.data.products[0].id).toBe(1);
   });
@@ -82,6 +84,7 @@ describe('Sprint 8.5.9 - Listagem Automática e Ordenada', () => {
     });
 
     expect(res.ok).toBe(true);
+    if (!res.data) throw new Error('res.data is null');
     expect(res.data.equipmentTypes).toHaveLength(1);
     expect(res.data.equipmentTypes[0].id).toBe(10);
     expect(res.data.equipmentTypes[0].description).toBe('EQUIP A');
