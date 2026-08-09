@@ -822,7 +822,128 @@ function NewOrderPage() {
                 <Button className="w-full" disabled={!isCoverageValid()} onClick={() => setStep("delivery")}>
                   Continuar <ChevronRight className="ml-2 h-4 w-4"/>
                 </Button>
-                {!isCoverageValid() && (
+        {step === "delivery" && clientId && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="deliver" checked={deliver} onCheckedChange={(checked) => setDelivery(!!checked, deliveryAt)} />
+                <Label htmlFor="deliver">Deseja entrega?</Label>
+              </div>
+
+              {deliver && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Data de Entrega</Label>
+                    <Input type="date" value={deliveryAt?.split('T')[0] || ""} onChange={(e) => setDelivery(deliver, e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Horário Previsto (Opcional)</Label>
+                    <Input type="time" onChange={(e) => {
+                      if (deliveryAt) {
+                        const date = deliveryAt.split('T')[0];
+                        setDelivery(deliver, `${date}T${e.target.value}:00`);
+                      }
+                    }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked) => setReturn(!!checked, returnAt)} />
+                <Label htmlFor="returnEq">Recolher equipamentos?</Label>
+              </div>
+
+              {returnEquipment && (
+                <div className="space-y-2">
+                  <Label>Data de Recolhimento</Label>
+                  <Input type="date" value={returnAt?.split('T')[0] || ""} onChange={(e) => setReturn(returnEquipment, e.target.value)} />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Observações do Pedido</Label>
+                <Textarea placeholder="Instruções de entrega, detalhes adicionais..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep("items")}>Voltar</Button>
+                <Button onClick={() => setStep("payment")}>Próximo</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "payment" && clientId && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">4. Pagamento</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+               <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
+               {/* Futuramente: Carregar termos de pagamento do ERP aqui */}
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Condição de Pagamento</Label>
+                    <Badge variant="outline">Padrão ERP (ID 1)</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Venda</Label>
+                    <Badge variant="outline">Venda Normal (ID 1)</Badge>
+                  </div>
+               </div>
+               
+               <div className="flex justify-between pt-4">
+                <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
+                <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "review" && clientId && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-muted-foreground">Cliente</Label>
+                    <p className="font-bold">{clientName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Logística</Label>
+                    <p className="text-sm">• {deliver ? `Entrega em ${new Date(deliveryAt!).toLocaleDateString('pt-BR')}` : 'Retirada no local'}</p>
+                    <p className="text-sm">• {returnEquipment ? `Recolhimento em ${new Date(returnAt!).toLocaleDateString('pt-BR')}` : 'Sem recolhimento'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Observações</Label>
+                    <p className="text-sm italic">{notes || "Nenhuma"}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <Label className="text-muted-foreground">Resumo Financeiro</Label>
+                  <div className="border rounded-lg p-3 space-y-2 bg-muted/5">
+                    <div className="flex justify-between text-sm">
+                      <span>Total de Itens:</span>
+                      <span className="font-bold">{items.length}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                      <span>Total Geral:</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc, it) => acc + it.total, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-6 border-t">
+                <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
+                <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
+                  {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
                   <p className="text-[10px] text-destructive text-center font-medium mt-1">
                     Equipamentos insuficientes para os produtos de chope.
                   </p>
