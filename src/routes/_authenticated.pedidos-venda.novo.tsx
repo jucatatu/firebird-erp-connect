@@ -422,35 +422,6 @@ function NewOrderPage() {
                       cartItem={items.find(it => it.productId === p.id)}
                     />
                   ))}
-
-                              className="h-7 w-12 border-none bg-transparent text-center font-bold text-xs p-0 focus-visible:ring-0" 
-                              value={localQty}
-                              onChange={(e) => handleQtyChange(Number(e.target.value))}
-                            />
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7" 
-                              onClick={() => handleQtyChange(localQty + pstep)}
-                            >+</Button>
-                          </div>
-                          
-                          <div className="text-right">
-                             <SubtotalDisplay productId={p.id} clientId={clientId} quantity={localQty} />
-                             {!cartItem ? (
-                               <Button size="sm" className="h-8 px-3 text-xs mt-1" onClick={() => {
-                                 if (localQty > 0) addItem({ productId: p.id, description: p.description, quantity: localQty, unitPrice: 0, total: 0 });
-                               }}>Adicionar</Button>
-                             ) : (
-                               <Button variant="ghost" size="sm" className="h-8 px-2 text-xs mt-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeItem(p.id)}>
-                                 Remover
-                               </Button>
-                             )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </CardContent>
             </Card>
