@@ -264,8 +264,8 @@ function EquipmentTab({
 }) {
   const [term, setTerm] = useState("");
   const equipQ = useErpEquipmentTypes({ isAdminSearch: true, companyId: 1 });
-  const payload = equipQ.data?.ok ? equipQ.data.data : null;
-  const apiError = equipQ.data && !equipQ.data.ok ? equipQ.data.error : null;
+  const payload = (equipQ.data as any)?.ok ? (equipQ.data as any).data : null;
+  const apiError = equipQ.data && !(equipQ.data as any).ok ? (equipQ.data as any).error : null;
 
   const list = useMemo(() => {
     const rawList = payload && typeof payload === 'object' && 'equipmentTypes' in payload 
