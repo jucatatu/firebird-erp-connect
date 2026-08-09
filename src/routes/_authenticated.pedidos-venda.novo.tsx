@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { useMyRoles, useMyProfile } from "@/hooks/use-auth";
+import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
 import { useCreateDraft } from "@/hooks/use-drafts";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,16 +35,24 @@ function NewOrderPage() {
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
   const {
-    clientId, clientName, items, equipments, deliver, deliveryAt,
+    clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus,
-    setClient, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
+    setClient, setCompany, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus
   } = useOrderFormStore();
 
   const myRoles = useMyRoles(user);
   const myProfile = useMyProfile(user);
+
+  const myCompanies = useMyCompanies(user);
+
+  useEffect(() => {
+    if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
+      setCompany(myCompanies.data[0]);
+    }
+  }, [myCompanies.data, companyId, setCompany]);
 
   useEffect(() => {
     if (!idempotencyKey && step === "client") {
@@ -76,6 +84,14 @@ function NewOrderPage() {
       return;
     }
 
+    if (!companyId) {
+      toast.error("Empresa não selecionada", {
+        description: "Por favor, selecione a empresa para este pedido."
+      });
+      setStep("client");
+      return;
+    }
+
     if (!paymentTermId || !paymentMethodId || !saleTypeId) {
       toast.error("Dados incompletos", {
         description: "Por favor, selecione o tipo de venda, prazo e forma de pagamento."
@@ -90,7 +106,7 @@ function NewOrderPage() {
 
     try {
       const payload = {
-        companyId: 1 as 1 | 3, // Simplificado: Vendedor no ERP já tem empresa vinculada via procedure.
+        companyId: companyId as number,
         clientId: clientId,
         sellerId: myProfile.data.erp_seller_id,
         saleTypeId,
@@ -168,9 +184,43 @@ function NewOrderPage() {
       {step === "client" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Seleção de Cliente</CardTitle>
+            <CardTitle className="text-lg">Empresa e Cliente</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {myCompanies.data && myCompanies.data.length > 1 && (
+              <div className="space-y-3">
+                <Label>Empresa do Pedido</Label>
+                <div className="flex gap-4">
+                  <div 
+                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 1 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
+                    onClick={() => setCompany(1)}
+                  >
+                    <p className="text-sm font-bold">Graal</p>
+                    <p className="text-xs text-muted-foreground">ID: 1</p>
+                  </div>
+                  <div 
+                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 3 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
+                    onClick={() => setCompany(3)}
+                  >
+                    <p className="text-sm font-bold">Grott</p>
+                    <p className="text-xs text-muted-foreground">ID: 3</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {myCompanies.data && myCompanies.data.length === 1 && (
+              <div className="rounded-md bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground uppercase font-semibold">Empresa</p>
+                <p className="text-sm font-medium">{myCompanies.data[0] === 1 ? 'Graal' : 'Grott'}</p>
+              </div>
+            )}
+
+            <Separator />
+
+            <div className="space-y-4">
+              <Label>Seleção de Cliente</Label>
+            </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 

@@ -18,6 +18,7 @@ export interface OrderEquipment {
 interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
+  companyId: number | null;
   idempotencyKey: string | null;
   submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
   lastAttemptAt: string | null;
@@ -36,6 +37,7 @@ interface OrderFormStore {
   
   // Actions
   setClient: (id: number, name: string) => void;
+  setCompany: (id: number | null) => void;
   setIdempotencyKey: (key: string) => void;
   setSubmissionStatus: (status: OrderFormStore["submissionStatus"], erpData?: { orderId?: number; orderNumber?: number }) => void;
   addItem: (item: OrderItem) => void;
@@ -56,6 +58,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
     (set) => ({
       clientId: null,
       clientName: null,
+      companyId: null,
       idempotencyKey: null,
       submissionStatus: "draft",
       lastAttemptAt: null,
@@ -73,6 +76,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       saleTypeId: null,
 
       setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setCompany: (id: number | null) => set({ companyId: id }),
       setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
       setSubmissionStatus: (status, erpData) => set({ 
         submissionStatus: status,
@@ -127,6 +131,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       reset: () => set({
         clientId: null,
         clientName: null,
+        companyId: null,
         idempotencyKey: null,
         submissionStatus: "draft",
         lastAttemptAt: null,

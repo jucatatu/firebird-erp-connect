@@ -66,3 +66,18 @@ export function primaryRole(roles: AppRole[] | undefined): AppRole | null {
   if (roles.includes("vendedor")) return "vendedor";
   return roles[0];
 }
+
+export function useMyCompanies(user: User | null) {
+  return useQuery({
+    queryKey: ["my-companies", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_company_access")
+        .select("company_id")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data ?? []).map((c) => c.company_id);
+    },
+  });
+}
