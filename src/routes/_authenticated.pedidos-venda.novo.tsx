@@ -389,14 +389,8 @@ function NewOrderPage() {
                       ? (equipmentTypesQ.data as any).data.equipmentTypes 
                       : [];
                     
-                    // Filtro local de equipamentos (mesma lógica de produtos se houver campo de busca unificado no futuro)
-                    const filteredEquips = equipmentList.filter((et: any) => {
-                      const search = productSearch.toLowerCase();
-                      return !search || 
-                             et.description?.toLowerCase().includes(search) ||
-                             et.code?.toLowerCase().includes(search) ||
-                             et.id?.toString().includes(search);
-                    });
+                    // Sprint 8.5.11: Equipamentos NÃO são filtrados por productSearch
+                    const filteredEquips = equipmentList;
 
                     if (!equipmentTypesQ.isLoading && equipmentList.length === 0) {
                       return <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>;
