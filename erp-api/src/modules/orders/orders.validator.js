@@ -21,7 +21,7 @@ const LIMITS = Object.freeze({
 
 const finiteNumber = z
   .number({ invalid_type_error: "Deve ser numérico." })
-  .refine((n) => Number.isFinite(n), { message: "Valor não pode ser NaN/Infinity." });
+  .finite({ message: "Valor não pode ser NaN/Infinity." });
 
 const positiveInt = z
   .number({ invalid_type_error: "Deve ser inteiro." })
