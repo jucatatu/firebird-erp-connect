@@ -90,7 +90,7 @@ function NewOrderPage() {
 
     try {
       const payload = {
-        companyId: (myProfile.data?.company_ids?.[0] || 1) as 1 | 3,
+        companyId: 1 as 1 | 3, // Simplificado: Vendedor no ERP já tem empresa vinculada via procedure.
         clientId: clientId,
         sellerId: myProfile.data.erp_seller_id,
         saleTypeId,
