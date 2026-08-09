@@ -118,6 +118,7 @@ function buildEquipmentProcParams(orderId, eq) {
 
 module.exports = {
   CAD_USER,
+  resolveCompanyId,
   buildCompleteProcParams,
   buildItemProcParams,
   buildEquipmentProcParams,
