@@ -56,6 +56,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
     (set) => ({
       clientId: null,
       clientName: null,
+      idempotencyKey: null,
+      submissionStatus: "draft",
+      lastAttemptAt: null,
+      erpOrderId: null,
+      erpOrderNumber: null,
       items: [],
       equipments: [],
       deliver: true,
@@ -68,6 +73,13 @@ export const useOrderFormStore = create<OrderFormStore>()(
       saleTypeId: null,
 
       setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
+      setSubmissionStatus: (status, erpData) => set({ 
+        submissionStatus: status,
+        lastAttemptAt: new Date().toISOString(),
+        erpOrderId: erpData?.orderId ?? null,
+        erpOrderNumber: erpData?.orderNumber ?? null
+      }),
       addItem: (item: OrderItem) => set((state: OrderFormStore) => {
         const exists = state.items.find(i => i.productId === item.productId);
         if (exists) {
