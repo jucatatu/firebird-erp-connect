@@ -284,7 +284,10 @@ function NewOrderPage() {
 
   const CoverageSummary = () => {
     const viasValid = getAvailableVias() >= getRequiredVias();
-    const allLitersValid = choppItems.every(it => getProductCoverage(it.productId).provided >= it.required);
+    const allLitersValid = choppItems.every(it => {
+      const cov = getProductCoverage(it.productId);
+      return cov.provided >= cov.required;
+    });
     
     if (choppItems.length === 0) return null;
 
