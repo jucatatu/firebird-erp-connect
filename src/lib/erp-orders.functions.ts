@@ -35,6 +35,21 @@ export interface ErpClient {
   } | null;
 }
 
+export interface ErpProduct {
+  id: number;
+  code: string | null;
+  description: string;
+  companyId: number | null;
+  active: boolean | null;
+}
+
+export interface ErpEquipmentType {
+  id: number;
+  code: string | null;
+  description: string;
+  active: boolean | null;
+}
+
 export const searchErpClients = createServerFn({ method: "GET" })
   .inputValidator((d) => 
     z.object({

@@ -19,6 +19,9 @@ import {
   resolveErpPrice,
   createErpOrder,
   type CreateOrderInput,
+  type ErpResponse,
+  type ErpProduct,
+  type ErpEquipmentType,
 } from "@/lib/erp-orders.functions";
 
 /** Ping público /api/v1/health da API Node. */
@@ -99,7 +102,7 @@ export function useErpProducts(input: SearchProductsInput | null) {
     ],
     queryFn: () => {
       if (!input) throw new Error("input ausente");
-      return fn({ data: input });
+      return fn({ data: input }) as Promise<ErpResponse<{ products: ErpProduct[]; nextCursor: number | null }>>;
     },
     enabled: Boolean(input && input.q.trim().length >= 3),
     staleTime: 60_000,
@@ -111,7 +114,7 @@ export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
     queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
-    queryFn: () => fn({ data: input ?? {} }),
+    queryFn: () => fn({ data: input ?? {} }) as Promise<ErpResponse<ErpEquipmentType[]>>,
     staleTime: 60_000,
   });
 }
