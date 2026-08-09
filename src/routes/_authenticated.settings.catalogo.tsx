@@ -126,7 +126,7 @@ function ProductsTab({
 }) {
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState<string | null>(null);
-  const productsQ = useErpProducts(query ? { q: query, limit: 50 } : null);
+  const productsQ = useErpProducts(query ? { q: query, limit: 50, isAdminSearch: true } : null);
   const payload = productsQ.data?.ok ? productsQ.data.data : null;
   const apiError = productsQ.data && !productsQ.data.ok ? productsQ.data.error : null;
 
@@ -216,7 +216,7 @@ function EquipmentTab({
   onSelect: (t: CatalogDialogTarget) => void;
 }) {
   const [term, setTerm] = useState("");
-  const equipQ = useErpEquipmentTypes();
+  const equipQ = useErpEquipmentTypes({ isAdminSearch: true });
   const payload = equipQ.data?.ok ? equipQ.data.data : null;
   const apiError = equipQ.data && !equipQ.data.ok ? equipQ.data.error : null;
 

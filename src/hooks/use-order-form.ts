@@ -51,6 +51,7 @@ interface OrderFormStore {
   setPayment: (termId: number | null, methodId: number | null) => void;
   setSaleType: (typeId: number | null) => void;
   reset: () => void;
+  resetItemsAndClient: () => void;
 }
 
 export const useOrderFormStore = create<OrderFormStore>()(
@@ -144,6 +145,15 @@ export const useOrderFormStore = create<OrderFormStore>()(
         returnEquipment: false,
         returnAt: null,
         notes: "",
+        paymentTermId: null,
+        paymentMethodId: null,
+        saleTypeId: null,
+      }),
+      resetItemsAndClient: () => set({
+        clientId: null,
+        clientName: null,
+        items: [],
+        equipments: [],
         paymentTermId: null,
         paymentMethodId: null,
         saleTypeId: null,

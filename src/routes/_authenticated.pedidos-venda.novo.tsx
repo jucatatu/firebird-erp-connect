@@ -87,7 +87,7 @@ function NewOrderPage() {
       : null
   );
   
-  const equipmentTypesQ = useErpEquipmentTypes();
+  const equipmentTypesQ = useErpEquipmentTypes({ companyId: companyId as 1 | 3 });
 
   const createOrderM = useCreateErpOrder();
 

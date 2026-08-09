@@ -113,7 +113,7 @@ export function useErpProducts(input: SearchProductsInput | null) {
 export function useErpEquipmentTypes(input?: ListEquipmentTypesInput) {
   const fn = useServerFn(listErpEquipmentTypes);
   return useQuery({
-    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any"],
+    queryKey: ["erp", "equipment-types", input?.q ?? "", input?.active ?? "any", input?.companyId ?? "all"],
     queryFn: () => fn({ data: input ?? {} }),
     staleTime: 60_000,
   });
