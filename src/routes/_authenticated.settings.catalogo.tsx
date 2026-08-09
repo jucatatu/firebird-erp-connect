@@ -169,7 +169,7 @@ function ProductsTab({
             Busque um produto no ERP para configurá-lo.
           </p>
         )}
-        {(payload?.products ?? []).map((p) => {
+        {(Array.isArray(payload?.products) ? payload.products : []).map((p) => {
           const id = Number(p.id);
           if (!Number.isInteger(id) || id <= 0) return null;
           const description = p.description?.trim() || `Produto ${id}`;
