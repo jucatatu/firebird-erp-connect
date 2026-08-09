@@ -184,9 +184,42 @@ function NewOrderPage() {
       {step === "client" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Seleção de Cliente</CardTitle>
+            <CardTitle className="text-lg">Empresa e Cliente</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            {myCompanies.data && myCompanies.data.length > 1 && (
+              <div className="space-y-3">
+                <Label>Empresa do Pedido</Label>
+                <div className="flex gap-4">
+                  <div 
+                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 1 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
+                    onClick={() => setCompany(1)}
+                  >
+                    <p className="text-sm font-bold">Graal</p>
+                    <p className="text-xs text-muted-foreground">ID: 1</p>
+                  </div>
+                  <div 
+                    className={`flex-1 cursor-pointer rounded-lg border p-4 text-center transition-all ${companyId === 3 ? 'border-primary bg-primary/5' : 'bg-muted/20'}`}
+                    onClick={() => setCompany(3)}
+                  >
+                    <p className="text-sm font-bold">Grott</p>
+                    <p className="text-xs text-muted-foreground">ID: 3</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {myCompanies.data && myCompanies.data.length === 1 && (
+              <div className="rounded-md bg-muted/30 p-3">
+                <p className="text-xs text-muted-foreground uppercase font-semibold">Empresa</p>
+                <p className="text-sm font-medium">{myCompanies.data[0] === 1 ? 'Graal' : 'Grott'}</p>
+              </div>
+            )}
+
+            <Separator />
+
+            <div className="space-y-4">
+              <Label>Seleção de Cliente</Label>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
