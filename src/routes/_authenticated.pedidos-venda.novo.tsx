@@ -316,7 +316,7 @@ function NewOrderPage() {
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-    return p?.requires_equipment;
+    return p?.equipment_mode === 'CHOPE' || p?.requires_equipment;
   });
 
   const getRequiredVias = () => choppItems.length;
@@ -324,12 +324,15 @@ function NewOrderPage() {
   const getAvailableVias = () => {
     let total = 0;
     equipments.forEach(eq => {
-      const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
-      if (et?.description?.toLowerCase().includes("vias")) {
-        const viasMatch = et.description.match(/(\d+)\s*vias/i);
+      // Usar metadados se disponíveis, senão fallback para parsing de nome
+      if (eq.tapLines) {
+        total += eq.tapLines * eq.quantity;
+      } else {
+        const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
+        const desc = (eq.description || et?.description || "").toLowerCase();
+        const viasMatch = desc.match(/(\d+)\s*vias/i);
         if (viasMatch) total += Number(viasMatch[1]) * eq.quantity;
-      } else if (et?.description?.toLowerCase().includes("via")) {
-        total += 1 * eq.quantity;
+        else if (desc.includes("via")) total += 1 * eq.quantity;
       }
     });
     return total;
@@ -341,16 +344,25 @@ function NewOrderPage() {
     
     let provided = 0;
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === productId);
-    const pName = p?.description?.toLowerCase() || "";
+    const pDesc = (p?.description || "").toLowerCase();
+    const style = pDesc.split(" ")[0] || "";
     
     equipments.forEach(eq => {
       const desc = eq.description.toLowerCase();
-      if (desc.includes("barril")) {
-        // Regra: se houver apenas um estilo, qualquer barril conta.
-        // Se houver múltiplos, o barril deve conter o nome do estilo (descrito no suggestEquipments)
-        if (choppItems.length === 1 || desc.includes(pName.split(" ")[0])) {
-           const litersMatch = desc.match(/(\d+)\s*l/i);
-           if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+      // Regra: se o equipamento for um barril (KEG)
+      if (eq.role === 'KEG' || desc.includes("barril")) {
+        // Se houver apenas um estilo de chope, qualquer barril conta.
+        // Se houver múltiplos, o barril deve conter o estilo no nome (injetado pelo suggest) ou ser genérico
+        const isGeneric = !desc.includes("(") || desc.includes("genérico");
+        const matchesStyle = style && desc.includes(style);
+
+        if (choppItems.length === 1 || isGeneric || matchesStyle) {
+           if (eq.capacityLiters) {
+             provided += eq.capacityLiters * eq.quantity;
+           } else {
+             const litersMatch = desc.match(/(\d+)\s*l/i);
+             if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+           }
         }
       }
     });
