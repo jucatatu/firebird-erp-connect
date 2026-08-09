@@ -390,30 +390,40 @@ function NewOrderPage() {
                       : [];
                     
                     // Filtro local de equipamentos (mesma lógica de produtos se houver campo de busca unificado no futuro)
-                    const filteredEquips = equipmentList.filter((et: any) => 
-                      !productSearch || et.description?.toLowerCase().includes(productSearch.toLowerCase())
-                    );
+                    const filteredEquips = equipmentList.filter((et: any) => {
+                      const search = productSearch.toLowerCase();
+                      return !search || 
+                             et.description?.toLowerCase().includes(search) ||
+                             et.code?.toLowerCase().includes(search) ||
+                             et.id?.toString().includes(search);
+                    });
 
                     if (!equipmentTypesQ.isLoading && equipmentList.length === 0) {
                       return <p className="col-span-full py-2 text-center text-xs text-muted-foreground">Nenhum equipamento habilitado.</p>;
                     }
 
-                    return filteredEquips.map((et: any) => (
-                      <Button 
-                        key={et.id} 
-                        variant="outline" 
-                        size="sm" 
-                        className="justify-start h-auto py-2.5 px-3 text-left"
-                        onClick={() => addEquipment({
-                          equipmentTypeId: et.id || 0,
-                          description: et.description || "Sem descrição",
-                          quantity: 1
-                        })}
-                      >
-                        <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
-                        <span className="truncate">{et.description}</span>
-                      </Button>
-                    ));
+                    return filteredEquips.map((et: any) => {
+                      const etorder = (et as any).order;
+                      return (
+                        <Button 
+                          key={et.id} 
+                          variant="outline" 
+                          size="sm" 
+                          className="justify-start h-auto py-2.5 px-3 text-left"
+                          onClick={() => addEquipment({
+                            equipmentTypeId: et.id || 0,
+                            description: et.description || "Sem descrição",
+                            quantity: 1
+                          })}
+                        >
+                          <Plus className="mr-2 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {etorder > 0 && <Badge variant="outline" className="h-4 px-1 text-[9px] font-bold bg-muted/50">{etorder}</Badge>}
+                            <span className="truncate">{et.description}</span>
+                          </div>
+                        </Button>
+                      );
+                    });
                   })()}
                 </div>
               </div>
