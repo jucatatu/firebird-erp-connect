@@ -1,16 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useOrderFormStore } from '../hooks/use-order-form';
-
-// Mock do localStorage para o persist do Zustand
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => { store[key] = value; },
-    clear: () => { store = {}; }
-  };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 describe('Sprint 8.4 - Novo Pedido Fixes', () => {
   beforeEach(() => {
