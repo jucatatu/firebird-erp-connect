@@ -9,7 +9,7 @@ const cases = [
   { input: 'Romeu', expected: ['%ROMEU%', '%R_M_U%'], desc: 'Romeu -> Mantém folding (limite 2 coringas)' },
   { input: 'Joao', expected: ['%JOAO%', '%J__O%'], desc: 'Joao -> Mantém folding (limite 2 coringas)' },
   { input: 'Jose', expected: ['%JOSE%', '%J_S_%'], desc: 'Jose -> Mantém folding' },
-  { input: 'Acucar', expected: ['%ACUCAR%', '%_C_CAR%'], desc: 'Acucar -> Mantém folding (A e U viram _, C, C, A, R literais)' }
+  { input: 'Acucar', expected: ['%ACUCAR%', '%__UCAR%'], desc: 'Acucar (A e C viram _, depois trava no limite 2 coringas) -> Mantém folding' }
 ];
 
 cases.forEach(c => {
