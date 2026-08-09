@@ -317,8 +317,8 @@ function NewOrderPage() {
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {productsQ.data?.data?.products
-                    ?.filter(p => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
+                  {(Array.isArray(productsQ.data?.data?.products) ? productsQ.data.data.products : [])
+                    .filter(p => !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase()))
                     .map((p) => {
                       const pid = p.id;
                       const pdesc = p.description;
@@ -343,7 +343,7 @@ function NewOrderPage() {
                         </div>
                       );
                     })}
-                  {!productsQ.isFetching && productsQ.data?.data?.products?.length === 0 && (
+                  {!productsQ.isFetching && (!productsQ.data?.data?.products || productsQ.data.data.products.length === 0) && (
                     <p className="py-4 text-center text-xs text-muted-foreground">Catálogo de produtos não configurado para esta empresa.</p>
                   )}
                 </div>
