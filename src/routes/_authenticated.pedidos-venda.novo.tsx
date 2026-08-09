@@ -944,14 +944,10 @@ function NewOrderPage() {
             </CardContent>
           </Card>
         )}
-                  <p className="text-[10px] text-destructive text-center font-medium mt-1">
-                    Equipamentos insuficientes para os produtos de chope.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      </div>
+    </div>
+  );
+}
       )}
     </div>
   );
