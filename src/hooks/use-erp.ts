@@ -107,7 +107,12 @@ export function useErpProducts(input: { q?: string; companyId: 1 | 3; limit?: nu
     queryFn: async (): Promise<ErpResponse<ErpProductsPayload>> => {
       if (!query && input.isAdminSearch) {
         // Para busca administrativa, não disparamos sem termo para evitar 400 da API
-        return { ok: true, data: { products: [], nextCursor: null }, status: 200, error: undefined };
+        return { 
+          ok: true, 
+          data: { products: [], nextCursor: null, count: 0, limit: input.limit ?? 50 }, 
+          status: 200, 
+          error: null 
+        };
       }
       return fn({ data: { ...input, q: query } });
     },
