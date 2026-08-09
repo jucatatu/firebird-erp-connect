@@ -144,7 +144,45 @@ export async function handleCreateErpOrder(
     };
   }
 
-  // Buscar perfil para pegar o erp_seller_id
+  // 2. Auditoria Server-Side de Empresa (Sprint 8.2)
+  // Buscamos as empresas permitidas ao usuário no banco
+  const { data: userCompanies, error: ucaErr } = await supabaseAdmin
+    .from("user_company_access")
+    .select("company_id")
+    .eq("user_id", user.id);
+
+  if (ucaErr || !userCompanies || userCompanies.length === 0) {
+    return {
+      ok: false,
+      status: 403,
+      data: null,
+      error: { code: "NO_COMPANY_ACCESS", message: "Usuário não possui acesso a nenhuma empresa.", retryable: false }
+    };
+  }
+
+  const allowedCompanyIds = userCompanies.map((c: any) => c.company_id);
+  const requestedCompanyId = input.companyId;
+
+  // Validação estrita: O companyId deve ser 1 ou 3 E estar nas permissões do usuário
+  if (![1, 3].includes(requestedCompanyId)) {
+    return {
+      ok: false,
+      status: 400,
+      data: null,
+      error: { code: "INVALID_COMPANY", message: "ID de empresa inválido.", retryable: false }
+    };
+  }
+
+  if (!allowedCompanyIds.includes(requestedCompanyId)) {
+    return {
+      ok: false,
+      status: 403,
+      data: null,
+      error: { code: "COMPANY_NOT_ALLOWED", message: "Você não tem permissão para criar pedidos nesta empresa.", retryable: false }
+    };
+  }
+
+  // 3. Resolver sellerId do banco
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from("profiles")
     .select("erp_seller_id")
@@ -165,6 +203,7 @@ export async function handleCreateErpOrder(
   }
 
   // Sobrescrever sellerId do payload com o valor real do banco
+  // companyId é mantido conforme validado acima
   const finalPayload = {
     ...input,
     sellerId: profile.erp_seller_id

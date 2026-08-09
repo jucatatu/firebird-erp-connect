@@ -35,10 +35,10 @@ function NewOrderPage() {
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
   const {
-    clientId, clientName, items, equipments, deliver, deliveryAt,
+    clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus,
-    setClient, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
+    setClient, setCompany, addItem, removeItem, updateItemQuantity, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus
   } = useOrderFormStore();
