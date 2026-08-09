@@ -852,7 +852,7 @@ function NewOrderPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Horário Previsto (Opcional)</Label>
-                    <Input type="time" onChange={(e) => {
+                    <Input type="time" onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       if (deliveryAt) {
                         const date = deliveryAt.split('T')[0];
                         setDelivery(deliver, `${date}T${e.target.value}:00`);
