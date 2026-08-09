@@ -63,8 +63,13 @@ function ProductCard({ product, clientId, addItem, removeItem, cartItem }: { pro
   const [localQty, setLocalQty] = useState(cartItem?.quantity || pinitial);
 
   useEffect(() => {
-    if (cartItem) setLocalQty(cartItem.quantity);
-  }, [cartItem]);
+    // Sincroniza localQty com o carrinho se o item for adicionado ou removido externamente
+    if (cartItem) {
+      setLocalQty(cartItem.quantity);
+    } else {
+      setLocalQty(pinitial);
+    }
+  }, [cartItem, pinitial]);
 
   const handleQtyChange = (val: number) => {
     const newQty = Math.max(0, val);
@@ -163,16 +168,21 @@ function NewOrderPage() {
   const myCompanies = useMyCompanies(user);
 
   useEffect(() => {
+    // Ao montar a página de Novo Pedido, se o status for "created" ou "failed", resetamos para evitar lixo
+    if (submissionStatus === "created" || submissionStatus === "failed") {
+      reset();
+    }
+    
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
       setCompany(myCompanies.data[0]);
     }
-  }, [myCompanies.data, companyId, setCompany]);
+  }, [myCompanies.data, companyId, setCompany, submissionStatus, reset]);
 
   useEffect(() => {
-    if (!idempotencyKey && step === "client") {
+    if (!idempotencyKey) {
       setIdempotencyKey(crypto.randomUUID());
     }
-  }, [idempotencyKey, step, setIdempotencyKey]);
+  }, [idempotencyKey, setIdempotencyKey]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -356,46 +366,49 @@ function NewOrderPage() {
     return true;
   };
 
-  const EquipmentCoverageIndicators = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {choppItems.length === 0 ? (
-        <div className="col-span-full py-4 text-center border rounded-lg bg-muted/5">
-          <p className="text-xs text-muted-foreground">Adicione um produto de chope para calcular os equipamentos.</p>
-        </div>
-      ) : (
-        <>
-          <div className="p-3 border rounded-lg bg-muted/10">
-            <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Vias (Chopeiras)</p>
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Requeridas: {getRequiredVias()}</span>
-              <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
-                {getAvailableVias()} disponíveis
-              </Badge>
-            </div>
+  const EquipmentCoverageIndicators = () => {
+    if (choppItems.length === 0) return null;
+    if (equipments.length === 0) return null;
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 animate-in fade-in duration-300">
+        <div className="p-3 border rounded-lg bg-muted/10">
+          <p className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-2">
+            Vias (Chopeiras) 
+            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+          </p>
+          <div className="flex justify-between items-center">
+            <span className="text-sm">Requeridas: {getRequiredVias()}</span>
+            <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
+              {getAvailableVias()} disponíveis
+            </Badge>
           </div>
-          {choppItems.map(it => {
-            const cov = getProductCoverage(it.productId);
-            const diff = cov.required - cov.provided;
-            return (
-              <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
-                <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate">{it.description}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
-                  {diff > 0 ? (
-                    <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
-                  ) : diff < 0 ? (
-                    <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  )}
-                </div>
+        </div>
+        {choppItems.map(it => {
+          const cov = getProductCoverage(it.productId);
+          const diff = cov.required - cov.provided;
+          return (
+            <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
+              <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate flex items-center gap-2">
+                {it.description}
+                {diff === 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
+              </p>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
+                {diff > 0 ? (
+                  <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
+                ) : diff < 0 ? (
+                  <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
+                ) : (
+                  <span className="text-[10px] text-green-600 font-bold">Coberto</span>
+                )}
               </div>
-            );
-          })}
-        </>
-      )}
-    </div>
-  );
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const CoverageSummary = () => {
     const viasValid = getAvailableVias() >= getRequiredVias();
@@ -554,30 +567,56 @@ function NewOrderPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                 {suggestionDirty && (
-                    <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
-                      <p className="text-[10px] text-yellow-800 font-medium">Produtos alterados. Recalcular equipamentos?</p>
-                      <Button variant="link" size="sm" className="h-6 text-[10px] text-yellow-800 underline" onClick={suggestEquipments}>Recalcular sugestão</Button>
+                 {choppItems.length === 0 ? (
+                    <div className="py-6 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                      <p className="text-sm text-muted-foreground">Adicione produtos de chope para calcular os equipamentos.</p>
                     </div>
+                 ) : (
+                   <>
+                     {equipments.length === 0 && (
+                       <div className="mb-6 p-4 border rounded-xl bg-primary/5 border-primary/10">
+                         <p className="text-sm font-bold text-primary mb-1">Necessidade do pedido:</p>
+                         <p className="text-xs text-muted-foreground">
+                           • {getRequiredVias()} {getRequiredVias() === 1 ? 'via' : 'vias'} de chopeira<br/>
+                           • {choppItems.reduce((acc, it) => acc + it.quantity, 0)} L em barris
+                         </p>
+                       </div>
+                     )}
+
+                     {suggestionDirty && (
+                        <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                          <p className="text-[10px] text-yellow-800 font-medium">Produtos alterados. Recalcular equipamentos?</p>
+                          <Button variant="link" size="sm" className="h-6 text-[10px] text-yellow-800 underline" onClick={suggestEquipments}>Recalcular sugestão</Button>
+                        </div>
+                     )}
+                     
+                     <div className="space-y-3">
+                        {equipments.length > 0 && (
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Equipamentos Selecionados</p>
+                        )}
+                        {equipments.map(eq => (
+                          <div key={eq.equipmentTypeId} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
+                             <div>
+                                <p className="text-sm font-bold">{eq.description}</p>
+                                <p className="text-xs text-muted-foreground">Qtd: {eq.quantity}</p>
+                             </div>
+                             <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1)}>-</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1)}>+</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
+                             </div>
+                          </div>
+                        ))}
+                     </div>
+
+                     {equipments.length > 0 && (
+                       <div className="mt-6 border-t pt-4">
+                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Cobertura</p>
+                         <EquipmentCoverageIndicators />
+                       </div>
+                     )}
+                   </>
                  )}
-                 
-                 <EquipmentCoverageIndicators />
-                 
-                 <div className="space-y-2 mt-4">
-                    {equipments.map(eq => (
-                      <div key={eq.equipmentTypeId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
-                         <div>
-                            <p className="text-sm font-bold">{eq.description}</p>
-                            <p className="text-xs text-muted-foreground">Qtd: {eq.quantity}</p>
-                         </div>
-                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1)}>-</Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1)}>+</Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
-                         </div>
-                      </div>
-                    ))}
-                 </div>
               </CardContent>
             </Card>
           </div>
