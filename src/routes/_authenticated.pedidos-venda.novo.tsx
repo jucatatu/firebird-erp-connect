@@ -431,12 +431,12 @@ function NewOrderPage() {
   const getAvailableVias = () => {
     let total = 0;
     equipments.forEach(eq => {
-      // Usar metadados se disponíveis, senão fallback para parsing de nome
+      // Prioridade 1: Usar campo tapLines (taps_count da migration)
       if (eq.tapLines) {
         total += eq.tapLines * eq.quantity;
       } else {
-        const et = (equipmentTypesQ.data as any)?.data?.equipmentTypes?.find((type: any) => type.id === eq.equipmentTypeId);
-        const desc = (eq.description || et?.description || "").toLowerCase();
+        // Fallback: Parsing de nome
+        const desc = eq.description.toLowerCase();
         const viasMatch = desc.match(/(\d+)\s*vias/i);
         if (viasMatch) total += Number(viasMatch[1]) * eq.quantity;
         else if (desc.includes("via")) total += 1 * eq.quantity;
