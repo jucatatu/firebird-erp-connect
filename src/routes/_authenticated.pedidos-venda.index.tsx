@@ -21,6 +21,7 @@ import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
+import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 
 type StatusFilter = OrderDraftStatus | "all";
 
@@ -162,8 +163,8 @@ function OrdersListPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium">Identificação</th>
-                  <th className="px-4 py-2 text-left font-medium">Cliente</th>
+                  <th className="px-4 py-2 text-left font-medium">Cliente / Pedido</th>
+                  <th className="px-4 py-2 text-left font-medium">Conteúdo</th>
                   <th className="px-4 py-2 text-left font-medium">Empresa</th>
                   <th className="px-4 py-2 text-left font-medium">Status</th>
                   <th className="px-4 py-2 text-left font-medium">Atualizado</th>
@@ -172,29 +173,43 @@ function OrdersListPage() {
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2 align-top">
+                    <td className="px-4 py-3 align-top">
                       <Link
                         to="/pedidos-venda/$draftId"
                         params={{ draftId: d.id }}
-                        className="block"
+                        className="block group"
                       >
-                        <OrderIdentifier id={d.id} />
-                        <div className="mt-0.5 truncate text-sm font-medium text-foreground">
-                          {d.title || "(sem título)"}
+                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                          {d.customer_name_snapshot || "(sem cliente)"}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <OrderIdentifier id={d.id} />
+                          {d.erp_order_number && (
+                            <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
+                          )}
                         </div>
                       </Link>
                     </td>
-                    <td className="px-4 py-2 align-top text-foreground/90">
-                      {d.customer_name_snapshot || "—"}
+                    <td className="px-4 py-3 align-top max-w-[250px]">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Produtos:</span>
+                          <span className="text-foreground/80 truncate">{getItemsSummary(d.payload)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Equipamentos:</span>
+                          <span className="text-foreground/80 truncate">{getEquipmentsSummary(d.payload)}</span>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-4 py-2 align-top text-foreground/80">
+                    <td className="px-4 py-3 align-top text-foreground/80">
                       {companyLabel(d.company_id)}
                     </td>
-                    <td className="px-4 py-2 align-top">
+                    <td className="px-4 py-3 align-top">
                       <StatusBadge status={d.status} />
                     </td>
-                    <td className="px-4 py-2 align-top text-xs text-muted-foreground">
-                      {new Date(d.updated_at).toLocaleString()}
+                    <td className="px-4 py-3 align-top text-xs text-muted-foreground">
+                      {new Date(d.created_at).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
                 ))}
@@ -208,17 +223,35 @@ function OrdersListPage() {
                 <Link
                   to="/pedidos-venda/$draftId"
                   params={{ draftId: d.id }}
-                  className="block rounded-md border bg-surface p-3"
+                  className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <OrderIdentifier id={d.id} />
                     <StatusBadge status={d.status} />
                   </div>
-                  <div className="mt-1 truncate text-sm font-medium">
-                    {d.title || d.customer_name_snapshot || "(sem título)"}
+                  
+                  <div className="flex flex-col gap-1 mb-3">
+                    <div className="text-sm font-bold text-foreground truncate">
+                      {d.customer_name_snapshot || "(sem cliente)"}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
+                      <span>{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
+                      <span>·</span>
+                      <span>{companyLabel(d.company_id)}</span>
+                      <span>·</span>
+                      <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {companyLabel(d.company_id)} · {new Date(d.updated_at).toLocaleDateString()}
+
+                  <div className="space-y-1.5 pt-2 border-t border-dashed border-muted/50">
+                    <div className="flex items-start gap-1 text-[10px]">
+                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Produtos:</span>
+                      <span className="text-foreground/80 line-clamp-1">{getItemsSummary(d.payload)}</span>
+                    </div>
+                    <div className="flex items-start gap-1 text-[10px]">
+                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Equipamentos:</span>
+                      <span className="text-foreground/80 line-clamp-1">{getEquipmentsSummary(d.payload)}</span>
+                    </div>
                   </div>
                 </Link>
               </li>
