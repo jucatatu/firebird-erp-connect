@@ -500,49 +500,66 @@ function NewOrderPage() {
     const requiredVias = getRequiredVias();
     if (requiredVias > 0) {
       const chopeiras = allEquipTypes.filter((et: any) => 
-        et.equipment_mode === 'CHOPE' || et.equipment_role === 'TAP' || et.description?.toLowerCase().includes("chopeira")
+        et.equipment_role === 'dispenser' || et.description?.toLowerCase().includes("chopeira")
       );
 
-      let remainingVias = requiredVias;
-      // Ordenar por maior número de vias para usar menos equipamentos
+      // Algoritmo: Encontrar combinação que use MENOS equipamentos
+      // Como o número de vias é pequeno (geralmente < 5), podemos fazer uma busca simples
+      // ou apenas priorizar a chopeira que mais se aproxima das vias necessárias sem excesso desnecessário
+      
       const sortedChopeiras = [...chopeiras].sort((a, b) => {
-         const vA = a.tap_lines || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-         const vB = b.tap_lines || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-         return vB - vA;
+         const vA = a.tap_count || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vB = b.tap_count || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         return vB - vA; // Maior primeiro
       });
 
-      for (const ch of sortedChopeiras) {
-        const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-        if (remainingVias <= 0) break;
-        const qty = Math.floor(remainingVias / vias);
-        if (qty > 0) {
-          newEquips.push({ 
-            equipmentTypeId: ch.id, 
-            description: ch.description, 
-            quantity: qty,
-            role: "TAP",
-            tapLines: vias
-          });
-          remainingVias -= qty * vias;
-        }
-      }
+      // Busca por equipamento único que cubra tudo
+      const exactMatch = sortedChopeiras.find(ch => (ch.tap_count || 1) === requiredVias);
+      const nextBest = [...sortedChopeiras].reverse().find(ch => (ch.tap_count || 1) >= requiredVias);
 
-      // Se sobrar, pegar a menor chopeira que cubra o resto
-      if (remainingVias > 0 && sortedChopeiras.length > 0) {
-        const smallestToCover = [...sortedChopeiras].reverse().find(ch => {
-          const vias = ch.tap_lines || Number(ch.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-          return vias >= remainingVias;
+      if (exactMatch) {
+        newEquips.push({ 
+          equipmentTypeId: exactMatch.id, 
+          description: exactMatch.description, 
+          quantity: 1,
+          role: "TAP",
+          tapLines: exactMatch.tap_count || 1
         });
-        if (smallestToCover) {
-          const vias = smallestToCover.tap_lines || Number(smallestToCover.description.match(/(\d+)\s*vias/i)?.[1] || 1);
-          const existing = newEquips.find(e => e.equipmentTypeId === smallestToCover.id);
+      } else if (nextBest) {
+        newEquips.push({ 
+          equipmentTypeId: nextBest.id, 
+          description: nextBest.description, 
+          quantity: 1,
+          role: "TAP",
+          tapLines: nextBest.tap_count || 1
+        });
+      } else {
+        // Fallback: Combinar equipamentos se não houver um que cubra tudo sozinho
+        let remaining = requiredVias;
+        for (const ch of sortedChopeiras) {
+          const vias = ch.tap_count || 1;
+          const qty = Math.floor(remaining / vias);
+          if (qty > 0) {
+            newEquips.push({ 
+              equipmentTypeId: ch.id, 
+              description: ch.description, 
+              quantity: qty,
+              role: "TAP",
+              tapLines: vias
+            });
+            remaining -= qty * vias;
+          }
+        }
+        if (remaining > 0 && sortedChopeiras.length > 0) {
+          const smallest = [...sortedChopeiras].reverse()[0];
+          const existing = newEquips.find(e => e.equipmentTypeId === smallest.id);
           if (existing) existing.quantity += 1;
-          else newEquips.push({ 
-            equipmentTypeId: smallestToCover.id, 
-            description: smallestToCover.description, 
+          else newEquips.push({
+            equipmentTypeId: smallest.id,
+            description: smallest.description,
             quantity: 1,
             role: "TAP",
-            tapLines: vias
+            tapLines: smallest.tap_count || 1
           });
         }
       }
