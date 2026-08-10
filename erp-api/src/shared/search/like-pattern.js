@@ -3,10 +3,9 @@
 /**
  * Padrões LIKE seguros para busca textual no Firebird.
  * 
- * Atualizado na Sprint 8.5.7 para prevenir padrões excessivamente genéricos.
+ * Sprint 8.9.6: Removido accent folding baseado em coringa "_" para evitar falsos positivos.
+ * Agora utiliza busca SUBSTRING + CASE-INSENSITIVE + ACCENT-INSENSITIVE via normalização.
  */
-
-const ACCENT_CLASSES = "AEIOUCN";
 
 /** Remove acentos do termo digitado (NFD + strip de diacríticos). */
 function stripAccents(value) {
@@ -15,11 +14,39 @@ function stripAccents(value) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+/** 
+ * Normaliza o termo de busca para comparação literal.
+ * Remove acentos, passa para maiúsculas e neutraliza coringas digitados pelo usuário.
+ */
 function normalizeTerm(term) {
   return stripAccents(term)
     .toUpperCase()
     .replace(/[%_]/g, " ")
     .trim();
+}
+
+/** 
+ * Gera uma expressão SQL que remove acentos de uma coluna no Firebird.
+ * Utiliza múltiplos REPLACE encadeados.
+ */
+function accentInsensitiveSqlExpression(columnExpression) {
+  let sql = `UPPER(${columnExpression})`;
+  
+  // Mapeamento de normalização (Baseado na regra funcional v1.8.6)
+  const replacements = [
+    ["Á", "A"], ["À", "A"], ["Ã", "A"], ["Â", "A"], ["Ä", "A"],
+    ["É", "E"], ["È", "E"], ["Ê", "E"], ["Ë", "E"],
+    ["Í", "I"], ["Ì", "I"], ["Î", "I"], ["Ï", "I"],
+    ["Ó", "O"], ["Ò", "O"], ["Õ", "O"], ["Ô", "O"], ["Ö", "O"],
+    ["Ú", "U"], ["Ù", "U"], ["Û", "U"], ["Ü", "U"],
+    ["Ç", "C"], ["Ñ", "N"]
+  ];
+
+  for (const [from, to] of replacements) {
+    sql = `REPLACE(${sql}, '${from}', '${to}')`;
+  }
+
+  return sql;
 }
 
 /** Padrão exato (sem folding), já em maiúsculas e sem coringas do usuário. */
@@ -29,57 +56,18 @@ function exactLikePattern(term) {
 }
 
 /** 
- * Padrão com folding de acentos.
- * 
- * Regra de Segurança Sprint 8.5.7:
- * - Limite de 2 coringas por termo.
- * - Deve preservar pelo menos 2 caracteres literais fixos (não coringas).
+ * Sprint 8.9.6: buildQPatterns agora retorna apenas o padrão exato normalizado.
+ * O folding baseado em "_" foi descontinuado para evitar falsos positivos como "Potus" -> "P_T_S".
  */
-function foldToLikePattern(term) {
-  const normalized = normalizeTerm(term);
-  if (!normalized) return "%%";
-
-  let out = "";
-  let wildcardsCount = 0;
-  let literalCount = 0;
-
-  for (const ch of normalized) {
-    if (ACCENT_CLASSES.includes(ch)) {
-      if (wildcardsCount < 2) {
-        out += "_";
-        wildcardsCount++;
-      } else {
-        out += ch;
-        literalCount++;
-      }
-    } else {
-      out += ch;
-      literalCount++;
-    }
-  }
-
-  // Se o folding resultou em algo muito vago (ex: Ipa -> _P_),
-  // invalidamos o pattern aproximado retornando null.
-  if (literalCount < 2) {
-    return null;
-  }
-
-  return `%${out}%`;
-}
-
-/** Padrão exato + padrão com folding seguro. */
 function buildQPatterns(term) {
   const exact = exactLikePattern(term);
-  if (term.length < 3) return [exact];
-
-  const folded = foldToLikePattern(term);
-  
-  // Se folded for nulo ou igual ao exato, usamos apenas o exato.
-  if (!folded || folded === exact) {
-    return [exact];
-  }
-
-  return [exact, folded];
+  return [exact];
 }
 
-module.exports = { stripAccents, exactLikePattern, foldToLikePattern, buildQPatterns };
+module.exports = { 
+  stripAccents, 
+  normalizeTerm,
+  exactLikePattern, 
+  buildQPatterns,
+  accentInsensitiveSqlExpression 
+};

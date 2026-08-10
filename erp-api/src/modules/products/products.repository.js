@@ -10,6 +10,7 @@
  */
 
 const firebird = require("../../shared/database/firebird-client");
+const { accentInsensitiveSqlExpression } = require("../../shared/search/like-pattern");
 const introspection = require("../../shared/database/schema-introspection");
 
 /** Candidatos por conceito — a PRIMEIRA coluna existente vence. */
@@ -164,11 +165,11 @@ async function searchProducts(input) {
     const ors = [];
     for (const pattern of input.qPatterns) {
       if (p.description) {
-        ors.push(`UPPER(pr.${p.description}) LIKE ?`);
+        ors.push(`${accentInsensitiveSqlExpression(`pr.${p.description}`)} LIKE ?`);
         params.push(pattern);
       }
       if (p.code) {
-        ors.push(`UPPER(pr.${p.code}) LIKE ?`);
+        ors.push(`${accentInsensitiveSqlExpression(`pr.${p.code}`)} LIKE ?`);
         params.push(pattern);
       }
     }

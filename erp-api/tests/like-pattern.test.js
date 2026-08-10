@@ -1,15 +1,21 @@
-const { buildQPatterns } = require('../src/shared/search/like-pattern');
+const { buildQPatterns, normalizeTerm } = require('../src/shared/search/like-pattern');
 const assert = require('assert');
 
-console.log('--- TESTANDO HELPER LIKE-PATTERN (SPRINT 8.5.7) ---');
+console.log('--- TESTANDO HELPER LIKE-PATTERN (SPRINT 8.9.6) ---');
 
 const cases = [
-  { input: 'Ipa', expected: ['%IPA%'], desc: 'Ipa (3 chars, vira _P_, literal=1) -> Bloqueia folding' },
-  { input: 'Pil', expected: ['%PIL%', '%P_L%'], desc: 'Pil (I vira _, P e L literais=2) -> Mantém folding' },
-  { input: 'Romeu', expected: ['%ROMEU%', '%R_M_U%'], desc: 'Romeu -> Mantém folding (limite 2 coringas)' },
-  { input: 'Joao', expected: ['%JOAO%', '%J__O%'], desc: 'Joao -> Mantém folding (limite 2 coringas)' },
-  { input: 'Jose', expected: ['%JOSE%', '%J_S_%'], desc: 'Jose -> Mantém folding' },
-  { input: 'Acucar', expected: ['%ACUCAR%', '%__UCAR%'], desc: 'Acucar (A e C viram _, depois trava no limite 2 coringas) -> Mantém folding' }
+  { input: 'Potus', expected: ['%POTUS%'], desc: 'Potus -> Somente literal normalizado' },
+  { input: 'Jose', expected: ['%JOSE%'], desc: 'Jose -> Somente literal normalizado' },
+  { input: 'José', expected: ['%JOSE%'], desc: 'José (com acento) -> Somente literal normalizado' },
+  { input: 'Joao', expected: ['%JOAO%'], desc: 'Joao -> Somente literal normalizado' },
+  { input: 'João', expected: ['%JOAO%'], desc: 'João (com acento) -> Somente literal normalizado' },
+  { input: 'Acucar', expected: ['%ACUCAR%'], desc: 'Acucar -> Somente literal normalizado' },
+  { input: 'Açúcar', expected: ['%ACUCAR%'], desc: 'Açúcar (com acento) -> Somente literal normalizado' },
+  { input: 'Ipa', expected: ['%IPA%'], desc: 'Ipa -> Somente literal normalizado' },
+  { input: 'Pil', expected: ['%PIL%'], desc: 'Pil -> Somente literal normalizado' },
+  { input: 'Romeu', expected: ['%ROMEU%'], desc: 'Romeu -> Somente literal normalizado' },
+  { input: 'Pet%', expected: ['%PET %'], desc: 'Neutralização de %' },
+  { input: 'Pet_S', expected: ['%PET S%'], desc: 'Neutralização de _' }
 ];
 
 cases.forEach(c => {
@@ -18,4 +24,28 @@ cases.forEach(c => {
   assert.deepStrictEqual(patterns, c.expected);
 });
 
-console.log('OK: Todos os casos do helper passaram.');
+console.log('\n--- TESTE DE FALSO POSITIVO (POTUS) ---');
+const potusPattern = buildQPatterns('Potus')[0];
+const fakeMatch1 = "CANIL PET SHOP HANDREYAS";
+const fakeMatch2 = "BOABOCA RESTAURANTE E PETISCARIA LTDA";
+
+// Simulando a lógica de comparação (o SQL fará isso, mas aqui validamos que o pattern não é vago)
+// O pattern %POTUS% NÃO deve casar com as strings normalizadas se "POTUS" não existir nelas.
+function simulaMatch(pattern, text) {
+  const normalizedText = normalizeTerm(text);
+  const regexBody = pattern.replace(/%/g, '.*');
+  const regex = new RegExp(`^${regexBody}$`, 'i');
+  return regex.test(normalizedText);
+}
+
+const match1 = simulaMatch(potusPattern, fakeMatch1);
+const match2 = simulaMatch(potusPattern, fakeMatch2);
+
+console.log(`Pattern: ${potusPattern}`);
+console.log(`"${fakeMatch1}" match? ${match1}`);
+console.log(`"${fakeMatch2}" match? ${match2}`);
+
+assert.strictEqual(match1, false, 'Potus NÃO deve casar com PET SHOP');
+assert.strictEqual(match2, false, 'Potus NÃO deve casar com PETISCARIA');
+
+console.log('\nOK: Todos os casos de teste da Sprint 8.9.6 passaram.');

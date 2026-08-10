@@ -10,6 +10,7 @@
  */
 
 const firebird = require("../../shared/database/firebird-client");
+const { accentInsensitiveSqlExpression } = require("../../shared/search/like-pattern");
 const introspection = require("../../shared/database/schema-introspection");
 const operationsRepository = require("../operations/operations.repository");
 
@@ -181,11 +182,11 @@ async function searchClients(input) {
     const ors = [];
     for (const pattern of input.qPatterns) {
       if (p.name && c.personId) {
-        ors.push(`UPPER(p.${p.name}) LIKE ?`);
+        ors.push(`${accentInsensitiveSqlExpression(`p.${p.name}`)} LIKE ?`);
         params.push(pattern);
       }
       if (p.tradeName && c.personId) {
-        ors.push(`UPPER(p.${p.tradeName}) LIKE ?`);
+        ors.push(`${accentInsensitiveSqlExpression(`p.${p.tradeName}`)} LIKE ?`);
         params.push(pattern);
       }
     }
