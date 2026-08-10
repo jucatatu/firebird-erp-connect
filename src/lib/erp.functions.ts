@@ -688,11 +688,11 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // 1. Buscar catálogo operacional no Supabase
-    let catalogConfig: Record<number, { display_name: string | null; order: number }> = {};
+    let catalogConfig: Record<number, { display_name: string | null; order: number; equipment_role: string | null; tap_count: number | null }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledEquips } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, sort_order")
+        .select("erp_item_id, display_name, sort_order, equipment_role, tap_count")
         .eq("item_type", "equipment")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -700,7 +700,9 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
       (enabledEquips || []).forEach((p: any) => {
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
-          order: p.sort_order ?? 0 
+          order: p.sort_order ?? 0,
+          equipment_role: p.equipment_role,
+          tap_count: p.tap_count
         };
       });
     }
