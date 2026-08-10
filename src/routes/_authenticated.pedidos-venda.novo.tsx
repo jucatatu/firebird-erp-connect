@@ -1009,15 +1009,20 @@ function NewOrderPage() {
                         {equipments.length > 0 && (
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Equipamentos Selecionados</p>
                         )}
-                        {equipments.map(eq => (
-                          <div key={eq.equipmentTypeId} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
+                        {equipments.map((eq, idx) => (
+                          <div key={`${eq.equipmentTypeId}-${eq.assignedProductId || 'unassigned'}-${idx}`} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
                              <div>
                                 <p className="text-sm font-bold">{eq.description}</p>
                                 <p className="text-xs text-muted-foreground">Qtd: {eq.quantity}</p>
+                                {eq.assignedProductId && (
+                                  <Badge variant="outline" className="text-[9px] h-3 px-1 mt-1 font-normal">
+                                    Para: {items.find(i => i.productId === eq.assignedProductId)?.description || "Produto removido"}
+                                  </Badge>
+                                )}
                              </div>
                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1)}>-</Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1)}>+</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1, eq.assignedProductId)}>-</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1, eq.assignedProductId)}>+</Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
                              </div>
                           </div>
