@@ -889,6 +889,7 @@ function NewOrderPage() {
         equipmentTypes={(equipmentTypesQ.data as any)?.data?.equipmentTypes || []}
         choppItems={choppItems}
         addEquipment={addEquipment}
+        getProductCoverage={getProductCoverage}
       />
       <div className="container max-w-5xl py-6">
       <PageHeader 
@@ -1433,13 +1434,15 @@ function ManualEquipmentSheet({
   onOpenChange, 
   equipmentTypes, 
   choppItems,
-  addEquipment 
+  addEquipment,
+  getProductCoverage
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void;
   equipmentTypes: any[];
   choppItems: any[];
   addEquipment: (eq: OrderEquipment) => void;
+  getProductCoverage: (productId: number) => { required: number, provided: number };
 }) {
   const [selectedType, setSelectedType] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -1453,29 +1456,39 @@ function ManualEquipmentSheet({
     }
   }, [open]);
 
+  const isKeg = selectedType?.equipment_role === 'KEG' || selectedType?.description?.toLowerCase().includes("barril");
+
+  // Regra de Cobertura Restante (Item 2)
+  const uncoveredChoppItems = choppItems.filter(it => {
+    const cov = getProductCoverage(it.productId);
+    return (it.quantity - cov.provided) > 0;
+  });
+
   useEffect(() => {
-    if (selectedType) {
-      const isKeg = selectedType.equipment_role === 'KEG' || selectedType.description?.toLowerCase().includes("barril");
-      if (isKeg) {
-        if (choppItems.length === 1) {
-          setAssignedProductId(choppItems[0].productId);
-        } else {
-          setAssignedProductId(null);
-        }
+    if (selectedType && isKeg) {
+      if (uncoveredChoppItems.length > 0) {
+        // Pré-seleção automática (Item 4)
+        setAssignedProductId(uncoveredChoppItems[0].productId);
       } else {
         setAssignedProductId(null);
       }
+    } else {
+      setAssignedProductId(null);
     }
-  }, [selectedType, choppItems]);
+  }, [selectedType, isKeg, uncoveredChoppItems.length]); // Depende do length para evitar loops infinitos se a lista mudar
 
   const handleAdd = () => {
     if (!selectedType) return;
     
-    const isKeg = selectedType.equipment_role === 'KEG' || selectedType.description?.toLowerCase().includes("barril");
-    
-    if (isKeg && choppItems.length > 1 && !assignedProductId) {
-      toast.error("Por favor, selecione para qual chope é este barril.");
-      return;
+    if (isKeg) {
+      if (uncoveredChoppItems.length === 0) {
+        toast.error("Todos os produtos de chopp já possuem barris suficientes.");
+        return;
+      }
+      if (!assignedProductId) {
+        toast.error("Por favor, selecione para qual chope é este barril.");
+        return;
+      }
     }
 
     const role = selectedType.equipment_role === 'dispenser' || selectedType.description?.toLowerCase().includes("chopeira")
@@ -1508,8 +1521,7 @@ function ManualEquipmentSheet({
     onOpenChange(false);
   };
 
-  const isKeg = selectedType?.equipment_role === 'KEG' || selectedType?.description?.toLowerCase().includes("barril");
-  const showProductSelection = isKeg && choppItems.length > 1;
+  const showProductSelection = isKeg; // Sempre mostrar se for barril para transparência, mas com lógica de filtro
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1562,18 +1574,24 @@ function ManualEquipmentSheet({
                 {showProductSelection && (
                   <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase tracking-wider">Para qual chopp?</Label>
-                    <Select onValueChange={(val) => setAssignedProductId(Number(val))} value={assignedProductId?.toString()}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o produto..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {choppItems.map(p => (
-                          <SelectItem key={p.productId} value={p.productId.toString()}>
-                            {p.description}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {uncoveredChoppItems.length > 0 ? (
+                      <Select onValueChange={(val) => setAssignedProductId(Number(val))} value={assignedProductId?.toString()}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o produto..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uncoveredChoppItems.map(p => (
+                            <SelectItem key={p.productId} value={p.productId.toString()}>
+                              {p.description}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="p-3 border border-yellow-200 bg-yellow-50 rounded-lg">
+                        <p className="text-xs text-yellow-800 font-medium">Todos os produtos de chopp já possuem barris suficientes.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
