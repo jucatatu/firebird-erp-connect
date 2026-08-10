@@ -157,9 +157,9 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
     paymentTermId: input.paymentTermId,
     paymentMethodId: input.paymentMethodId,
     deliver: input.deliver,
-    deliveryAt: input.deliveryAt,
+    deliveryAt: input.deliveryAt.includes('T') ? input.deliveryAt.split('T')[0] : input.deliveryAt,
     returnEquipment: input.returnEquipment,
-    returnAt: input.returnAt || null,
+    returnAt: (input.returnAt && input.returnAt.includes('T')) ? input.returnAt.split('T')[0] : (input.returnAt || null),
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
     items: input.items.map(item => ({

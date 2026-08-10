@@ -25,6 +25,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRecentOrderDrafts } from "@/hooks/use-order-drafts";
 import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 import { companyLabel } from "@/components/order-identifier";
+import { formatDateOnly } from "@/utils/date-utils";
+import { useSwipeable } from "react-swipeable";
+
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -905,8 +908,41 @@ function NewOrderPage() {
     }
   };
 
+  const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
+  const currentStepIndex = stepsOrder.indexOf(step);
+
+  const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
+    if (targetStep === "client") return true;
+    if (targetStep === "items") return !!clientId;
+    if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    return false;
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const nextStep = stepsOrder[currentStepIndex + 1];
+      if (nextStep && canNavigateTo(nextStep)) {
+        setStep(nextStep);
+      } else if (nextStep) {
+        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
+        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
+      }
+    },
+    onSwipedRight: () => {
+      const prevStep = stepsOrder[currentStepIndex - 1];
+      if (prevStep) setStep(prevStep);
+    },
+    delta: 70,
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  });
+
   return (
-    <>
+    <div {...swipeHandlers} className="flex flex-col min-h-screen bg-background pb-10">
+
       <ManualEquipmentSheet 
         open={showAddEquip} 
         onOpenChange={setShowAddEquip}
@@ -1109,7 +1145,7 @@ function NewOrderPage() {
                                 <span>·</span>
                                 <span>{companyLabel(order.company_id)}</span>
                                 <span>·</span>
-                                <span>{new Date(order.created_at).toLocaleDateString('pt-BR')}</span>
+                                <span>{formatDateOnly(order.created_at)}</span>
                               </div>
                             </div>
                             <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
@@ -1581,12 +1617,12 @@ function NewOrderPage() {
                     <div className="text-sm space-y-1">
                       <p className="flex items-center gap-2">
                         <Badge variant="outline" className="h-5 text-[10px]">{deliver ? "Entrega" : "Retirada"}</Badge>
-                        {deliver && deliveryAt && <span>{new Date(deliveryAt).toLocaleDateString('pt-BR')} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                        {deliver && deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
                       </p>
                       {returnEquipment && (
                         <p className="flex items-center gap-2">
                           <Badge variant="outline" className="h-5 text-[10px]">Recolhimento</Badge>
-                          {returnAt && <span>{new Date(returnAt).toLocaleDateString('pt-BR')}</span>}
+                          {returnAt && <span>{formatDateOnly(returnAt)}</span>}
                         </p>
                       )}
                     </div>
@@ -1696,9 +1732,10 @@ function NewOrderPage() {
 
 
       </div>
-    </>
+    </div>
   );
 }
+
 
 function ManualEquipmentSheet({ 
   open, 
