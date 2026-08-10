@@ -265,7 +265,7 @@ function NewOrderPage() {
 
   // Efeito para carregar padrões do cliente
   useEffect(() => {
-    if (clientDetailQ.data?.ok && clientDetailQ.data.data && paymentOptionsQ.data?.ok) {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data && paymentOptionsQ.data?.ok && paymentOptionsQ.data.data) {
       const detail = clientDetailQ.data.data;
       const options = paymentOptionsQ.data.data;
 
