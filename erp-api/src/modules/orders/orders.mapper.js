@@ -141,6 +141,8 @@ module.exports = {
   buildCompleteProcParams,
   buildItemProcParams,
   buildEquipmentProcParams,
+  toDateCivil,
   truncate,
+
   toDateOrNull,
 };
