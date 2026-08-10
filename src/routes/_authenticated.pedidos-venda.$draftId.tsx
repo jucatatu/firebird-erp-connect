@@ -212,9 +212,16 @@ function DraftDetailPage() {
           {/* Cliente / dados */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Dados do pedido</CardTitle>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-base">Dados do pedido</CardTitle>
+                {erpStatusDescription && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase">
+                    ERP: {erpStatusDescription}
+                  </div>
+                )}
+              </div>
               {!canEdit && (
-                <span className="text-xs text-muted-foreground">Somente leitura no status atual</span>
+                <span className="text-xs text-muted-foreground italic">Somente leitura — {erpStatusDescription || "STATUS BLOQUEADO"}</span>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
