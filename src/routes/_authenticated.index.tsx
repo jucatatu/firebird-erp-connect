@@ -9,8 +9,14 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function Index() {
+  const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
   const { reset } = useOrderFormStore();
+
+  useEffect(() => {
+    // Redireciona para pedidos-venda por padrão conforme a nova UX (Sprint 8.9.19)
+    navigate({ to: "/pedidos-venda", replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
