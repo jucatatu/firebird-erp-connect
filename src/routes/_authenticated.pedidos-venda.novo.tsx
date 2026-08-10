@@ -1433,17 +1433,35 @@ function NewOrderPage() {
         <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center space-x-2">
-                <Checkbox id="deliver" checked={deliver} onCheckedChange={(checked: boolean) => setDelivery(!!checked, deliveryAt)} />
-                <Label htmlFor="deliver">Deseja entrega?</Label>
+              <div className="space-y-4">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipo do Pedido</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    className={`h-16 flex flex-col gap-1 border-2 transition-all ${deliver ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500' : 'hover:border-primary/50'}`}
+                    onClick={() => setDelivery(true, deliveryAt)}
+                  >
+                    <Truck className={`h-5 w-5 ${deliver ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                    <span className={`text-xs font-bold ${deliver ? 'text-orange-700' : ''}`}>ENTREGA</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className={`h-16 flex flex-col gap-1 border-2 transition-all ${!deliver ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500' : 'hover:border-primary/50'}`}
+                    onClick={() => setDelivery(false, deliveryAt)}
+                  >
+                    <UserIcon className={`h-5 w-5 ${!deliver ? 'text-orange-600' : 'text-muted-foreground'}`} />
+                    <span className={`text-xs font-bold ${!deliver ? 'text-orange-700' : ''}`}>RETIRADA</span>
+                  </Button>
+                </div>
               </div>
 
-              {deliver && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Data de Entrega</Label>
-                    <Input type="date" value={deliveryAt?.split('T')[0] || ""} onChange={(e) => setDelivery(deliver, e.target.value)} />
-                  </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>{deliver ? "Data de Entrega" : "Data da Retirada"}</Label>
+                  <Input type="date" value={deliveryAt?.split('T')[0] || ""} onChange={(e) => setDelivery(deliver, e.target.value)} />
+                </div>
+                {deliver && (
                   <div className="space-y-2">
                     <Label>Horário Previsto (Opcional)</Label>
                     <Input type="time" onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1453,8 +1471,8 @@ function NewOrderPage() {
                       }
                     }} />
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} />
@@ -1616,8 +1634,8 @@ function NewOrderPage() {
                     <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Logística</Label>
                     <div className="text-sm space-y-1">
                       <p className="flex items-center gap-2">
-                        <Badge variant="outline" className="h-5 text-[10px]">{deliver ? "Entrega" : "Retirada"}</Badge>
-                        {deliver && deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                        <Badge variant="outline" className="h-5 text-[10px] bg-orange-50 border-orange-200 text-orange-700 font-bold">{deliver ? "Entrega" : "Retirada"}</Badge>
+                        {deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliver && deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
                       </p>
                       {returnEquipment && (
                         <p className="flex items-center gap-2">
