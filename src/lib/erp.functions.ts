@@ -623,7 +623,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
                   order: cfg.order,
                   default_quantity: cfg.default_quantity,
                   quantity_step: cfg.quantity_step,
-                  requires_equipment: cfg.requires_equipment
+                  logistics_type: cfg.logistics_type
                 };
               }
             } catch (err) {
