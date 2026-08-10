@@ -20,7 +20,7 @@ export interface OrderEquipment {
   capacityLiters?: number;
 }
 
-interface OrderFormStore {
+export interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
   companyId: number | null;
