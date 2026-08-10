@@ -399,3 +399,24 @@ export const getErpClientDetail = createServerFn({ method: "GET" })
     }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number; defaultSaleTypeId?: number }>>;
   });
 
+export interface ErpOrderStatus {
+  orderId: number;
+  statusId: number;
+  statusDescription: string | null;
+  canEdit: boolean;
+}
+
+export const getErpOrdersStatus = createServerFn({ method: "GET" })
+  .inputValidator((ids: number[]) => z.array(z.number()).parse(ids))
+  .handler(async ({ data: orderIds }) => {
+    if (orderIds.length === 0) return { ok: true, status: 200, data: [], error: null };
+    
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: "/api/v1/orders/batch-status",
+      query: { orderIds: orderIds.join(",") }
+    }) as Promise<ErpResponse<ErpOrderStatus[]>>;
+  });
+
+
