@@ -421,6 +421,7 @@ function DraftDetailPage() {
                   <Pencil className="mr-2 h-4 w-4" /> Editar pedido
                 </Button>
               )}
+              {canCancel && (
                 <Button
                   className="w-full"
                   variant="ghost"
