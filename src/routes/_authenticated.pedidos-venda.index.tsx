@@ -179,7 +179,7 @@ function OrdersListPage() {
                         params={{ draftId: d.id }}
                         className="block group"
                       >
-                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors whitespace-pre-line">
                           {d.customer_name_snapshot || "(sem cliente)"}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -231,7 +231,7 @@ function OrdersListPage() {
                   </div>
                   
                   <div className="flex flex-col gap-1 mb-3">
-                    <div className="text-sm font-bold text-foreground truncate">
+                    <div className="text-sm font-bold text-foreground whitespace-pre-line">
                       {d.customer_name_snapshot || "(sem cliente)"}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">

@@ -813,9 +813,14 @@ function NewOrderPage() {
     if (!idempotencyKey) setIdempotencyKey(currentKey);
 
     try {
-      const payload: CreateOrderInput = {
+      const payload: CreateOrderInput & { client_snapshot: any } = {
         companyId: companyId as number,
         clientId: clientId,
+        client_snapshot: {
+          id: clientId,
+          name: clientName,
+          fantasyName: clientDetailQ.data?.data?.tradingName || null
+        },
         sellerId: myProfile.data.erp_seller_id,
         saleTypeId: saleTypeId,
         paymentTermId: paymentTermId,
@@ -826,10 +831,16 @@ function NewOrderPage() {
         returnAt: returnEquipment ? returnAt : null,
         items: items.map(i => ({ 
           productId: i.productId, 
+          description: i.description,
           quantity: i.quantity, 
+          unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
         })),
-        equipments: equipments.map(e => ({ equipmentTypeId: e.equipmentTypeId, quantity: e.quantity })),
+        equipments: equipments.map(e => ({ 
+          equipmentTypeId: e.equipmentTypeId, 
+          description: e.description,
+          quantity: e.quantity 
+        })),
         notes: notes || null
       };
 

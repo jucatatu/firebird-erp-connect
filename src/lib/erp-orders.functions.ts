@@ -223,8 +223,10 @@ export async function handleCreateErpOrder(
       created_by: userId,
       updated_by: userId,
       status: "sent",
-      title: `Pedido ${result.data.orderNumber}`,
-      customer_name_snapshot: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP",
+      title: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP",
+      customer_name_snapshot: input.client_snapshot?.fantasyName 
+        ? `${input.client_snapshot.fantasyName}\n${input.client_snapshot.name}` 
+        : (input.client_snapshot?.name || "Pedido ERP"),
       company_id: requestedCompanyId,
       erp_order_id: result.data.orderId,
       erp_order_number: result.data.orderNumber,

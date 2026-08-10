@@ -8,9 +8,9 @@ export function getItemsSummary(payload: any, limit: number = 2): string {
   if (items.length === 0) return "Nenhum produto";
   
   const summary = items.slice(0, limit).map((i: any) => {
-    // Tenta pegar a descrição do payload ou snapshot se existir
     const desc = i.description || `Produto ${i.productId}`;
-    const unit = desc.toUpperCase().includes("CHOPP") ? "L" : "x";
+    const isChopp = desc.toUpperCase().includes("CHOPP") || i.unit === "L";
+    const unit = isChopp ? "L" : "x";
     return `${desc} ${i.quantity}${unit}`;
   }).join(", ");
   
