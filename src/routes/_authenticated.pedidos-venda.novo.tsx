@@ -1041,7 +1041,7 @@ function NewOrderPage() {
                 </Button>
                 {!isCoverageValid() && (
                   <p className="text-[10px] text-destructive text-center font-medium mt-1">
-                    Equipamentos insuficientes para os produtos de chope.
+                    Barris insuficientes para os litros de chope.
                   </p>
                 )}
               </CardContent>
