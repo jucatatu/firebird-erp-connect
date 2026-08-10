@@ -150,23 +150,17 @@ export async function handleCreateErpOrder(
   idempotencyKey: string | undefined,
   userId: string,
   supabaseAdmin: any
-): Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>> {
+): Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string; mirrorId?: string }>> {
   const { callErp } = await import("./erp.server");
 
   console.log("[ORDER SERVER] authenticated user resolved:", userId);
 
-  // 1. Resolver o sellerId a partir do userId fornecido pelo middleware
-  // Removido supabaseAdmin.auth.getUser() incorreto.
-
-  // 2. Auditoria Server-Side de Empresa (Sprint 8.2)
-  // Buscamos as empresas permitidas ao usuário no banco
+  // 1. Resolver o sellerId e validar empresa (mantido conforme auditoria)
   const { data: userCompanies, error: ucaErr } = await supabaseAdmin
     .from("user_company_access")
     .select("company_id")
     .eq("user_id", userId);
   
-  console.log("[ORDER SERVER] company access validated for user:", userId);
-
   if (ucaErr || !userCompanies || userCompanies.length === 0) {
     return {
       ok: false,
@@ -179,55 +173,27 @@ export async function handleCreateErpOrder(
   const allowedCompanyIds = userCompanies.map((c: any) => c.company_id);
   const requestedCompanyId = input.companyId;
 
-  // Validação estrita: O companyId deve ser 1 ou 3 E estar nas permissões do usuário
   if (![1, 3].includes(requestedCompanyId)) {
-    return {
-      ok: false,
-      status: 400,
-      data: null,
-      error: { code: "INVALID_COMPANY", message: "ID de empresa inválido.", retryable: false }
-    };
+    return { ok: false, status: 400, data: null, error: { code: "INVALID_COMPANY", message: "ID de empresa inválido.", retryable: false } };
   }
 
   if (!allowedCompanyIds.includes(requestedCompanyId)) {
-    return {
-      ok: false,
-      status: 403,
-      data: null,
-      error: { code: "COMPANY_NOT_ALLOWED", message: "Você não tem permissão para criar pedidos nesta empresa.", retryable: false }
-    };
+    return { ok: false, status: 403, data: null, error: { code: "COMPANY_NOT_ALLOWED", message: "Sem permissão para esta empresa.", retryable: false } };
   }
 
-  // 3. Resolver sellerId do banco
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from("profiles")
     .select("erp_seller_id")
     .eq("id", userId)
     .single();
   
-  console.log("[ORDER SERVER] seller resolved for user:", userId);
-
   if (profileErr || !profile?.erp_seller_id) {
-    return {
-      ok: false,
-      status: 422,
-      data: null,
-      error: { 
-        code: "SELLER_NOT_MAPPED", 
-        message: "Vendedor não mapeado para o ERP. Contate o administrador.", 
-        retryable: false 
-      }
-    };
+    return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado.", retryable: false } };
   }
 
-  // Sobrescrever sellerId do payload com o valor real do banco
-  // companyId é mantido conforme validado acima
-  const finalPayload = {
-    ...input,
-    sellerId: profile.erp_seller_id
-  };
+  const finalPayload = { ...input, sellerId: profile.erp_seller_id };
   
-  console.log("[ORDER SERVER] before callErp POST /api/v1/orders");
+  console.log("[ORDER SERVER] calling ERP POST /api/v1/orders");
   const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
@@ -235,14 +201,70 @@ export async function handleCreateErpOrder(
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
 
-  console.log("[ORDER SERVER] callErp returned", { 
-    ok: result.ok, 
-    status: result.status, 
-    hasData: !!result.data,
-    orderNumber: result.data?.orderNumber
+  if (!result.ok || !result.data) return result;
+
+  console.log("[ORDER SERVER] ERP success, creating operational mirror in Supabase", { 
+    orderNumber: result.data.orderNumber,
+    orderId: result.data.orderId
   });
 
-  return result;
+  // Sprint 8.9.5: Espelho Operacional (Mirror)
+  // Usamos UPSERT baseado em erp_order_id para idempotência absoluta
+  try {
+    const { data: mirror, error: mirrorErr } = await supabaseAdmin
+      .from("order_drafts")
+      .upsert({
+        created_by: userId,
+        updated_by: userId,
+        status: "sent", // Status canônico para "criado no ERP"
+        title: `Pedido ${result.data.orderNumber}`,
+        customer_name_snapshot: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP", // Fallback parcial
+        company_id: requestedCompanyId,
+        erp_order_id: result.data.orderId,
+        erp_order_number: result.data.orderNumber,
+        sent_at: new Date().toISOString(),
+        payload: {
+          ...input,
+          erp_response: result.data,
+          mirrored_at: new Date().toISOString()
+        },
+        idempotency_key: idempotencyKey || crypto.randomUUID()
+      }, { 
+        onConflict: 'erp_order_id' 
+      })
+      .select("id")
+      .single();
+
+    if (mirrorErr) {
+      console.error("[ORDER SERVER] Mirror persistence failed:", mirrorErr);
+      return {
+        ...result,
+        data: { ...result.data, mirrorId: undefined },
+        error: { 
+          code: "ORDER_CREATED_MIRROR_FAILED", 
+          message: `Pedido ${result.data.orderNumber} criado no ERP, mas erro ao atualizar lista operacional.`,
+          retryable: true,
+          details: mirrorErr as any
+        }
+      };
+    }
+
+    console.log("[ORDER SERVER] Mirror success:", mirror.id);
+    return {
+      ...result,
+      data: { ...result.data, mirrorId: mirror.id }
+    };
+  } catch (err: any) {
+    console.error("[ORDER SERVER] Mirror exception:", err);
+    return {
+      ...result,
+      error: { 
+        code: "ORDER_CREATED_MIRROR_FAILED", 
+        message: "Pedido criado no ERP, mas falha crítica no espelho Supabase.",
+        retryable: true
+      }
+    };
+  }
 }
 
 // --- PAYMENT OPTIONS ---
