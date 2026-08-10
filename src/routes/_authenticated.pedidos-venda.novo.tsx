@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send } from "lucide-react";
-import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder } from "@/hooks/use-erp";
-import { useOrderFormStore } from "@/hooks/use-order-form";
+import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpPaymentOptions, useErpClientDetail } from "@/hooks/use-erp";
+import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +254,24 @@ function NewOrderPage() {
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
-  } = useOrderFormStore();
+  } = useOrderFormStore() as OrderFormStore;
+  
+  const paymentOptionsQ = useErpPaymentOptions();
+  const clientDetailQ = useErpClientDetail(clientId);
+
+  // Efeito para carregar padrões do cliente
+  useEffect(() => {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data) {
+      const detail = clientDetailQ.data.data;
+      // Só aplica se não estiverem definidos (ou se acabamos de selecionar o cliente)
+      if (detail.defaultPaymentTermId || detail.defaultPaymentMethodId) {
+        setPayment(
+          paymentTermId || detail.defaultPaymentTermId || null,
+          paymentMethodId || detail.defaultPaymentMethodId || null
+        );
+      }
+    }
+  }, [clientDetailQ.data, clientId, setPayment]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
