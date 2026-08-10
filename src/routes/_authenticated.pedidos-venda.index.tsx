@@ -199,6 +199,7 @@ function OrdersListPage() {
                         <div className="flex items-center gap-1.5 text-[10px]">
                           <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Equipamentos:</span>
                           <span className="text-foreground/80 truncate">{getEquipmentsSummary(d.payload)}</span>
+                        </div>
                         <div className="flex items-center gap-1.5 text-[10px]">
                           <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Logística:</span>
                           <span className="text-foreground/80 truncate">{getLogisticsSummary(d.payload)}</span>
