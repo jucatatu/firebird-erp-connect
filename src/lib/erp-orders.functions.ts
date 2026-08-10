@@ -471,7 +471,7 @@ export const getErpOrdersStatus = createServerFn({ method: "GET" })
     }) as Promise<ErpResponse<ErpOrderStatus[]>>;
   });
 
-export interface ErpOrderDetail extends CreateOrderInput {
+export interface ErpOrderDetail extends Omit<CreateOrderInput, 'items'> {
   orderId: number;
   orderNumber: number;
   statusId: number;
