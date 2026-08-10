@@ -752,8 +752,7 @@ function NewOrderPage() {
         console.log("[ORDER CREATE] success", result.data);
         setSubmissionStatus("created", { 
           orderId: result.data.orderId, 
-          orderNumber: result.data.orderNumber,
-          status: result.data.status
+          orderNumber: result.data.orderNumber
         });
         toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
         
