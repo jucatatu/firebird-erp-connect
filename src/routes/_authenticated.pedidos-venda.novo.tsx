@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
-import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
+import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -1595,24 +1595,29 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
               {submissionStatus === "unknown" && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-3">
-                  <p className="text-sm font-bold text-yellow-800">Não foi possível confirmar se o pedido foi criado.</p>
-                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. O pedido pode ter sido criado no ERP mas a resposta não chegou.</p>
+                  <p className="text-sm font-bold text-yellow-800">
+                    {isEditing ? "Não foi possível confirmar a atualização." : "Não foi possível confirmar se o pedido foi criado."}
+                  </p>
+                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. As alterações podem ter sido salvas no ERP mas a resposta não chegou.</p>
                   <div className="flex gap-2">
-                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={handleCreateOrder}>
-                      Tentar novamente com a mesma chave
+                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={isEditing ? handleUpdateOrder : handleCreateOrder}>
+                      Tentar novamente
                     </Button>
-                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("draft")}>
+                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("editing")}>
                       Voltar
                     </Button>
                   </div>
                 </div>
               )}
 
+
               {submissionStatus === "created" && submissionMeta?.orderNumber && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3 text-center">
                   <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
                   <div>
-                    <p className="text-lg font-bold text-green-800">Pedido criado no ERP!</p>
+                    <p className="text-lg font-bold text-green-800">
+                      {isEditing ? "Pedido atualizado com sucesso!" : "Pedido criado no ERP!"}
+                    </p>
                     <p className="text-sm text-green-700">Nº {submissionMeta.orderNumber}</p>
                   </div>
 
@@ -1621,6 +1626,7 @@ function NewOrderPage() {
                   </Button>
                 </div>
               )}
+
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-6">
