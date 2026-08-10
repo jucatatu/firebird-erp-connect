@@ -209,51 +209,55 @@ export async function handleCreateErpOrder(
   });
 
   // Sprint 8.9.5: Espelho Operacional (Mirror)
-  // Usamos UPSERT baseado em erp_order_id para idempotência absoluta
+  // Como a constraint erp_order_id_uniq é parcial (WHERE IS NOT NULL), o PostgREST/Supabase
+  // pode ter dificuldade com UPSERT sem especificar a constraint exata ou se houver conflito de RLS.
+  // Usamos uma estratégia de "Select then Insert/Update" para maior robustez server-side.
   try {
-    const { data: mirror, error: mirrorErr } = await supabaseAdmin
+    const { data: existingMirror } = await supabaseAdmin
       .from("order_drafts")
-      .upsert({
-        created_by: userId,
-        updated_by: userId,
-        status: "sent", // Status canônico para "criado no ERP"
-        title: `Pedido ${result.data.orderNumber}`,
-        customer_name_snapshot: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP", // Fallback parcial
-        company_id: requestedCompanyId,
-        erp_order_id: result.data.orderId,
-        erp_order_number: result.data.orderNumber,
-        sent_at: new Date().toISOString(),
-        payload: {
-          ...input,
-          erp_response: result.data,
-          mirrored_at: new Date().toISOString()
-        },
-        idempotency_key: idempotencyKey || crypto.randomUUID()
-      }, { 
-        onConflict: 'erp_order_id' 
-      })
       .select("id")
-      .single();
+      .eq("erp_order_id", result.data.orderId)
+      .maybeSingle();
 
-    if (mirrorErr) {
-      console.error("[ORDER SERVER] Mirror persistence failed:", mirrorErr);
-      return {
-        ...result,
-        data: { ...result.data, mirrorId: undefined },
-        error: { 
-          code: "ORDER_CREATED_MIRROR_FAILED", 
-          message: `Pedido ${result.data.orderNumber} criado no ERP, mas erro ao atualizar lista operacional.`,
-          retryable: true,
-          details: mirrorErr as any
-        }
-      };
-    }
-
-    console.log("[ORDER SERVER] Mirror success:", mirror.id);
-    return {
-      ...result,
-      data: { ...result.data, mirrorId: mirror.id }
+    const mirrorPayload = {
+      created_by: userId,
+      updated_by: userId,
+      status: "sent",
+      title: `Pedido ${result.data.orderNumber}`,
+      customer_name_snapshot: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP",
+      company_id: requestedCompanyId,
+      erp_order_id: result.data.orderId,
+      erp_order_number: result.data.orderNumber,
+      sent_at: new Date().toISOString(),
+      payload: {
+        ...input,
+        erp_response: result.data,
+        mirrored_at: new Date().toISOString()
+      },
+      idempotency_key: idempotencyKey || crypto.randomUUID()
     };
+
+    let mirrorId: string;
+    if (existingMirror) {
+      const { data: updated, error: updateErr } = await supabaseAdmin
+        .from("order_drafts")
+        .update(mirrorPayload)
+        .eq("id", existingMirror.id)
+        .select("id")
+        .single();
+      
+      if (updateErr) throw updateErr;
+      mirrorId = updated.id;
+    } else {
+      const { data: inserted, error: insertErr } = await supabaseAdmin
+        .from("order_drafts")
+        .insert(mirrorPayload)
+        .select("id")
+        .single();
+      
+      if (insertErr) throw insertErr;
+      mirrorId = inserted.id;
+    }
   } catch (err: any) {
     console.error("[ORDER SERVER] Mirror exception:", err);
     return {
