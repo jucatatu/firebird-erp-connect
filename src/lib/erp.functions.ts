@@ -557,11 +557,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
 
     // 1. Buscar catálogo operacional no Supabase se não for busca administrativa
     // Sprint 8.5.9: Agora buscamos ordem e nome de exibição para ordenação e enriquecimento.
-    let catalogConfig: Record<number, { display_name: string | null; order: number; default_quantity: number; quantity_step: number; requires_equipment: boolean }> = {};
+    // Sprint 8.9.8: Adicionado logistics_type
+    let catalogConfig: Record<number, { display_name: string | null; order: number; default_quantity: number; quantity_step: number; logistics_type: string | null }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step, erp_description_snapshot")
+        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step, logistics_type")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
