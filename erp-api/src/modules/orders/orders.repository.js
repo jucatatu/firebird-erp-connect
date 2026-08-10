@@ -129,6 +129,38 @@ async function findStatusByNumbers(orderNumbers) {
   return firebird.executeQuery(sql, orderNumbers);
 }
 
+async function fetchOrderByNumber(txOrConn, orderNumber) {
+  const sql = `
+    SELECT 
+      ov.*, 
+      s.DESCRICAO AS STATUS_DESCRICAO
+    FROM ORDENS_VENDA ov
+    LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
+    WHERE ov.N_PEDIDO = ?
+  `;
+  const executor = txOrConn || firebird;
+  const rows = await executor.query(sql, [orderNumber]);
+  return rows && rows[0] ? rows[0] : null;
+}
+
+async function fetchItemsByOrderId(orderId) {
+  const sql = `SELECT * FROM ITENS_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`;
+  return firebird.executeQuery(sql, [orderId]);
+}
+
+async function fetchEquipmentsByOrderId(orderId) {
+  const sql = `SELECT * FROM EQUIP_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`;
+  return firebird.executeQuery(sql, [orderId]);
+}
+
+async function deleteItemsByOrderId(tx, orderId) {
+  await tx.query(`DELETE FROM ITENS_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`, [orderId]);
+}
+
+async function deleteEquipmentsByOrderId(tx, orderId) {
+  await tx.query(`DELETE FROM EQUIP_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`, [orderId]);
+}
+
 module.exports = {
   callCreateOrderComplete,
   callAddItem,
@@ -137,8 +169,13 @@ module.exports = {
   fetchCreatedOrder,
 
   fetchOrderById,
+  fetchOrderByNumber,
   findStatusByNumbers,
   fetchClientCompanyContext,
+  fetchItemsByOrderId,
+  fetchEquipmentsByOrderId,
+  deleteItemsByOrderId,
+  deleteEquipmentsByOrderId,
   _sql: {
     SP_CAD_ORDEM_VENDA_COMPLETO_SQL,
     SP_CAD_ITENS_ORDENS_VENDA_SQL,

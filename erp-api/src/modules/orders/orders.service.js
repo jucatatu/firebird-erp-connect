@@ -326,6 +326,113 @@ async function getBatchStatus(orderNumbers) {
   }));
 }
 
+async function getOrderDetail(orderNumber) {
+  const order = await repository.fetchOrderByNumber(orderNumber);
+  if (!order) {
+    throw new AppError({
+      message: "Pedido não encontrado no ERP.",
+      statusCode: 404,
+      code: "ORDER_NOT_FOUND",
+      retryable: false
+    });
+  }
+  
+  const orderId = Number(order.ID_ORDENS_VENDA);
+  const items = await repository.fetchItemsByOrderId(orderId);
+  const equipments = await repository.fetchEquipmentsByOrderId(orderId);
+
+  return {
+    ...order,
+    items,
+    equipments
+  };
+}
+
+async function updateOrder({ orderNumber, payload, correlationId }) {
+  return withGlobalOrderLock(() => firebird.withTransaction(async (tx) => {
+    logger.info({ correlationId, orderNumber }, "orders.update: início");
+
+    // 1. Revalidar Status atual no ERP
+    const current = await repository.fetchOrderByNumber(tx, orderNumber);
+    if (!current) {
+      throw new AppError({
+        message: "Pedido não encontrado para atualização.",
+        statusCode: 404,
+        code: "ORDER_NOT_FOUND",
+        retryable: false
+      });
+    }
+
+    const { canEditErpOrder } = require("../../shared/orders/status-rules");
+    if (!canEditErpOrder(current.ID_STATUS)) {
+      throw new AppError({
+        message: `Pedido ${orderNumber} não pode ser editado no status ${current.STATUS_DESCRICAO}.`,
+        statusCode: 409,
+        code: "ORDER_NOT_EDITABLE",
+        retryable: false,
+        details: {
+          orderNumber,
+          statusId: current.ID_STATUS,
+          status: String(current.STATUS_DESCRICAO || "").trim()
+        }
+      });
+    }
+
+    // 2. Validar Cliente
+    const client = await validateClient(payload.clientId);
+
+    // 3. Validar Produtos e Resolver Preços
+    const { validatedItems, subtotal } = await validateProductsAndPricing(payload.items, payload.clientId);
+
+    // 4. Validar Equipamentos
+    await validateEquipments(payload.equipments);
+
+    // 5. Resolver Empresa
+    const companyId = await resolveAndValidateCompany(tx, payload);
+
+    // 6. Calcular totais
+    const total = subtotal + payload.freightValue;
+    const totals = { subtotal, total };
+
+    const orderId = Number(current.ID_ORDENS_VENDA);
+
+    // 7. Atualizar Cabeçalho
+    const updateParams = mapper.buildCompleteProcParams({
+      payload,
+      companyId,
+      clientContext: client,
+      totals
+    });
+    // Adicionamos a CHAVE = ID_ORDENS_VENDA para a procedure entender que é alteração
+    updateParams[25] = orderId; 
+
+    await repository.callCreateOrderComplete(tx, updateParams);
+
+    // 8. Atualizar Itens (Excluir e reincluir)
+    await repository.deleteItemsByOrderId(tx, orderId);
+    for (const item of validatedItems) {
+      const itemParams = mapper.buildItemProcParams(orderId, item);
+      await repository.callAddItem(tx, itemParams);
+    }
+
+    // 9. Atualizar Equipamentos (Excluir e reincluir)
+    await repository.deleteEquipmentsByOrderId(tx, orderId);
+    for (const eq of payload.equipments) {
+      const eqParams = mapper.buildEquipmentProcParams(orderId, eq);
+      await repository.callAddEquipment(tx, eqParams);
+    }
+
+    logger.info({ correlationId, orderNumber }, "orders.update: commit");
+
+    return {
+      orderId,
+      orderNumber,
+      total: totals.total,
+      status: String(current.STATUS_DESCRICAO || "").trim()
+    };
+  }));
+}
+
 function newCorrelationId() {
   return crypto.randomUUID();
 }
@@ -333,5 +440,7 @@ function newCorrelationId() {
 module.exports = {
   createOrder,
   getBatchStatus,
+  getOrderDetail,
+  updateOrder,
   newCorrelationId,
 };
