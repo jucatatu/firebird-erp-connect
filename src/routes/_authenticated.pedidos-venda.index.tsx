@@ -202,7 +202,7 @@ function OrdersListPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2 align-top text-foreground/80">
+                    <td className="px-4 py-3 align-top text-foreground/80">
                       {companyLabel(d.company_id)}
                     </td>
                     <td className="px-4 py-3 align-top">
