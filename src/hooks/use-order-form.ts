@@ -27,10 +27,11 @@ export interface OrderFormStore {
   clientName: string | null;
   companyId: number | null;
   idempotencyKey: string | null;
-  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
+  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed" | "editing";
   lastAttemptAt: string | null;
   erpOrderId: number | null;
   erpOrderNumber: number | null;
+  isEditing: boolean;
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
@@ -64,6 +65,7 @@ export interface OrderFormStore {
   // Repetir/Novo (Sprint 8.9.22)
   repeatOrder: (payload: any, customerName: string) => void;
   newOrderFromClient: (clientId: number, customerName: string, companyId: number) => void;
+  editErpOrder: (draft: any) => void;
 }
 
 export const useOrderFormStore = create<OrderFormStore>()(
@@ -77,6 +79,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       lastAttemptAt: null,
       erpOrderId: null,
       erpOrderNumber: null,
+      isEditing: false,
       items: [],
       equipments: [],
       deliver: true, // true = Entrega, false = Retirada
@@ -191,6 +194,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         lastAttemptAt: null,
         erpOrderId: null,
         erpOrderNumber: null,
+        isEditing: false,
         items: [],
         equipments: [],
         deliver: true,
@@ -215,6 +219,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         lastAttemptAt: null,
         erpOrderId: null,
         erpOrderNumber: null,
+        isEditing: false,
         notes: "",
         deliveryAt: null,
         returnAt: null,
@@ -233,6 +238,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           lastAttemptAt: null,
           erpOrderId: null,
           erpOrderNumber: null,
+          isEditing: false,
           items: (payload.items || []).map((item: any) => ({
             productId: item.productId,
             description: item.description || `Produto ${item.productId}`,
@@ -271,6 +277,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           lastAttemptAt: null,
           erpOrderId: null,
           erpOrderNumber: null,
+          isEditing: false,
           items: [],
           equipments: [],
           deliver: true,
