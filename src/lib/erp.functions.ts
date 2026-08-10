@@ -571,16 +571,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
         console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
       }
       (enabledProducts || []).forEach((p: any) => {
-        const desc = (p.erp_description_snapshot || "").toUpperCase();
-        const isChopp = desc.includes("CHOPP");
-        const isGrowlerOrBottle = desc.includes("GROWLER") || desc.includes("GARRAFA");
-        
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
           order: p.sort_order ?? 0,
           default_quantity: Number(p.default_quantity || 1),
           quantity_step: Number(p.quantity_step || 1),
-          requires_equipment: isChopp && !isGrowlerOrBottle
+          logistics_type: p.logistics_type
         };
       });
     }
