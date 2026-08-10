@@ -777,29 +777,6 @@ function NewOrderPage() {
       toast.error(msg);
     }
   };
-        console.error("[ORDER CREATE] failed", result.error);
-        const status = result.status;
-        
-        if (status === 409) {
-          setSubmissionStatus("created"); // Provavelmente já existe
-          toast.info("Este pedido já foi processado anteriormente.");
-        } else if (status === 422) {
-          setSubmissionStatus("failed");
-          toast.error(result.error?.message || "Dados inválidos para o ERP.");
-        } else if (status === 403) {
-          setSubmissionStatus("failed");
-          toast.error("Sem permissão para esta empresa ou cliente.");
-        } else {
-          setSubmissionStatus("failed");
-          toast.error("Não foi possível criar o pedido no ERP.");
-        }
-      }
-    } catch (err: any) {
-      console.error("[ORDER CREATE] exception", err);
-      setSubmissionStatus("unknown");
-      toast.error("Não foi possível confirmar se o pedido foi criado.");
-    }
-  };
 
   return (
     <div className="container max-w-5xl py-6">
