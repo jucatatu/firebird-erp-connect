@@ -93,9 +93,9 @@ function SubtotalDisplay({ productId, clientId, quantity, appliedPrice }: { prod
 
 function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, cartItem }: { product: any, clientId: number, addItem: any, removeItem: any, updateItemPrice: any, cartItem: any }) {
   const punit = product.unit?.code || "UN";
-  const isChopp = product.equipment_mode === 'CHOPE' || product.requires_equipment || punit === "L";
   const pstep = Number(product.quantity_step || 1);
   const pinitial = Number(product.default_quantity || 1);
+  const isChopp = product.logistics_type === 'draft';
   const [localQty, setLocalQty] = useState(pinitial);
   const [erpPrice, setErpPrice] = useState<number | null>(null);
   const [isEditingPrice, setIsEditingPrice] = useState(false);
@@ -184,9 +184,9 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
           {shortcuts.map(val => (
             <Button 
               key={val} 
-              variant="outline" 
+              variant={localQty === val ? "default" : "outline"} 
               size="sm" 
-              className="h-6 px-2 text-[10px] font-bold"
+              className={`h-6 px-2 text-[10px] font-bold ${localQty === val ? 'bg-primary text-primary-foreground' : ''}`}
               onClick={() => handleQtyChange(val)}
             >
               {val}L
