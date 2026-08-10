@@ -1788,14 +1788,14 @@ function NewOrderPage() {
                 {submissionStatus !== "created" && (
                   <Button 
                     size="lg" 
-                    className="px-8 min-w-[160px]" 
-                    onClick={handleCreateOrder} 
+                    className={`px-8 min-w-[160px] font-bold ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`} 
+                    onClick={isEditing ? handleUpdateOrder : handleCreateOrder} 
                     disabled={submissionStatus === "submitting"}
                   >
                     {submissionStatus === "submitting" ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Criando pedido no ERP...</>
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> {isEditing ? "Salvando..." : "Criando..."}</>
                     ) : (
-                      "Finalizar Pedido"
+                      isEditing ? "Salvar Alterações" : "Finalizar Pedido"
                     )}
                   </Button>
                 )}
@@ -1803,12 +1803,13 @@ function NewOrderPage() {
                   <div className="flex flex-col items-end gap-1">
                     <Badge className="bg-green-600 hover:bg-green-600 text-white gap-1 py-1.5 px-3">
                       <CheckCircle2 className="h-4 w-4" />
-                      Pedido {submissionMeta?.orderNumber} criado
+                      Pedido {submissionMeta?.orderNumber} {isEditing ? 'atualizado' : 'criado'}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground animate-pulse">Redirecionando...</span>
                   </div>
                 )}
               </div>
+
             </CardContent>
           </Card>
         )}
