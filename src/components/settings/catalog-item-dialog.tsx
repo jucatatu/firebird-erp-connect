@@ -81,6 +81,7 @@ export function CatalogItemDialog({
     try {
       await upsert.mutateAsync({
         itemType: target.itemType,
+        logisticsType: target.setting?.logistics_type ?? null,
         erpItemId: target.erpItemId,
         erpDescriptionSnapshot: target.erpDescription,
         displayName: displayName.trim() === "" ? null : displayName.trim(),
@@ -113,6 +114,43 @@ export function CatalogItemDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          {target.itemType === "product" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Comportamento Logístico</label>
+              <select 
+                className="w-full p-2 border rounded-md bg-background text-sm"
+                value={target.setting?.logistics_type || "packaged"}
+                onChange={async (e) => {
+                  try {
+                    await upsert.mutateAsync({
+                      itemType: target.itemType,
+                      logisticsType: e.target.value as any,
+                      erpItemId: target.erpItemId,
+                      erpDescriptionSnapshot: target.erpDescription,
+                      displayName: displayName.trim() === "" ? null : displayName.trim(),
+                      enabled,
+                      companyIds: companies,
+                      sortOrder: Number(sortOrder),
+                      defaultQuantity: Number(defaultQuantity),
+                      quantityStep: Number(quantityStep),
+                      requiresPickup: null,
+                      expectedVersion: target.setting?.version ?? null,
+                    });
+                    toast.success("Logística atualizada");
+                  } catch (err) {
+                    toast.error("Erro ao atualizar logística");
+                  }
+                }}
+              >
+                <option value="packaged">Embalado (Lata, Garrafa, Growler)</option>
+                <option value="draft">Chopp (Exige Barris / Chopeira Opcional)</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground">
+                Define se o sistema deve exigir equipamentos (barris) para este item.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-md border p-3">
             <div>
               <div className="text-sm font-medium">Disponível no aplicativo</div>

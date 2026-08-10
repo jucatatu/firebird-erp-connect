@@ -9,6 +9,7 @@ import {
 function draft(over: Partial<CatalogSettingDraft> = {}): CatalogSettingDraft {
   return {
     itemType: "product",
+    logisticsType: null,
     erpItemId: 10,
     erpDescriptionSnapshot: "CHOPP PILSEN 50L",
     displayName: null,

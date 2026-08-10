@@ -422,7 +422,8 @@ function NewOrderPage() {
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-    return p?.equipment_mode === 'CHOPE' || p?.requires_equipment;
+    // Sprint 8.9.8: Regra logística oficial
+    return p?.logistics_type === 'draft';
   });
 
   const getRequiredVias = () => choppItems.length;
@@ -478,16 +479,18 @@ function NewOrderPage() {
 
   const [suggestionDirty, setSuggestionDirty] = useState(false);
   useEffect(() => {
-    if (equipments.length > 0 && choppItems.length > 0) {
-      const viasValid = getAvailableVias() >= getRequiredVias();
+    if (choppItems.length > 0) {
+      // Sprint 8.9.8: Chopeira agora é opcional, validamos apenas litros (barris)
       const litersValid = choppItems.every(it => {
         const cov = getProductCoverage(it.productId);
-        return cov.provided >= cov.required; // Mudamos para >= para ser mais flexível se manual for maior
+        return cov.provided >= cov.required;
       });
-      if (!viasValid || !litersValid) setSuggestionDirty(true);
+      if (!litersValid) setSuggestionDirty(true);
       else setSuggestionDirty(false);
+    } else {
+      setSuggestionDirty(false);
     }
-  }, [items, equipments]);
+  }, [items, equipments, choppItems]);
 
   const suggestEquipments = () => {
     const newEquips: any[] = [];
@@ -615,7 +618,7 @@ function NewOrderPage() {
 
   const isCoverageValid = () => {
     if (choppItems.length === 0) return true;
-    if (getAvailableVias() < getRequiredVias()) return false;
+    // Sprint 8.9.8: Chopeira opcional. Apenas barris/litros são obrigatórios.
     for (const it of choppItems) {
       const cov = getProductCoverage(it.productId);
       if (cov.provided < cov.required) return false;
@@ -631,12 +634,12 @@ function NewOrderPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 animate-in fade-in duration-300">
         <div className="p-3 border rounded-lg bg-muted/10">
           <p className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-2">
-            Vias (Chopeiras) 
-            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            Chopeira (Opcional)
+            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Badge variant="outline" className="h-3 text-[9px] px-1 font-normal">Não adicionada</Badge>}
           </p>
           <div className="flex justify-between items-center">
-            <span className="text-sm">Requeridas: {getRequiredVias()}</span>
-            <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
+            <span className="text-sm">Vias sugeridas: {getRequiredVias()}</span>
+            <Badge variant="secondary" className="bg-muted/30 text-muted-foreground border-none">
               {getAvailableVias()} disponíveis
             </Badge>
           </div>
@@ -668,23 +671,23 @@ function NewOrderPage() {
   };
 
   const CoverageSummary = () => {
-    const viasValid = getAvailableVias() >= getRequiredVias();
     const allLitersValid = choppItems.every(it => {
       const cov = getProductCoverage(it.productId);
       return cov.provided >= cov.required;
     });
+    const viasValid = getAvailableVias() >= getRequiredVias();
     
     if (choppItems.length === 0) return null;
 
     return (
       <div className="space-y-1 mt-2">
          <div className="flex items-center gap-2 text-[10px]">
-            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
-            <span className={viasValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Vias {getAvailableVias()}/{getRequiredVias()}</span>
+            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Barris {allLitersValid ? 'cobertos' : 'insuficientes'}</span>
          </div>
          <div className="flex items-center gap-2 text-[10px]">
-            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
-            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Litros Cobertos</span>
+            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />}
+            <span className="text-muted-foreground font-medium">Chopeira {viasValid ? 'adicionada' : 'opcional'}</span>
          </div>
       </div>
     );
@@ -1038,7 +1041,7 @@ function NewOrderPage() {
                 </Button>
                 {!isCoverageValid() && (
                   <p className="text-[10px] text-destructive text-center font-medium mt-1">
-                    Equipamentos insuficientes para os produtos de chope.
+                    Barris insuficientes para os litros de chope.
                   </p>
                 )}
               </CardContent>

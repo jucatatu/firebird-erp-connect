@@ -1,8 +1,10 @@
 export type CatalogItemType = "product" | "equipment";
+export type LogisticsType = "draft" | "packaged";
 
 export interface CatalogSetting {
   id: string;
   item_type: CatalogItemType;
+  logistics_type: LogisticsType | null;
   erp_item_id: number;
   erp_description_snapshot: string;
   display_name: string | null;
@@ -18,6 +20,7 @@ export interface CatalogSetting {
 
 export interface CatalogSettingDraft {
   itemType: CatalogItemType;
+  logisticsType: LogisticsType | null;
   erpItemId: number;
   erpDescriptionSnapshot: string;
   displayName: string | null;

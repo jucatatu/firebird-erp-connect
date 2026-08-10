@@ -53,6 +53,11 @@ function StatusBadges({ setting }: { setting: CatalogSetting | undefined }) {
       </Badge>
       <Badge variant="outline">{companyLabels(setting.company_ids)}</Badge>
       {setting.requires_pickup && <Badge variant="outline">Exige recolha</Badge>}
+      {setting.item_type === "product" && (
+        <Badge variant="outline" className={setting.logistics_type === 'draft' ? "bg-amber-50 text-amber-700 border-amber-200" : ""}>
+          {setting.logistics_type === 'draft' ? "Logística: Chopp" : "Logística: Embalado"}
+        </Badge>
+      )}
     </div>
   );
 }

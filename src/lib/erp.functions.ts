@@ -557,11 +557,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
 
     // 1. Buscar catálogo operacional no Supabase se não for busca administrativa
     // Sprint 8.5.9: Agora buscamos ordem e nome de exibição para ordenação e enriquecimento.
-    let catalogConfig: Record<number, { display_name: string | null; order: number; default_quantity: number; quantity_step: number; requires_equipment: boolean }> = {};
+    // Sprint 8.9.8: Adicionado logistics_type
+    let catalogConfig: Record<number, { display_name: string | null; order: number; default_quantity: number; quantity_step: number; logistics_type: string | null }> = {};
     if (!data.isAdminSearch) {
       const { data: enabledProducts, error: supabaseErr } = await supabaseAdmin
         .from("order_catalog_settings")
-        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step, erp_description_snapshot")
+        .select("erp_item_id, display_name, sort_order, default_quantity, quantity_step, logistics_type")
         .eq("item_type", "product")
         .eq("enabled", true)
         .contains("company_ids", [data.companyId || 1]);
@@ -570,16 +571,12 @@ export const searchErpProducts = createServerFn({ method: "POST" })
         console.error("[ERP_PRODUCTS] Falha ao ler catálogo no Supabase:", supabaseErr);
       }
       (enabledProducts || []).forEach((p: any) => {
-        const desc = (p.erp_description_snapshot || "").toUpperCase();
-        const isChopp = desc.includes("CHOPP");
-        const isGrowlerOrBottle = desc.includes("GROWLER") || desc.includes("GARRAFA");
-        
         catalogConfig[p.erp_item_id] = { 
           display_name: p.display_name, 
           order: p.sort_order ?? 0,
           default_quantity: Number(p.default_quantity || 1),
           quantity_step: Number(p.quantity_step || 1),
-          requires_equipment: isChopp && !isGrowlerOrBottle
+          logistics_type: p.logistics_type
         };
       });
     }
@@ -626,7 +623,7 @@ export const searchErpProducts = createServerFn({ method: "POST" })
                   order: cfg.order,
                   default_quantity: cfg.default_quantity,
                   quantity_step: cfg.quantity_step,
-                  requires_equipment: cfg.requires_equipment
+                  logistics_type: cfg.logistics_type
                 };
               }
             } catch (err) {
