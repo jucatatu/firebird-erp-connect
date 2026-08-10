@@ -20,6 +20,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
+import { useOrderFormStore } from "@/hooks/use-order-form";
 
 type StatusFilter = OrderDraftStatus | "all";
 

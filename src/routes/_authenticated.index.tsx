@@ -60,42 +60,40 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.7.3 — CORRIGIR VAZAMENTO DE ESTADO CONCLUÍDA</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.10 — OTIMIZAÇÃO DE CHOPEIRAS + CICLO DE VIDA CONCLUÍDA</h2>
         
-        {"Foi implementada uma limpeza rigorosa de estado entre fluxos de pedidos.\n\n"}
+        {"Foram corrigidas as regressões de sugestão de equipamentos e persistência de estado.\n\n"}
 
         {"==================================================\n"}
-        {"1. CAUSA RAIZ IDENTIFICADA\n"}
+        {"1. OTIMIZAÇÃO DE CHOPEIRAS (VIAS)\n"}
         {"==================================================\n"}
-        {"- Causa do 11L: O botão '+' usava Math.max(0, val) sem validar o step, e o localQty inicializava com o valor persistido do carrinho anterior se houvesse coincidência de índice.\n"}
-        {"- Adicionado automático: O Zustand persistia 'items' e 'equipments' no localStorage sem limpá-los corretamente após o sucesso do pedido.\n"}
-        {"- Reset inadequado: A função reset() não limpava campos auxiliares de entrega e notas, e não era disparada ao trocar de cliente.\n\n"}
+        {"- Sugestão por Vias: Agora calculada pelo número de produtos distintos de CHOPP (logistics_type=draft), não pelo volume.\n"}
+        {"- Algoritmo de Minimização: O sistema agora prioriza equipamentos que cubram as vias necessárias com a menor quantidade física (ex: 1x 2 vias ao invés de 2x 1 via).\n"}
+        {"- Metadados Reais: A regra agora utiliza os campos 'equipment_role' e 'tap_count' adicionados ao catálogo, eliminando a dependência de parsing de texto.\n\n"}
 
         {"==================================================\n"}
-        {"2. MELHORIAS IMPLEMENTADAS\n"}
+        {"2. CICLO DE VIDA DO FORMULÁRIO\n"}
         {"==================================================\n"}
-        {"- Reset Transacional: resetItemsAndClient() agora limpa items, equipments, notes, delivery dates e gera nova Idempotency-Key.\n"}
-        {"- Segurança de Cliente: Trocar de cliente com carrinho ativo agora solicita confirmação e limpa o estado.\n"}
-        {"- Lógica de Incremento: O handleQtyChange agora força o arredondamento para o step (ex: 10L -> 20L) impedindo valores quebrados como 11L.\n"}
-        {"- Isolamento de Card: O ProductCard garante que localQty retorne ao default do catálogo se o item não estiver no carrinho.\n\n"}
+        {"- Reset Explícito: O estado agora é limpo deliberadamente ao clicar em 'Novo Pedido' na listagem ou após sucesso/falha.\n"}
+        {"- Preservação Transacional: Durante o preenchimento (wizard), o Zustand continua preservando os dados entre os passos.\n"}
+        {"- Isolamento por Empresa: Correção na validação de reset ao trocar de empresa para evitar itens órfãos.\n\n"}
 
         {"==================================================\n"}
-        {"3. COMPORTAMENTO APÓS PEDIDO\n"}
+        {"3. CHOPEIRA CONTINUA OPCIONAL\n"}
         {"==================================================\n"}
-        {"- Sucesso: O formulário é totalmente resetado e redirecionado para a listagem.\n"}
-        {"- Reload: Se for o mesmo pedido (mesma sessão), o estado é preservado via localStorage.\n"}
-        {"- Novo Início: Se o pedido anterior foi finalizado, a tela de Novo Pedido força a limpeza total.\n\n"}
+        {"- A sugestão é automática, mas a validação bloqueante de vias foi removida. O pedido segue se os barris cobrirem a litragem.\n\n"}
 
         {"==================================================\n"}
         {"ENTREGA FINAL\n"}
         {"==================================================\n"}
-        {"1. Idempotency-Key: Renovada a cada novo pedido.\n"}
-        {"2. Equipamentos: Sempre iniciam vazios até ação explícita ou adição de chope.\n"}
-        {"3. Cobertura: Bloqueada se não houver itens no carrinho.\n"}
+        {"1. Migração Supabase: Adicionados equipment_role e tap_count em order_catalog_settings.\n"}
+        {"2. Novo Pedido: Botão na lista agora dispara resetItemsAndClient().\n"}
+        {"3. ProductCard: Preservados botões rápidos 10L/20L/30L/50L.\n"}
         {"4. Arquivos alterados:\n"}
-        {"   - src/hooks/use-order-form.ts (Reset total)\n"}
-        {"   - src/routes/_authenticated.pedidos-venda.novo.tsx (UX & Lógica de Qty)\n"}
-        {"   - src/routes/_authenticated.index.tsx (Logs)\n"}
+        {"   - src/lib/erp.functions.ts (Metadata loading)\n"}
+        {"   - src/hooks/use-order-form.ts (State logic)\n"}
+        {"   - src/routes/_authenticated.pedidos-venda.novo.tsx (Algoritmo & LifeCycle)\n"}
+        {"   - src/routes/_authenticated.pedidos-venda.index.tsx (Reset trigger)\n"}
 
       </div>
     </div>
