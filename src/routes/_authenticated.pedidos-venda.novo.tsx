@@ -1026,13 +1026,14 @@ function NewOrderPage() {
                 </div>
               )}
 
-              {submissionStatus === "created" && erpOrderNumber && (
+              {submissionStatus === "created" && submissionMeta?.orderNumber && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3 text-center">
                   <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
                   <div>
                     <p className="text-lg font-bold text-green-800">Pedido criado no ERP!</p>
-                    <p className="text-sm text-green-700">Nº {erpOrderNumber}</p>
+                    <p className="text-sm text-green-700">Nº {submissionMeta.orderNumber}</p>
                   </div>
+
                   <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => navigate({ to: "/pedidos-venda", search: {} as any })}>
                     Ir para Pedidos
                   </Button>
