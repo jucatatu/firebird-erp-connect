@@ -739,21 +739,44 @@ function NewOrderPage() {
       
       const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
       
-      console.log("[ORDER CREATE] server function returned", { ok: result.ok, status: result.status });
+      console.log("[ORDER CREATE] server function returned", { 
+        ok: result.ok, 
+        status: result.status,
+        error: result.error?.code,
+        hasData: !!result.data,
+        orderId: result.data?.orderId,
+        orderNumber: result.data?.orderNumber
+      });
 
       if (result.ok && result.data && result.data.orderNumber) {
         console.log("[ORDER CREATE] success", result.data);
-        setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber,
+          status: result.data.status
+        });
         toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
         
-        // Só resetamos após confirmação REAL
-        reset();
-        
-        // Pequeno delay para o usuário ver o número antes de navegar
+        // CORREÇÃO DO RESET PREMATURO:
+        // Mantemos o estado para visualização final, navegamos e SÓ ENTÃO resetamos.
         setTimeout(() => {
           navigate({ to: "/pedidos-venda", search: {} as any });
+          // Pequeno delay após navegação para limpar a store sem afetar a transição
+          setTimeout(() => resetItemsAndClient(), 500);
         }, 1500);
       } else {
+        console.error("[ORDER CREATE] failed", result.error);
+        const errorMsg = result.error?.message || "Erro desconhecido ao criar pedido.";
+        setSubmissionStatus("failed", null, errorMsg);
+        toast.error(`Falha ao criar pedido: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      console.error("[ORDER CREATE] exception", err);
+      const msg = err.message || "Erro ao criar pedido.";
+      setSubmissionStatus("failed", null, msg);
+      toast.error(msg);
+    }
+  };
         console.error("[ORDER CREATE] failed", result.error);
         const status = result.status;
         

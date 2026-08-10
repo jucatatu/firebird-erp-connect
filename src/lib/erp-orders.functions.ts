@@ -203,9 +203,9 @@ export async function handleCreateErpOrder(
     .from("profiles")
     .select("erp_seller_id")
     .eq("id", userId)
+    .single();
   
   console.log("[ORDER SERVER] seller resolved for user:", userId);
-    .single();
 
   if (profileErr || !profile?.erp_seller_id) {
     return {
