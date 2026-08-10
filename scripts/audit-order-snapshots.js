@@ -21,12 +21,12 @@ async function audit() {
 
   console.log('--- AUDIT REPORT ---');
   data.forEach(d => {
-    console.log(\`Draft ID: \${d.id} | ERP #: \${d.erp_order_number}\`);
-    console.log(\`Customer Snapshot: \${d.customer_name_snapshot}\`);
-    console.log(\`Payload Structure:\`);
-    console.log(\`- Client: \`, JSON.stringify(d.payload?.client || d.payload?.customer || 'MISSING'));
-    console.log(\`- Items (first): \`, JSON.stringify(d.payload?.items?.[0] || 'NONE'));
-    console.log(\`- Equipments (first): \`, JSON.stringify((d.payload?.equipments || d.payload?.equipment)?.[0] || 'NONE'));
+    console.log(`Draft ID: ${d.id} | ERP #: ${d.erp_order_number}`);
+    console.log(`Customer Snapshot: ${d.customer_name_snapshot}`);
+    console.log(`Payload Structure:`);
+    console.log(`- Client: `, JSON.stringify(d.payload?.client || d.payload?.customer || 'MISSING'));
+    console.log(`- Items (first): `, JSON.stringify(d.payload?.items?.[0] || 'NONE'));
+    console.log(`- Equipments (first): `, JSON.stringify((d.payload?.equipments || d.payload?.equipment)?.[0] || 'NONE'));
     console.log('--------------------');
   });
 }
