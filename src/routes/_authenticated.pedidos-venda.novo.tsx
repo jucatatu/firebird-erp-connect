@@ -1087,7 +1087,7 @@ function NewOrderPage() {
                         onChange={(e) => setSaleType(Number(e.target.value))}
                       >
                         <option value="">Selecione...</option>
-                        {paymentOptionsQ.data?.data?.saleTypes?.map((s: any) => (
+                        {localPaymentOptions.data?.saleTypes?.map((s: any) => (
                           <option key={s.id} value={s.id}>{s.description}</option>
                         ))}
                       </select>
