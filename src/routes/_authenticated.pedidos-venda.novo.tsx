@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle } from "lucide-react";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
@@ -42,7 +42,7 @@ function ProductPriceDisplay({
   productId: number, 
   clientId: number, 
   unit: string,
-  onPriceLoaded?: (price: number) => void,
+  onPriceLoaded?: (price: number | null) => void,
   manualPrice?: boolean,
   appliedPrice?: number,
   onEditPrice: () => void
@@ -50,54 +50,76 @@ function ProductPriceDisplay({
   const { data, isLoading } = useErpPrice({ productId, clientId });
   
   useEffect(() => {
-    if (data?.ok && data.data?.priceFound && onPriceLoaded) {
-      onPriceLoaded(data.data.unitPrice);
+    // We notify the parent if a price was found or not found
+    if (!isLoading) {
+      if (data?.ok && data.data?.priceFound) {
+        onPriceLoaded?.(data.data.unitPrice);
+      } else {
+        onPriceLoaded?.(null);
+      }
     }
-  }, [data, onPriceLoaded]);
+  }, [data, isLoading, onPriceLoaded]);
   
   if (isLoading) return <p className="text-xs text-muted-foreground animate-pulse mt-1">Consultando preço...</p>;
-  if (!data?.ok || !data.data?.priceFound) return <p className="text-xs text-destructive font-medium mt-1">Preço não cadastrado</p>;
   
-  const erpPrice = data.data.unitPrice;
-  const strategyLabel = data.data.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
+  const erpPrice = data?.ok && data.data?.priceFound ? data.data.unitPrice : null;
+  const strategyLabel = data?.data?.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
   
+  const hasEffectivePrice = (appliedPrice !== undefined && appliedPrice > 0) || (erpPrice !== null);
+
   return (
-    <div className="mt-1 group">
+    <div className="mt-1">
       <div className="flex flex-col">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-primary">
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
-          </span>
+          {hasEffectivePrice ? (
+            <span className="text-sm font-bold text-primary">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? (erpPrice || 0))} / {unit}
+            </span>
+          ) : (
+            <span className="text-xs text-destructive font-medium">Preço não cadastrado</span>
+          )}
+          
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+            className="h-7 w-7 text-muted-foreground hover:text-primary" 
             onClick={(e) => { e.stopPropagation(); onEditPrice(); }}
           >
-            <Plus className="h-3 w-3 rotate-45" /> {/* Using Plus as a marker, or Pencil if preferred */}
+            {hasEffectivePrice ? (
+              <Pencil className="h-3.5 w-3.5" />
+            ) : (
+              <span className="text-[10px] underline px-1 text-blue-600 font-bold whitespace-nowrap">[Definir preço]</span>
+            )}
           </Button>
         </div>
+
         {manualPrice && (
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-orange-600 font-bold uppercase">Preço alterado manualmente</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
-            </div>
+            {erpPrice !== null && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] text-muted-foreground font-medium">
+                  Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}
+                </span>
+              </div>
+            )}
           </div>
         )}
-        {!manualPrice && <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>}
+        {!manualPrice && erpPrice !== null && (
+          <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>
+        )}
       </div>
     </div>
   );
 }
 
-function SubtotalDisplay({ productId, clientId, quantity, appliedPrice }: { productId: number, clientId: number, quantity: number, appliedPrice?: number }) {
-  const { data } = useErpPrice({ productId, clientId });
-  if (!data?.ok || (!data?.data?.priceFound && !appliedPrice)) return null;
+function SubtotalDisplay({ productId, clientId, quantity, appliedPrice, erpPrice }: { productId: number, clientId: number, quantity: number, appliedPrice?: number, erpPrice?: number | null }) {
+  // If we have an explicit applied price or an erp price, we use it.
+  const effectivePrice = appliedPrice ?? erpPrice;
   
-  const price = appliedPrice ?? data?.data?.unitPrice;
-  if (price === undefined) return null;
-  const subtotal = price * quantity;
+  if (!effectivePrice || effectivePrice <= 0) return null;
+  
+  const subtotal = effectivePrice * quantity;
   return (
     <p className="text-xs font-bold text-muted-foreground">
       Subtotal: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(subtotal)}
@@ -112,6 +134,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
   const isChopp = product.logistics_type === 'draft';
   const [localQty, setLocalQty] = useState(pinitial);
   const [erpPrice, setErpPrice] = useState<number | null>(null);
+  const [draftManualPrice, setDraftManualPrice] = useState<number | null>(null);
   const [isEditingPrice, setIsEditingPrice] = useState(false);
 
   useEffect(() => {
@@ -119,6 +142,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
       setLocalQty(cartItem.quantity);
     } else {
       setLocalQty(pinitial);
+      setDraftManualPrice(null); // Reset when not in cart
     }
   }, [cartItem, pinitial]);
 
@@ -134,47 +158,72 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
   };
 
   const handlePriceClick = () => {
-    if (cartItem) setIsEditingPrice(true);
+    setIsEditingPrice(true);
   };
+
+  const effectivePrice = cartItem 
+    ? cartItem.appliedUnitPrice 
+    : (draftManualPrice ?? erpPrice);
+
+  const isManual = cartItem 
+    ? cartItem.manualPrice 
+    : (draftManualPrice !== null);
 
   const shortcuts = isChopp ? [10, 20, 30, 50] : [];
 
   return (
     <div className={`flex flex-col gap-2 rounded-xl border p-3 shadow-sm transition-colors ${cartItem ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
       <div className="flex justify-between items-start">
-        <div className="flex-1" onClick={handlePriceClick}>
+        <div className="flex-1">
           <h4 className="font-bold text-sm leading-tight">{product.description}</h4>
           {isEditingPrice ? (
             <div className="mt-1 flex items-center gap-2">
               <Input
                 type="number"
                 step="0.01"
+                inputMode="decimal"
                 className="h-8 w-24 text-sm font-bold"
-                defaultValue={cartItem?.appliedUnitPrice ?? (erpPrice || 0)}
+                defaultValue={effectivePrice ?? 0}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const val = Number((e.target as HTMLInputElement).value);
-                    if (val > 0) updateItemPrice(product.id, val);
+                    if (!isNaN(val) && val > 0) {
+                      if (cartItem) {
+                        updateItemPrice(product.id, val);
+                      } else {
+                        setDraftManualPrice(val);
+                      }
+                    }
                     setIsEditingPrice(false);
                   }
                   if (e.key === 'Escape') setIsEditingPrice(false);
                 }}
                 onBlur={(e) => {
                   const val = Number(e.target.value);
-                  if (val > 0 && val !== (cartItem?.appliedUnitPrice)) {
-                    updateItemPrice(product.id, val);
+                  if (!isNaN(val) && val > 0 && val !== effectivePrice) {
+                    if (cartItem) {
+                      updateItemPrice(product.id, val);
+                    } else {
+                      setDraftManualPrice(val);
+                    }
                   }
                   setIsEditingPrice(false);
                 }}
               />
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={(e) => {
-                e.stopPropagation();
-                updateItemPrice(product.id, null);
-                setIsEditingPrice(false);
-              }} title="Resetar para preço ERP">
-                <Trash2 className="h-3 w-3" />
-              </Button>
+              {erpPrice !== null && (
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={(e) => {
+                  e.stopPropagation();
+                  if (cartItem) {
+                    updateItemPrice(product.id, null);
+                  } else {
+                    setDraftManualPrice(null);
+                  }
+                  setIsEditingPrice(false);
+                }} title="Restar para preço ERP">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           ) : (
             <div className="mt-1 flex items-center gap-1">
@@ -183,14 +232,12 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
                 clientId={clientId} 
                 unit={punit} 
                 onPriceLoaded={setErpPrice}
-                manualPrice={cartItem?.manualPrice}
-                appliedPrice={cartItem?.appliedUnitPrice}
-                onEditPrice={() => {
-                  if (cartItem) setIsEditingPrice(true);
-                }}
+                manualPrice={isManual}
+                appliedPrice={effectivePrice}
+                onEditPrice={handlePriceClick}
               />
-              {cartItem?.manualPrice && (
-                <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200 cursor-help" title="Preço editado manualmente">
+              {isManual && (
+                <Badge variant="outline" className="text-[9px] h-3.5 px-1 text-blue-600 border-blue-200 cursor-help ml-1" title="Preço editado manualmente">
                   Manual
                 </Badge>
               )}
@@ -243,18 +290,21 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
         </div>
         
         <div className="text-right">
-           <SubtotalDisplay productId={product.id} clientId={clientId} quantity={localQty} appliedPrice={cartItem?.appliedUnitPrice} />
+           <SubtotalDisplay productId={product.id} clientId={clientId} quantity={localQty} appliedPrice={effectivePrice} erpPrice={erpPrice} />
            {!cartItem ? (
              <Button size="sm" className="h-8 px-3 text-xs mt-1" onClick={() => {
-               if (localQty > 0 && erpPrice !== null) {
+               if (localQty > 0 && (erpPrice !== null || draftManualPrice !== null)) {
                  addItem({ 
                    productId: product.id, 
                    description: product.description, 
                    quantity: localQty, 
-                   unitPrice: erpPrice 
+                   unitPrice: erpPrice || 0,
+                   manualUnitPrice: draftManualPrice
                  });
                }
-             }} disabled={erpPrice === null}>Adicionar</Button>
+             }} disabled={localQty <= 0 || (erpPrice === null && draftManualPrice === null)}>
+               Adicionar
+             </Button>
            ) : (
              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs mt-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeItem(product.id)}>
                Remover
