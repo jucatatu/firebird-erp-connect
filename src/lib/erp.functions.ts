@@ -729,7 +729,9 @@ export const listErpEquipmentTypes = createServerFn({ method: "POST" })
           return {
             ...et,
             description: cfg.display_name || et.description,
-            order: cfg.order
+            order: cfg.order,
+            equipment_role: cfg.equipment_role,
+            tap_count: cfg.tap_count
           };
         });
 
