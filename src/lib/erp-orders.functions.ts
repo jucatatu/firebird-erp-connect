@@ -427,24 +427,27 @@ export const updateErpOrder = createServerFn({ method: "POST" })
 
     if (!result.ok) return result;
 
-    await supabaseAdmin
-      .from("order_drafts")
-      .update({
-        updated_by: userId,
-        customer_name_snapshot: data.data.client_snapshot?.fantasyName 
-          ? `${data.data.client_snapshot.fantasyName}\n${data.data.client_snapshot.name}` 
-          : (data.data.client_snapshot?.name || "Pedido ERP"),
-        company_id: data.data.companyId,
-        payload: {
-          ...data.data,
-          erp_response: result.data,
-          updated_at: new Date().toISOString()
-        }
-      })
-      .eq("erp_order_id", result.data.orderId);
+    if (result.ok && result.data) {
+      await supabaseAdmin
+        .from("order_drafts")
+        .update({
+          updated_by: userId,
+          customer_name_snapshot: data.data.client_snapshot?.fantasyName 
+            ? `${data.data.client_snapshot.fantasyName}\n${data.data.client_snapshot.name}` 
+            : (data.data.client_snapshot?.name || "Pedido ERP"),
+          company_id: data.data.companyId,
+          payload: {
+            ...data.data,
+            erp_response: result.data,
+            updated_at: new Date().toISOString()
+          }
+        })
+        .eq("erp_order_id", result.data.orderId);
+    }
 
     return result;
   });
+
 
 export interface ErpOrderStatus {
   orderId: number;
