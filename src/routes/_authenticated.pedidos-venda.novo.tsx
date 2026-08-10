@@ -890,8 +890,7 @@ function NewOrderPage() {
         choppItems={choppItems}
         addEquipment={addEquipment}
       />
-
-    <div className="container max-w-5xl py-6">
+      <div className="container max-w-5xl py-6">
       <PageHeader 
         title="Novo Pedido" 
         description="Siga os passos para cadastrar um novo pedido no ERP."
