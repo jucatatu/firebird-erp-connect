@@ -479,16 +479,18 @@ function NewOrderPage() {
 
   const [suggestionDirty, setSuggestionDirty] = useState(false);
   useEffect(() => {
-    if (equipments.length > 0 && choppItems.length > 0) {
-      const viasValid = getAvailableVias() >= getRequiredVias();
+    if (choppItems.length > 0) {
+      // Sprint 8.9.8: Chopeira agora é opcional, validamos apenas litros (barris)
       const litersValid = choppItems.every(it => {
         const cov = getProductCoverage(it.productId);
-        return cov.provided >= cov.required; // Mudamos para >= para ser mais flexível se manual for maior
+        return cov.provided >= cov.required;
       });
-      if (!viasValid || !litersValid) setSuggestionDirty(true);
+      if (!litersValid) setSuggestionDirty(true);
       else setSuggestionDirty(false);
+    } else {
+      setSuggestionDirty(false);
     }
-  }, [items, equipments]);
+  }, [items, equipments, choppItems]);
 
   const suggestEquipments = () => {
     const newEquips: any[] = [];
