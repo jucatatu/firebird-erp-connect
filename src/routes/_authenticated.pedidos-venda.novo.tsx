@@ -1180,7 +1180,7 @@ function NewOrderPage() {
       )}
 
       {step === "delivery" && clientId && (
-        <Card>
+        <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-2">
