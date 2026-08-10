@@ -115,6 +115,11 @@ export const resolveErpPrice = createServerFn({ method: "GET" })
 export interface CreateOrderInput {
   companyId: number;
   clientId: number;
+  client_snapshot?: {
+    id: number;
+    name: string;
+    fantasyName?: string | null;
+  };
   sellerId: number;
   saleTypeId: number;
   paymentTermId: number;
@@ -127,10 +132,16 @@ export interface CreateOrderInput {
   notes?: string | null;
   items: Array<{ 
     productId: number; 
+    description?: string;
     quantity: number;
+    unit?: string;
     manualUnitPrice?: number; 
   }>;
-  equipments: Array<{ equipmentTypeId: number; quantity: number }>;
+  equipments: Array<{ 
+    equipmentTypeId: number; 
+    description?: string;
+    quantity: number; 
+  }>;
 }
 
 export const createErpOrder = createServerFn({ method: "POST" })
