@@ -634,12 +634,12 @@ function NewOrderPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 animate-in fade-in duration-300">
         <div className="p-3 border rounded-lg bg-muted/10">
           <p className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-2">
-            Vias (Chopeiras) 
-            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            Chopeira (Opcional)
+            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Badge variant="outline" className="h-3 text-[9px] px-1 font-normal">Não adicionada</Badge>}
           </p>
           <div className="flex justify-between items-center">
-            <span className="text-sm">Requeridas: {getRequiredVias()}</span>
-            <Badge variant={getAvailableVias() >= getRequiredVias() ? "outline" : "destructive"} className={getAvailableVias() >= getRequiredVias() ? "text-green-600 border-green-200 bg-green-50" : ""}>
+            <span className="text-sm">Vias sugeridas: {getRequiredVias()}</span>
+            <Badge variant="secondary" className="bg-muted/30 text-muted-foreground border-none">
               {getAvailableVias()} disponíveis
             </Badge>
           </div>
