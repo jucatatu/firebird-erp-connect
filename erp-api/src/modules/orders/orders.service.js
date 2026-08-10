@@ -307,11 +307,12 @@ async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) 
   });
 }
 
-async function getBatchStatus(orderIds) {
-  const rows = await repository.findStatusByIds(orderIds);
+async function getBatchStatus(orderNumbers) {
+  const rows = await repository.findStatusByNumbers(orderNumbers);
   const { canEditErpOrder } = require("../../shared/orders/status-rules");
   return rows.map(r => ({
     orderId: Number(r.ID_ORDENS_VENDA),
+    orderNumber: Number(r.N_PEDIDO),
     statusId: Number(r.ID_STATUS),
     statusDescription: r.STATUS_DESCRICAO ? String(r.STATUS_DESCRICAO).trim() : null,
     canEdit: canEditErpOrder(r.ID_STATUS)
