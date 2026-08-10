@@ -257,33 +257,75 @@ function NewOrderPage() {
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore() as OrderFormStore;
   
-  const paymentOptionsQ = useErpPaymentOptions();
-  
+  // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
+  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const [localPaymentOptions, setLocalPaymentOptions] = useState<{
+    loading: boolean;
+    error: string | null;
+    data: PaymentOptionsPayload | null;
+  }>({ loading: false, error: null, data: null });
+
+  const loadPaymentOptionsDirectly = async () => {
+    console.log("[PAYMENT UI] calling getErpPaymentOptions directly");
+    setLocalPaymentOptions(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const result = await fetchPaymentOptions();
+      console.log("[PAYMENT UI] result received", {
+        type: typeof result,
+        keys: Object.keys(result || {}),
+        ok: result?.ok,
+        status: result?.status,
+        hasData: !!result?.data
+      });
+
+      if (result.ok && result.data) {
+        // Validação de contrato (Item 7 da instrução)
+        const isValid = Array.isArray(result.data.paymentTerms) && 
+                      Array.isArray(result.data.paymentMethods) && 
+                      Array.isArray(result.data.saleTypes);
+        
+        if (!isValid) {
+          console.error("[PAYMENT UI] Erro de contrato: Dados malformados", result.data);
+          setLocalPaymentOptions({ loading: false, error: "Erro de contrato no ERP API (formato inválido)", data: null });
+          return;
+        }
+
+        setLocalPaymentOptions({ loading: false, error: null, data: result.data });
+      } else {
+        console.error("[PAYMENT UI] error", result.error);
+        setLocalPaymentOptions({ 
+          loading: false, 
+          error: result.error?.message || "Não foi possível carregar as opções de pagamento.", 
+          data: null 
+        });
+      }
+    } catch (err: any) {
+      console.error("[PAYMENT UI] exception", err);
+      setLocalPaymentOptions({ loading: false, error: "Falha na comunicação com o servidor.", data: null });
+    }
+  };
+
   useEffect(() => {
-    console.log("[PAGE] paymentOptionsQ state:", {
-      isLoading: paymentOptionsQ.isLoading,
-      isError: paymentOptionsQ.isError,
-      status: paymentOptionsQ.status,
-      hasData: !!paymentOptionsQ.data,
-      isFetching: paymentOptionsQ.isFetching
-    });
-  }, [paymentOptionsQ.isLoading, paymentOptionsQ.isError, paymentOptionsQ.status, paymentOptionsQ.data, paymentOptionsQ.isFetching]);
+    if (step === "payment" && !localPaymentOptions.data && !localPaymentOptions.loading) {
+      console.log("[PAYMENT UI] entered payment step, triggering load");
+      loadPaymentOptionsDirectly();
+    }
+  }, [step]);
 
   const clientDetailQ = useErpClientDetail(clientId);
   
   // Acessa metadados da submissão para exibir o número do pedido
   const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
 
-  // Efeito para carregar padrões do cliente
+  // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
-    if (clientDetailQ.data?.ok && clientDetailQ.data.data && paymentOptionsQ.data?.ok && paymentOptionsQ.data.data) {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data && localPaymentOptions.data) {
       const detail = clientDetailQ.data.data;
-      const options = paymentOptionsQ.data.data;
+      const options = localPaymentOptions.data;
 
       const termId = detail.defaultPaymentTermId;
       const methodId = detail.defaultPaymentMethodId;
 
-      // Verificar se os IDs existem nas listas globais antes de aplicar
       const termExists = termId ? options.paymentTerms.some((t: any) => t.id === termId) : false;
       const methodExists = methodId ? options.paymentMethods.some((m: any) => m.id === methodId) : false;
 
@@ -299,7 +341,7 @@ function NewOrderPage() {
         toast.warning("Forma de pagamento padrão do cliente não disponível no ERP.");
       }
     }
-  }, [clientDetailQ.data, paymentOptionsQ.data, clientId, setPayment]);
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);

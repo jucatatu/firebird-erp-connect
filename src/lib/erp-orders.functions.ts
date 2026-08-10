@@ -249,19 +249,37 @@ export interface PaymentOptionsPayload {
 
 export const getErpPaymentOptions = createServerFn({ method: "GET" })
   .handler(async () => {
-    console.log("[SERVER-FN] Entering getErpPaymentOptions");
+    console.log("[SERVER-FN] Entering getErpPaymentOptions (v2 - diagnostic)");
     try {
       const { callErp } = await import("./erp.server");
-      console.log("[SERVER-FN] Calling callErp for payment-options");
+      console.log("[SERVER-FN] Immediatly before callErp for payment-options");
+      
       const result = await callErp({
         method: "GET",
         path: "/api/v1/payment-options"
       }) as ErpResponse<PaymentOptionsPayload>;
-      console.log("[SERVER-FN] callErp result ok:", result.ok, "status:", result.status);
+      
+      console.log("[SERVER-FN] callErp result received:", {
+        ok: result.ok,
+        status: result.status,
+        hasData: !!result.data,
+        hasTerms: Array.isArray(result.data?.paymentTerms),
+        termsCount: result.data?.paymentTerms?.length
+      });
+      
       return result;
     } catch (err: any) {
-      console.error("[SERVER-FN] ERROR in getErpPaymentOptions:", err.message);
-      throw err;
+      console.error("[SERVER-FN] CRITICAL ERROR in getErpPaymentOptions:", err.message, err.stack);
+      return {
+        ok: false,
+        status: 500,
+        data: null,
+        error: {
+          code: "SERVER_FN_ERROR",
+          message: err.message || "Erro interno na Server Function",
+          retryable: true
+        }
+      };
     }
   });
 
