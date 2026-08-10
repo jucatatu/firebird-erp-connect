@@ -258,10 +258,17 @@ export async function handleCreateErpOrder(
       if (insertErr) throw insertErr;
       mirrorId = inserted.id;
     }
+
+    console.log("[ORDER SERVER] Mirror success:", mirrorId);
+    return {
+      ...result,
+      data: { ...result.data, mirrorId }
+    };
   } catch (err: any) {
     console.error("[ORDER SERVER] Mirror exception:", err);
     return {
       ...result,
+      data: { ...result.data, mirrorId: undefined },
       error: { 
         code: "ORDER_CREATED_MIRROR_FAILED", 
         message: "Pedido criado no ERP, mas falha crítica no espelho Supabase.",
