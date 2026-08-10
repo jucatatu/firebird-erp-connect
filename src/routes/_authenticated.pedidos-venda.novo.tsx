@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw } from "lucide-react";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
@@ -1026,27 +1026,27 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
                
-               {paymentOptionsQ.isLoading ? (
+               {localPaymentOptions.loading ? (
                  <div className="flex flex-col items-center justify-center py-8 space-y-3">
                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                    <p className="text-sm font-medium animate-pulse">Carregando opções do ERP...</p>
                  </div>
-               ) : paymentOptionsQ.isError ? (
+               ) : localPaymentOptions.error ? (
                  <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center border rounded-lg bg-destructive/5 border-destructive/20">
                    <div className="p-3 rounded-full bg-destructive/10 text-destructive">
-                     <Trash2 className="h-6 w-6" />
+                     <AlertCircle className="h-6 w-6" />
                    </div>
                    <div className="space-y-1">
                      <p className="text-sm font-bold text-destructive">Não foi possível carregar as opções de pagamento.</p>
-                     <p className="text-xs text-muted-foreground max-w-[300px]">O servidor ERP pode estar indisponível ou ocorreu um erro na autenticação.</p>
+                     <p className="text-xs text-muted-foreground max-w-[300px]">{localPaymentOptions.error}</p>
                    </div>
                    <Button 
                      variant="outline" 
                      size="sm" 
-                     onClick={() => paymentOptionsQ.refetch()}
+                     onClick={() => loadPaymentOptionsDirectly()}
                      className="gap-2"
                    >
-                     <Loader2 className="h-3 w-3" />
+                     <RefreshCcw className="h-3 w-3" />
                      Tentar novamente
                    </Button>
                  </div>
@@ -1061,7 +1061,7 @@ function NewOrderPage() {
                         onChange={(e) => setPayment(Number(e.target.value), paymentMethodId)}
                       >
                         <option value="">Selecione...</option>
-                        {paymentOptionsQ.data?.data?.paymentTerms?.map((t: any) => (
+                        {localPaymentOptions.data?.paymentTerms?.map((t: any) => (
                           <option key={t.id} value={t.id}>{t.description}</option>
                         ))}
                       </select>
@@ -1074,7 +1074,7 @@ function NewOrderPage() {
                         onChange={(e) => setPayment(paymentTermId, Number(e.target.value))}
                       >
                         <option value="">Selecione...</option>
-                        {paymentOptionsQ.data?.data?.paymentMethods?.map((m: any) => (
+                        {localPaymentOptions.data?.paymentMethods?.map((m: any) => (
                           <option key={m.id} value={m.id}>{m.description}</option>
                         ))}
                       </select>
@@ -1087,7 +1087,7 @@ function NewOrderPage() {
                         onChange={(e) => setSaleType(Number(e.target.value))}
                       >
                         <option value="">Selecione...</option>
-                        {paymentOptionsQ.data?.data?.saleTypes?.map((s: any) => (
+                        {localPaymentOptions.data?.saleTypes?.map((s: any) => (
                           <option key={s.id} value={s.id}>{s.description}</option>
                         ))}
                       </select>
