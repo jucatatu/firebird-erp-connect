@@ -13,12 +13,15 @@ import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
-import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
+import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -681,7 +684,7 @@ function NewOrderPage() {
   };
 
   const updateEquipmentQty = (id: number, qty: number, assignedProductId?: number | null) => {
-    if (qty <= 0) removeEquipment(id);
+    if (qty <= 0) removeEquipment(id, assignedProductId);
     else {
       const eqs = [...equipments];
       const idx = eqs.findIndex(e => e.equipmentTypeId === id && e.assignedProductId === assignedProductId);
@@ -879,6 +882,15 @@ function NewOrderPage() {
   };
 
   return (
+    <>
+      <ManualEquipmentSheet 
+        open={showAddEquip} 
+        onOpenChange={setShowAddEquip}
+        equipmentTypes={(equipmentTypesQ.data as any)?.data?.equipmentTypes || []}
+        choppItems={choppItems}
+        addEquipment={addEquipment}
+      />
+
     <div className="container max-w-5xl py-6">
       <PageHeader 
         title="Novo Pedido" 
@@ -1073,7 +1085,7 @@ function NewOrderPage() {
                              <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1, eq.assignedProductId)}>-</Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1, eq.assignedProductId)}>+</Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId, eq.assignedProductId)}><Trash2 className="h-4 w-4"/></Button>
                              </div>
                           </div>
                         ))}
@@ -1114,8 +1126,8 @@ function NewOrderPage() {
                   {items.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum item adicionado</p>}
 
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-4">Equipamentos</p>
-                  {equipments.map(eq => (
-                    <div key={eq.equipmentTypeId} className="flex justify-between items-center text-xs py-2 border-b border-dashed last:border-0">
+                  {equipments.map((eq, idx) => (
+                    <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}-${idx}`} className="flex justify-between items-center text-xs py-2 border-b border-dashed last:border-0">
                        <span className="truncate max-w-[150px]">{eq.description}</span>
                        <span className="font-mono font-bold">{eq.quantity}x</span>
                     </div>
@@ -1378,8 +1390,8 @@ function NewOrderPage() {
                           </div>
                         </div>
                       ))}
-                      {equipments.map(eq => (
-                        <div key={eq.equipmentTypeId} className="p-2 px-3 text-xs bg-muted/30 flex justify-between italic text-muted-foreground">
+                      {equipments.map((eq, idx) => (
+                        <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}-${idx}`} className="p-2 px-3 text-xs bg-muted/30 flex justify-between italic text-muted-foreground">
                           <span>{eq.description}</span>
                           <span>{eq.quantity}x</span>
                         </div>
@@ -1413,5 +1425,177 @@ function NewOrderPage() {
         )}
 
     </div>
+  );
+}
+
+function ManualEquipmentSheet({ 
+  open, 
+  onOpenChange, 
+  equipmentTypes, 
+  choppItems,
+  addEquipment 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  equipmentTypes: any[];
+  choppItems: any[];
+  addEquipment: (eq: OrderEquipment) => void;
+}) {
+  const [selectedType, setSelectedType] = useState<any>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [assignedProductId, setAssignedProductId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedType(null);
+      setQuantity(1);
+      setAssignedProductId(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (selectedType) {
+      const isKeg = selectedType.equipment_role === 'KEG' || selectedType.description?.toLowerCase().includes("barril");
+      if (isKeg) {
+        if (choppItems.length === 1) {
+          setAssignedProductId(choppItems[0].productId);
+        } else {
+          setAssignedProductId(null);
+        }
+      } else {
+        setAssignedProductId(null);
+      }
+    }
+  }, [selectedType, choppItems]);
+
+  const handleAdd = () => {
+    if (!selectedType) return;
+    
+    const isKeg = selectedType.equipment_role === 'KEG' || selectedType.description?.toLowerCase().includes("barril");
+    
+    if (isKeg && choppItems.length > 1 && !assignedProductId) {
+      toast.error("Por favor, selecione para qual chope é este barril.");
+      return;
+    }
+
+    const role = selectedType.equipment_role === 'dispenser' || selectedType.description?.toLowerCase().includes("chopeira")
+      ? "TAP"
+      : isKeg ? "KEG" : "OTHER";
+
+    const tapLines = selectedType.tap_count || Number(selectedType.description.match(/(\d+)\s*vias/i)?.[1] || 0);
+    const capacityLiters = selectedType.capacity_liters || Number(selectedType.description.match(/(\d+)\s*l/i)?.[1] || 0);
+
+    let finalDescription = selectedType.description;
+    if (isKeg && assignedProductId) {
+      const product = choppItems.find(p => p.productId === assignedProductId);
+      if (product) {
+        const style = product.description.split(" ")[0].toUpperCase();
+        finalDescription = `${selectedType.description} (${style})`;
+      }
+    }
+
+    addEquipment({
+      equipmentTypeId: selectedType.id,
+      description: finalDescription,
+      quantity,
+      role,
+      tapLines: tapLines > 0 ? tapLines : undefined,
+      capacityLiters: capacityLiters > 0 ? capacityLiters : undefined,
+      assignedProductId: isKeg ? assignedProductId : null
+    });
+
+    toast.success("Equipamento adicionado");
+    onOpenChange(false);
+  };
+
+  const isKeg = selectedType?.equipment_role === 'KEG' || selectedType?.description?.toLowerCase().includes("barril");
+  const showProductSelection = isKeg && choppItems.length > 1;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[90vh] sm:h-[600px] rounded-t-2xl px-0">
+        <SheetHeader className="px-6 pb-2">
+          <SheetTitle>Adicionar equipamento</SheetTitle>
+        </SheetHeader>
+        
+        <ScrollArea className="h-full px-6">
+          <div className="space-y-6 pb-20">
+            {!selectedType ? (
+              <div className="space-y-2 py-4">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Equipamentos Disponíveis</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {equipmentTypes.map(et => {
+                    const isDispenser = et.equipment_role === 'dispenser' || et.description?.toLowerCase().includes("chopeira");
+                    const isKegLocal = et.equipment_role === 'KEG' || et.description?.toLowerCase().includes("barril");
+                    const tapCount = et.tap_count || et.description.match(/(\d+)\s*vias/i)?.[1];
+                    const capacity = et.capacity_liters || et.description.match(/(\d+)\s*l/i)?.[1];
+                    
+                    return (
+                      <Button 
+                        key={et.id} 
+                        variant="outline" 
+                        className="h-auto py-3 px-4 justify-start text-left flex flex-col items-start gap-1"
+                        onClick={() => setSelectedType(et)}
+                      >
+                        <span className="font-bold text-sm">{et.description}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase">
+                          {isDispenser ? `Chopeira · ${tapCount || 1} via(s)` : isKegLocal ? `Barril · ${capacity || 0} L` : 'Outro'}
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 py-4 animate-in slide-in-from-right duration-300">
+                <Button variant="ghost" size="sm" className="h-8 px-0 -ml-1 text-muted-foreground" onClick={() => setSelectedType(null)}>
+                  <ChevronLeft className="h-4 w-4 mr-1"/> Voltar para lista
+                </Button>
+                
+                <div className="p-4 border rounded-xl bg-muted/5">
+                  <h3 className="font-bold">{selectedType.description}</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase">
+                    {selectedType.equipment_role === 'dispenser' || selectedType.description?.toLowerCase().includes("chopeira") ? 'Chopeira' : isKeg ? 'Barril' : 'Outro'}
+                  </p>
+                </div>
+
+                {showProductSelection && (
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase tracking-wider">Para qual chopp?</Label>
+                    <Select onValueChange={(val) => setAssignedProductId(Number(val))} value={assignedProductId?.toString()}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o produto..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {choppItems.map(p => (
+                          <SelectItem key={p.productId} value={p.productId.toString()}>
+                            {p.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <Label className="text-xs font-bold uppercase tracking-wider">Quantidade</Label>
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</Button>
+                    <span className="text-lg font-bold w-8 text-center">{quantity}</span>
+                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => setQuantity(quantity + 1)}>+</Button>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button className="w-full py-6 text-lg font-bold" onClick={handleAdd}>
+                    Adicionar Equipamento
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
