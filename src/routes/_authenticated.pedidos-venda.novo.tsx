@@ -335,12 +335,13 @@ function NewOrderPage() {
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient
   } = useOrderFormStore();
+
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
@@ -907,6 +908,77 @@ function NewOrderPage() {
       toast.error(err.message || "Erro ao criar pedido.");
     }
   };
+
+  const handleUpdateOrder = async () => {
+    if (!erpOrderNumber || !clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      return;
+    }
+    
+    if (!myProfile.data?.erp_seller_id) {
+      toast.error("Vendedor não mapeado no servidor.");
+      return;
+    }
+    
+    setSubmissionStatus("submitting");
+
+    try {
+      const payload: CreateOrderInput = {
+        companyId: companyId as number,
+        clientId: clientId,
+        client_snapshot: {
+          id: clientId,
+          name: clientName || "(sem nome)",
+          fantasyName: clientDetailQ.data?.data?.tradingName || null
+        },
+        sellerId: myProfile.data.erp_seller_id,
+        saleTypeId: saleTypeId!,
+        paymentTermId: paymentTermId!,
+        paymentMethodId: paymentMethodId!,
+        deliver,
+        deliveryAt: deliveryAt || new Date().toISOString(),
+        returnEquipment,
+        returnAt: returnEquipment ? returnAt : null,
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          description: i.description,
+          quantity: i.quantity, 
+          unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
+        equipments: equipments.map(e => ({ 
+          equipmentTypeId: e.equipmentTypeId, 
+          description: e.description,
+          quantity: e.quantity 
+        })),
+        notes: notes || null
+      };
+
+      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, data: payload } });
+      
+      if (result.ok && result.data) {
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
+        
+        toast.success(`Pedido ${result.data.orderNumber} atualizado com sucesso!`);
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
+        
+        setTimeout(async () => {
+          await navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          resetItemsAndClient();
+        }, 2000);
+      } else {
+        const errorMsg = result.error?.message || "Erro desconhecido ao atualizar pedido.";
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+        toast.error(`Falha ao atualizar pedido: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+      toast.error(err.message || "Erro ao atualizar pedido.");
+    }
+  };
+
 
   const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
   const currentStepIndex = stepsOrder.indexOf(step);
