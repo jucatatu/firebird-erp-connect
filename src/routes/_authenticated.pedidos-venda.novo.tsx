@@ -908,8 +908,41 @@ function NewOrderPage() {
     }
   };
 
+  const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
+  const currentStepIndex = stepsOrder.indexOf(step);
+
+  const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
+    if (targetStep === "client") return true;
+    if (targetStep === "items") return !!clientId;
+    if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    return false;
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const nextStep = stepsOrder[currentStepIndex + 1];
+      if (nextStep && canNavigateTo(nextStep)) {
+        setStep(nextStep);
+      } else if (nextStep) {
+        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
+        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
+      }
+    },
+    onSwipedRight: () => {
+      const prevStep = stepsOrder[currentStepIndex - 1];
+      if (prevStep) setStep(prevStep);
+    },
+    delta: 70,
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  });
+
   return (
-    <>
+    <div {...swipeHandlers} className="flex flex-col min-h-screen bg-background pb-10">
+
       <ManualEquipmentSheet 
         open={showAddEquip} 
         onOpenChange={setShowAddEquip}
@@ -1699,9 +1732,10 @@ function NewOrderPage() {
 
 
       </div>
-    </>
+    </div>
   );
 }
+
 
 function ManualEquipmentSheet({ 
   open, 
