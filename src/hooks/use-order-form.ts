@@ -51,7 +51,7 @@ export interface OrderFormStore {
   updateItemQuantity: (productId: number, quantity: number) => void;
   updateItemPrice: (productId: number, manualUnitPrice: number | null) => void;
   addEquipment: (eq: OrderEquipment) => void;
-  removeEquipment: (typeId: number) => void;
+  removeEquipment: (typeId: number, assignedProductId?: number | null) => void;
   setDelivery: (deliver: boolean, date: string | null) => void;
   setReturn: (ret: boolean, date: string | null) => void;
   setNotes: (notes: string) => void;
@@ -139,11 +139,15 @@ export const useOrderFormStore = create<OrderFormStore>()(
         })
       })),
       addEquipment: (eq: OrderEquipment) => set((state: OrderFormStore) => {
-        const exists = state.equipments.find(e => e.equipmentTypeId === eq.equipmentTypeId);
+        const sameIdentity = (e: OrderEquipment) => 
+          e.equipmentTypeId === eq.equipmentTypeId && 
+          (e.assignedProductId ?? null) === (eq.assignedProductId ?? null);
+          
+        const exists = state.equipments.find(sameIdentity);
         if (exists) {
           return {
             equipments: state.equipments.map(e => 
-              e.equipmentTypeId === eq.equipmentTypeId 
+              sameIdentity(e)
                 ? { ...e, quantity: e.quantity + eq.quantity }
                 : e
             )
@@ -151,8 +155,10 @@ export const useOrderFormStore = create<OrderFormStore>()(
         }
         return { equipments: [...state.equipments, eq] };
       }),
-      removeEquipment: (typeId: number) => set((state: OrderFormStore) => ({
-        equipments: state.equipments.filter(e => e.equipmentTypeId !== typeId)
+      removeEquipment: (typeId: number, assignedProductId?: number | null) => set((state: OrderFormStore) => ({
+        equipments: state.equipments.filter(e => 
+          !(e.equipmentTypeId === typeId && (e.assignedProductId ?? null) === (assignedProductId ?? null))
+        )
       })),
       setDelivery: (deliver: boolean, date: string | null) => set({ deliver, deliveryAt: date }),
       setReturn: (ret: boolean, date: string | null) => set({ returnEquipment: ret, returnAt: date }),
