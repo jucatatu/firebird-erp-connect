@@ -171,6 +171,7 @@ function mapClientDetail(row, schema, ctx = {}) {
 
 module.exports = {
   buildQPatterns,
+  exactLikePattern: (term) => sharedBuildQPatterns(term)[0], // Adicionado para compatibilidade com testes antigos
   mapStatusFlags,
   mapDocument,
   resolveCompany,
