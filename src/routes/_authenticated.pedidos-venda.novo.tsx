@@ -630,11 +630,11 @@ function NewOrderPage() {
     toast.success("Sugestão otimizada de equipamentos aplicada");
   };
 
-  const updateEquipmentQty = (id: number, qty: number) => {
+  const updateEquipmentQty = (id: number, qty: number, assignedProductId?: number | null) => {
     if (qty <= 0) removeEquipment(id);
     else {
       const eqs = [...equipments];
-      const idx = eqs.findIndex(e => e.equipmentTypeId === id);
+      const idx = eqs.findIndex(e => e.equipmentTypeId === id && e.assignedProductId === assignedProductId);
       if (idx >= 0) {
         eqs[idx].quantity = qty;
         useOrderFormStore.setState({ equipments: eqs });
@@ -644,7 +644,7 @@ function NewOrderPage() {
 
   const isCoverageValid = () => {
     if (choppItems.length === 0) return true;
-    // Sprint 8.9.8: Chopeira opcional. Apenas barris/litros são obrigatórios.
+    // Sprint 8.9.11: Cobertura estrita por produto
     for (const it of choppItems) {
       const cov = getProductCoverage(it.productId);
       if (cov.provided < cov.required) return false;
