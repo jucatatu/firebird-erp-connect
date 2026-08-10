@@ -331,11 +331,11 @@ function NewOrderPage() {
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
-  } = useOrderFormStore() as OrderFormStore;
+  } = useOrderFormStore();
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
@@ -394,8 +394,8 @@ function NewOrderPage() {
 
   const clientDetailQ = useErpClientDetail(clientId);
   
-  // Acessa metadados da submissão para exibir o número do pedido
-  const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
+  // Usamos os campos erpOrderId e erpOrderNumber diretamente da store
+  const submissionMeta = { orderId: erpOrderId, orderNumber: erpOrderNumber };
 
   // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
