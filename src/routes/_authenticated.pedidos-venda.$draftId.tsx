@@ -93,33 +93,13 @@ function DraftDetailPage() {
     setNotes(typeof n === "string" ? n : "");
   }, [draftQ.data]);
 
-  if (draftQ.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const draft = draftQ.data;
-  if (!draft) {
-    return (
-      <div className="rounded-md border p-6 text-center">
-        <p className="text-sm">Pedido não encontrado.</p>
-        <Button asChild size="sm" variant="outline" className="mt-3">
-          <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar</Link>
-        </Button>
-      </div>
-    );
-  }
-
   const [erpStatus, setErpStatus] = useState<{ id: number; description: string | null } | null>(null);
   const getStatusFn = useServerFn(getErpOrdersStatus);
   const navigate = useNavigate();
   const editErpOrder = useOrderFormStore((s) => s.editErpOrder);
 
   useEffect(() => {
-    const orderNum = draft?.erp_order_number;
+    const orderNum = draftQ.data?.erp_order_number;
     if (orderNum) {
       console.log("[ORDER DETAIL STATUS] FETCHING FOR:", orderNum);
       const fetchStatus = async () => {
@@ -138,28 +118,50 @@ function DraftDetailPage() {
       };
       fetchStatus();
     }
-  }, [draft?.erp_order_number, getStatusFn]);
+  }, [draftQ.data?.erp_order_number, getStatusFn]);
 
-  const erpStatusId = erpStatus?.id ?? (draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
+  const draft = draftQ.data;
+  const erpStatusId = erpStatus?.id ?? (draft?.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
     ? (draft.payload as any).statusId 
     : null);
 
-  const erpStatusDescription = erpStatus?.description || (draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
+  const erpStatusDescription = erpStatus?.description || (draft?.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
 
-  const isOwner = draft.created_by === user?.id;
+  const isOwner = draft?.created_by === user?.id;
   
   // REGRA OFICIAL DE EDIÇÃO (Sprint 8.9.29):
   // EDITABLE_STATUS_IDS = [1, 20, 24, 27]
-  const canEdit = (isOwner || isAdmin) && (
+  const canEdit = draft && (isOwner || isAdmin) && (
     draft.status === "draft" || 
     draft.status === "rejected" ||
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
 
   const handleEdit = () => {
-    editErpOrder(draft);
-    navigate({ to: "/pedidos-venda/novo" });
+    if (draft) {
+      editErpOrder(draft);
+      navigate({ to: "/pedidos-venda/novo" });
+    }
   };
+
+  if (draftQ.isLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!draft) {
+    return (
+      <div className="rounded-md border p-6 text-center">
+        <p className="text-sm">Pedido não encontrado.</p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar</Link>
+        </Button>
+      </div>
+    );
+  }
 
 
 
