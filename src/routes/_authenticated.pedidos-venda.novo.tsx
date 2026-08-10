@@ -331,11 +331,11 @@ function NewOrderPage() {
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
-  } = useOrderFormStore() as OrderFormStore;
+  } = useOrderFormStore();
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
@@ -394,8 +394,8 @@ function NewOrderPage() {
 
   const clientDetailQ = useErpClientDetail(clientId);
   
-  // Acessa metadados da submissão para exibir o número do pedido
-  const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
+  // Usamos os campos erpOrderId e erpOrderNumber diretamente da store
+  const submissionMeta = { orderId: erpOrderId, orderNumber: erpOrderNumber };
 
   // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
@@ -869,6 +869,12 @@ function NewOrderPage() {
       if (result.ok && result.data && result.data.orderNumber) {
         console.log("[ORDER UI] result success", result.data);
         
+        // Salva metadados da submissão para navegação segura
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
+
         if (result.error?.code === "ORDER_CREATED_MIRROR_FAILED") {
           console.error("[ORDER SERVER] mirror-failed", result.error);
           toast.warning(`Pedido ${result.data.orderNumber} criado no ERP, mas falha ao registrar no aplicativo.`);
@@ -877,19 +883,11 @@ function NewOrderPage() {
           toast.success(`Pedido ${result.data.orderNumber} criado com sucesso!`);
         }
 
-        setSubmissionStatus("created", { 
-          orderId: result.data.orderId, 
-          orderNumber: result.data.orderNumber
-        });
-
-        console.log("[ORDER UI] invalidating cache");
         queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
         
-        console.log("[ORDER UI] navigate-start");
-        setTimeout(() => {
-          navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
-          console.log("[ORDER UI] reset-form");
-          setTimeout(() => resetItemsAndClient(), 500);
+        setTimeout(async () => {
+          await navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          resetItemsAndClient();
         }, 2000);
       } else {
         console.error("[ORDER UI] result error", result.error);

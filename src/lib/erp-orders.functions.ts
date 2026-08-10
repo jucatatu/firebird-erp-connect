@@ -202,13 +202,32 @@ export async function handleCreateErpOrder(
     return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado.", retryable: false } };
   }
 
-  const finalPayload = { ...input, sellerId: profile.erp_seller_id };
-  
-  console.log("[ORDER SERVER] calling ERP POST /api/v1/orders");
+  const erpPayload = {
+    companyId: requestedCompanyId,
+    clientId: input.clientId,
+    sellerId: profile.erp_seller_id,
+    saleTypeId: input.saleTypeId,
+    paymentTermId: input.paymentTermId,
+    paymentMethodId: input.paymentMethodId,
+    deliver: input.deliver,
+    deliveryAt: input.deliveryAt,
+    notes: input.notes,
+    items: input.items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.manualUnitPrice ?? 0 // O ERP espera unitPrice
+    })),
+    equipments: input.equipments.map(eq => ({
+      equipmentTypeId: eq.equipmentTypeId,
+      quantity: eq.quantity
+    }))
+  };
+
+  console.log("[ORDER SERVER] calling ERP POST /api/v1/orders", JSON.stringify(erpPayload));
   const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
-    body: finalPayload as unknown as JsonValue,
+    body: erpPayload as unknown as JsonValue,
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
 
