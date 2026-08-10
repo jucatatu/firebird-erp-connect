@@ -29,8 +29,7 @@ const potusPattern = buildQPatterns('Potus')[0];
 const fakeMatch1 = "CANIL PET SHOP HANDREYAS";
 const fakeMatch2 = "BOABOCA RESTAURANTE E PETISCARIA LTDA";
 
-// Simulando a lógica de comparação (o SQL fará isso, mas aqui validamos que o pattern não é vago)
-// O pattern %POTUS% NÃO deve casar com as strings normalizadas se "POTUS" não existir nelas.
+// Simulando a lógica de comparação
 function simulaMatch(pattern, text) {
   const normalizedText = normalizeTerm(text);
   const regexBody = pattern.replace(/%/g, '.*');
