@@ -943,7 +943,7 @@ function NewOrderPage() {
                 if (isPast) return true;
                 if (isCurrent) return true;
                 
-                // Regras de Navegação Sprint 8.9.22
+                // Regras de Navegação Sprint 8.9.23
                 if (s.id === "items") return !!companyId && !!clientId;
                 if (s.id === "delivery") return !!companyId && !!clientId && items.length > 0 && isCoverageValid();
                 if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt;
@@ -958,21 +958,30 @@ function NewOrderPage() {
                 } else {
                   if (!companyId || !clientId) toast.error("Selecione a empresa e o cliente primeiro.");
                   else if (items.length === 0) toast.error("Adicione pelo menos um produto.");
-                  else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de continuar.");
-                  else if (!deliveryAt) toast.error("Defina os dados de entrega.");
-                  else toast.error("Complete as etapas anteriores para avançar.");
+                  else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega.");
+                  else if (!deliveryAt) toast.error("Defina os dados de entrega antes de avançar.");
+                  else toast.error("Complete as etapas anteriores para acessar esta fase.");
                 }
               };
 
+              const isBlocked = !canNavigate() && !isCurrent;
+
               return (
-                <Badge 
-                  key={s.id} 
-                  variant={step === s.id ? "default" : "outline"} 
-                  className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 cursor-pointer ${step === s.id ? 'scale-105 shadow-sm ring-1 ring-primary/20' : 'opacity-80 hover:bg-muted'}`}
+                <div 
+                  key={s.id}
+                  className="flex flex-col items-center gap-1 cursor-pointer group"
                   onClick={navigateToStep}
                 >
-                  {i + 1}. {s.label}
-                </Badge>
+                  <Badge 
+                    variant={step === s.id ? "default" : "outline"} 
+                    className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 
+                      ${step === s.id ? 'bg-orange-600 hover:bg-orange-700 text-white scale-105 shadow-md ring-2 ring-orange-200 border-orange-600' : 
+                        isBlocked ? 'opacity-40 grayscale cursor-not-allowed' : 'opacity-80 hover:bg-muted group-hover:scale-105'}`}
+                  >
+                    {i + 1}. {s.label}
+                  </Badge>
+                  {isCurrent && <div className="h-0.5 w-full bg-orange-600 rounded-full animate-in zoom-in-50 duration-300" />}
+                </div>
               );
             })}
           </div>
