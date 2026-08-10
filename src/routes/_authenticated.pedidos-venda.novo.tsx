@@ -682,12 +682,12 @@ function NewOrderPage() {
     return (
       <div className="space-y-1 mt-2">
          <div className="flex items-center gap-2 text-[10px]">
-            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
-            <span className={viasValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Vias {getAvailableVias()}/{getRequiredVias()}</span>
+            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Barris {allLitersValid ? 'cobertos' : 'insuficientes'}</span>
          </div>
          <div className="flex items-center gap-2 text-[10px]">
-            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
-            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Litros Cobertos</span>
+            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />}
+            <span className="text-muted-foreground font-medium">Chopeira {viasValid ? 'adicionada' : 'opcional'}</span>
          </div>
       </div>
     );
