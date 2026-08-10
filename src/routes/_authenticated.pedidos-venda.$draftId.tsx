@@ -119,14 +119,19 @@ function DraftDetailPage() {
   const editErpOrder = useOrderFormStore((s) => s.editErpOrder);
 
   useEffect(() => {
-    if (draft?.erp_order_number) {
-      getStatusFn({ data: [draft.erp_order_number] }).then(res => {
+    const orderNum = draft?.erp_order_number;
+    if (orderNum) {
+      console.log("[ORDER DETAIL STATUS] FETCHING FOR:", orderNum);
+      getStatusFn({ data: [Number(orderNum)] }).then(res => {
+        console.log("[ORDER DETAIL STATUS] RESPONSE:", res);
         if (res.ok && res.data && res.data.length > 0) {
           setErpStatus({ 
             id: res.data[0].statusId, 
             description: res.data[0].statusDescription 
           });
         }
+      }).catch(err => {
+        console.error("[ORDER DETAIL STATUS] FETCH ERROR:", err);
       });
     }
   }, [draft?.erp_order_number]);
