@@ -232,3 +232,35 @@ export async function handleCreateErpOrder(
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
 }
+
+// --- PAYMENT OPTIONS ---
+export interface PaymentOption {
+  id: number;
+  description: string;
+}
+
+export interface PaymentOptionsPayload {
+  paymentTerms: PaymentOption[];
+  paymentMethods: PaymentOption[];
+  saleTypes: PaymentOption[];
+}
+
+export const getErpPaymentOptions = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: "/api/v1/payment-options"
+    }) as Promise<ErpResponse<PaymentOptionsPayload>>;
+  });
+
+export const getErpClientDetail = createServerFn({ method: "GET" })
+  .inputValidator((id: number) => z.number().parse(id))
+  .handler(async ({ data: clientId }) => {
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: `/api/v1/clients/${clientId}`
+    }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number }>>;
+  });
+
