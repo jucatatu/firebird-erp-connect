@@ -891,28 +891,42 @@ function NewOrderPage() {
         addEquipment={addEquipment}
         getProductCoverage={getProductCoverage}
       />
-      <div className="container max-w-5xl py-6">
+      <div className="container max-w-5xl py-4 sm:py-6 px-4">
       <PageHeader 
         title="Novo Pedido" 
         description="Siga os passos para cadastrar um novo pedido no ERP."
         crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: "Novo" }]}
       />
 
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex gap-2">
-          {[
-            { id: "client", label: "Cliente" },
-            { id: "items", label: "Itens + Equipamentos" },
-            { id: "delivery", label: "Entrega" },
-            { id: "payment", label: "Pagamento" },
-            { id: "review", label: "Revisão" }
-          ].map((s, i) => (
-            <Badge key={s.id} variant={step === s.id ? "default" : "outline"} className="px-3 py-1">
-              {i + 1}. {s.label}
-            </Badge>
-          ))}
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Stepper responsivo: Faixa rolável no mobile */}
+        <div className="flex w-full overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
+          <div className="flex gap-2 min-w-max">
+            {[
+              { id: "client", label: "Cliente" },
+              { id: "items", label: "Itens + Equipamentos" },
+              { id: "delivery", label: "Entrega" },
+              { id: "payment", label: "Pagamento" },
+              { id: "review", label: "Revisão" }
+            ].map((s, i) => (
+              <Badge 
+                key={s.id} 
+                variant={step === s.id ? "default" : "outline"} 
+                className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 ${step === s.id ? 'scale-105 shadow-sm ring-1 ring-primary/20' : 'opacity-80'}`}
+              >
+                {i + 1}. {s.label}
+              </Badge>
+            ))}
+          </div>
         </div>
-        {clientId && <p className="text-sm font-medium">{clientName}</p>}
+        
+        {/* Nome do cliente/usuário: Linha separada ou compacto no mobile */}
+        {clientId && (
+          <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded-lg border border-muted/50 w-full overflow-hidden animate-in fade-in duration-300">
+            <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase whitespace-nowrap shrink-0">Pedido para:</span>
+            <p className="text-xs sm:text-sm font-bold truncate text-primary">{clientName}</p>
+          </div>
+        )}
       </div>
 
       {step === "client" && (
