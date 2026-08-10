@@ -557,6 +557,15 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
+  // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
+  useEffect(() => {
+    const hasReturnables = equipments.length > 0; // Se a sugestão ou manual adicionou algo, provavelmente é retornável
+    if (hasReturnables && !returnEquipment && step === "items") {
+      console.log("[LOGISTICS] auto-enabling returnEquipment due to items in cart");
+      setReturn(true, returnAt);
+    }
+  }, [equipments.length, step]);
+
   const suggestEquipments = () => {
     const newEquips: any[] = [];
     const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
@@ -788,7 +797,10 @@ function NewOrderPage() {
   };
 
   const handleCreateOrder = async () => {
-    if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
+    if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
+      return;
+    }
     
     if (!myProfile.data?.erp_seller_id) {
       toast.error("Vendedor não mapeado no servidor.");
@@ -807,7 +819,7 @@ function NewOrderPage() {
       return;
     }
 
-    console.log("[ORDER CREATE] start", { idempotencyKey });
+    console.log("[ORDER UI] submit-start", { idempotencyKey });
     setSubmissionStatus("submitting");
     const currentKey = idempotencyKey || crypto.randomUUID();
     if (!idempotencyKey) setIdempotencyKey(currentKey);
@@ -844,29 +856,25 @@ function NewOrderPage() {
         notes: notes || null
       };
 
-      console.log("[ORDER CREATE] payload built", { ...payload, sellerId: "PROTECTED" });
-      console.log("[ORDER CREATE] calling server function");
+      console.log("[ORDER SERVER] create-start", { ...payload, sellerId: "PROTECTED" });
       
       const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
       
-      console.log("[ORDER CREATE] server function returned", { 
+      console.log("[ORDER SERVER] erp-response", { 
         ok: result.ok, 
         status: result.status,
-        error: result.error?.code,
-        hasData: !!result.data,
-        orderId: result.data?.orderId,
-        orderNumber: result.data?.orderNumber,
-        mirrorId: result.data?.mirrorId
+        orderNumber: result.data?.orderNumber
       });
 
       if (result.ok && result.data && result.data.orderNumber) {
-        console.log("[ORDER CREATE] success", result.data);
+        console.log("[ORDER UI] result success", result.data);
         
-        // Se houver erro no espelho mas sucesso no ERP
         if (result.error?.code === "ORDER_CREATED_MIRROR_FAILED") {
-          toast.warning(`Pedido ${result.data.orderNumber} criado no ERP, mas houve um erro ao sincronizar com a lista.`);
+          console.error("[ORDER SERVER] mirror-failed", result.error);
+          toast.warning(`Pedido ${result.data.orderNumber} criado no ERP, mas falha ao registrar no aplicativo.`);
         } else {
-          toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
+          console.log("[ORDER SERVER] mirror-success");
+          toast.success(`Pedido ${result.data.orderNumber} criado com sucesso!`);
         }
 
         setSubmissionStatus("created", { 
@@ -874,26 +882,25 @@ function NewOrderPage() {
           orderNumber: result.data.orderNumber
         });
 
-        // Invalidação do cache para garantir que o espelho apareça na lista
-        console.log("[ORDER CREATE] invalidating order_drafts cache");
+        console.log("[ORDER UI] invalidating cache");
         queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
         
-        // Navegação e reset (Sprint 8.9.4)
+        console.log("[ORDER UI] navigate-start");
         setTimeout(() => {
           navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          console.log("[ORDER UI] reset-form");
           setTimeout(() => resetItemsAndClient(), 500);
-        }, 1500);
+        }, 2000);
       } else {
-        console.error("[ORDER CREATE] failed", result.error);
+        console.error("[ORDER UI] result error", result.error);
         const errorMsg = result.error?.message || "Erro desconhecido ao criar pedido.";
         setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
         toast.error(`Falha ao criar pedido: ${errorMsg}`);
       }
     } catch (err: any) {
-      console.error("[ORDER CREATE] exception", err);
-      const msg = err.message || "Erro ao criar pedido.";
+      console.error("[ORDER UI] exception", err);
       setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
-      toast.error(msg);
+      toast.error(err.message || "Erro ao criar pedido.");
     }
   };
 
@@ -1544,14 +1551,47 @@ function NewOrderPage() {
               <div className="flex justify-between pt-6 border-t">
                 <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
                 {submissionStatus !== "created" && (
-                  <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
-                    {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
+                  <Button 
+                    size="lg" 
+                    className="px-8 min-w-[160px]" 
+                    onClick={handleCreateOrder} 
+                    disabled={submissionStatus === "submitting"}
+                  >
+                    {submissionStatus === "submitting" ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Criando pedido no ERP...</>
+                    ) : (
+                      "Finalizar Pedido"
+                    )}
                   </Button>
+                )}
+                {submissionStatus === "created" && (
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge className="bg-green-600 hover:bg-green-600 text-white gap-1 py-1.5 px-3">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Pedido {submissionMeta?.orderNumber} criado
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground animate-pulse">Redirecionando...</span>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Sprint 8.9.19: Fallback UI para estado inesperado (prevenir tela branca) */}
+        {step === "review" && submissionStatus === "created" && !submissionMeta?.orderNumber && (
+          <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center border rounded-xl bg-card">
+            <CheckCircle2 className="h-12 w-12 text-green-600" />
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold">Pedido Processado</h3>
+              <p className="text-sm text-muted-foreground">O pedido foi enviado com sucesso ao ERP.</p>
+            </div>
+            <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } as any })}>
+              Voltar para a Lista
+            </Button>
+          </div>
+        )}
+
 
       </div>
     </>
