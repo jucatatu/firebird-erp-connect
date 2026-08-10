@@ -671,11 +671,11 @@ function NewOrderPage() {
   };
 
   const CoverageSummary = () => {
-    const viasValid = getAvailableVias() >= getRequiredVias();
     const allLitersValid = choppItems.every(it => {
       const cov = getProductCoverage(it.productId);
       return cov.provided >= cov.required;
     });
+    const viasValid = getAvailableVias() >= getRequiredVias();
     
     if (choppItems.length === 0) return null;
 
