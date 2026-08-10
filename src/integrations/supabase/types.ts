@@ -278,6 +278,7 @@ export type Database = {
           erp_item_id: number
           id: string
           item_type: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type: Database["public"]["Enums"]["logistics_type"] | null
           quantity_step: number
           requires_pickup: boolean | null
           sort_order: number
@@ -296,6 +297,7 @@ export type Database = {
           erp_item_id: number
           id?: string
           item_type: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type?: Database["public"]["Enums"]["logistics_type"] | null
           quantity_step?: number
           requires_pickup?: boolean | null
           sort_order?: number
@@ -314,6 +316,7 @@ export type Database = {
           erp_item_id?: number
           id?: string
           item_type?: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type?: Database["public"]["Enums"]["logistics_type"] | null
           quantity_step?: number
           requires_pickup?: boolean | null
           sort_order?: number
@@ -768,6 +771,7 @@ export type Database = {
           erp_item_id: number
           id: string
           item_type: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type: Database["public"]["Enums"]["logistics_type"] | null
           quantity_step: number
           requires_pickup: boolean | null
           sort_order: number
@@ -792,6 +796,7 @@ export type Database = {
         | "updated"
         | "snapshot_updated"
       catalog_item_type: "product" | "equipment"
+      logistics_type: "draft" | "packaged"
       operation_event_origin: "local" | "erp"
       operation_event_type:
         | "loaded"
@@ -976,6 +981,7 @@ export const Constants = {
         "snapshot_updated",
       ],
       catalog_item_type: ["product", "equipment"],
+      logistics_type: ["draft", "packaged"],
       operation_event_origin: ["local", "erp"],
       operation_event_type: [
         "loaded",
