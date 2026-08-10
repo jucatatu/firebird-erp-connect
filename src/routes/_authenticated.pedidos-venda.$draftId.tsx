@@ -109,14 +109,22 @@ function DraftDetailPage() {
     );
   }
 
+  const erpStatusId = draft.payload && typeof draft.payload === 'object' && 'statusId' in draft.payload 
+    ? (draft.payload as any).statusId 
+    : null;
+
   const isOwner = draft.created_by === user?.id;
-  const canEdit = (isOwner || isAdmin) && (draft.status === "draft" || draft.status === "rejected");
-  const canSendForApproval = canEdit;
-  const canApprove = isApprover && draft.status === "pending_approval" && !(isOwner && !isAdmin);
-  const canReject = isApprover && draft.status === "pending_approval";
-  const canCancel =
-    (draft.status === "draft" || draft.status === "rejected") && (isOwner || isAdmin);
-  const canReopen = draft.status === "rejected" && (isOwner || isAdmin);
+  
+  // REGRA OFICIAL DE EDIÇÃO (Sprint 8.9.29):
+  // EDITABLE_STATUS_IDS = [1, 20, 24, 27]
+  import { canEditErpOrder } from "@/lib/erp-orders.functions";
+  const canEdit = (isOwner || isAdmin) && (
+    draft.status === "draft" || 
+    draft.status === "rejected" ||
+    (draft.status === "sent" && canEditErpOrder(erpStatusId))
+  );
+
+  const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
 
   const draftId_ = draft.id;
   const saveChanges = async () => {
