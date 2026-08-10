@@ -446,11 +446,14 @@ export const updateErpOrder = createServerFn({ method: "POST" })
     return result;
   });
 
+export interface ErpOrderStatus {
   orderId: number;
+  orderNumber: number;
   statusId: number;
   statusDescription: string | null;
   canEdit: boolean;
 }
+
 
 export const getErpOrdersStatus = createServerFn({ method: "GET" })
   .inputValidator((ids: number[]) => z.array(z.number()).parse(ids))
