@@ -209,17 +209,35 @@ function OrdersListPage() {
                 <Link
                   to="/pedidos-venda/$draftId"
                   params={{ draftId: d.id }}
-                  className="block rounded-md border bg-surface p-3"
+                  className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <OrderIdentifier id={d.id} />
                     <StatusBadge status={d.status} />
                   </div>
-                  <div className="mt-1 truncate text-sm font-medium">
-                    {d.title || d.customer_name_snapshot || "(sem título)"}
+                  
+                  <div className="flex flex-col gap-1 mb-3">
+                    <div className="text-sm font-bold text-foreground truncate">
+                      {d.customer_name_snapshot || "(sem cliente)"}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
+                      <span>{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
+                      <span>·</span>
+                      <span>{companyLabel(d.company_id)}</span>
+                      <span>·</span>
+                      <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {companyLabel(d.company_id)} · {new Date(d.updated_at).toLocaleDateString()}
+
+                  <div className="space-y-1.5 pt-2 border-t border-dashed border-muted/50">
+                    <div className="flex items-start gap-1 text-[10px]">
+                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Produtos:</span>
+                      <span className="text-foreground/80 line-clamp-1">{getItemsSummary(d.payload)}</span>
+                    </div>
+                    <div className="flex items-start gap-1 text-[10px]">
+                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Equipamentos:</span>
+                      <span className="text-foreground/80 line-clamp-1">{getEquipmentsSummary(d.payload)}</span>
+                    </div>
                   </div>
                 </Link>
               </li>
