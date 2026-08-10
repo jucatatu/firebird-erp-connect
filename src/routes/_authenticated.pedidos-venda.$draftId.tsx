@@ -412,7 +412,15 @@ function DraftDetailPage() {
                   <RefreshCw className="mr-2 h-4 w-4" /> Retornar para rascunho
                 </Button>
               )}
-              {canCancel && (
+              {canEdit && draft.status === "sent" && (
+                <Button
+                  className="w-full"
+                  variant="default"
+                  onClick={handleEdit}
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Editar pedido
+                </Button>
+              )}
                 <Button
                   className="w-full"
                   variant="ghost"
