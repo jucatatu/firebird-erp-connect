@@ -14,7 +14,7 @@ const cases = [
   { input: 'Ipa', expected: ['%IPA%'], desc: 'Ipa -> Somente literal normalizado' },
   { input: 'Pil', expected: ['%PIL%'], desc: 'Pil -> Somente literal normalizado' },
   { input: 'Romeu', expected: ['%ROMEU%'], desc: 'Romeu -> Somente literal normalizado' },
-  { input: 'Pet%', expected: ['%PET %'], desc: 'Neutralização de %' },
+  { input: 'Pet%', expected: ['%PET%'], desc: 'Neutralização de %' },
   { input: 'Pet_S', expected: ['%PET S%'], desc: 'Neutralização de _' }
 ];
 
