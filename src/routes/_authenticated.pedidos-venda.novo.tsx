@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil } from "lucide-react";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRecentOrderDrafts } from "@/hooks/use-order-drafts";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -460,6 +461,8 @@ function NewOrderPage() {
   }, []);
 
   const [clientSearch, setClientSearch] = useState("");
+  const recentOrders = useRecentOrderDrafts(user?.id, companyId);
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -931,7 +934,7 @@ function NewOrderPage() {
 
       {step === "client" && (
         <Card className="shadow-none border-none sm:border">
-          <CardHeader><CardTitle className="text-lg">Empresa e Cliente</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-xl font-bold flex items-center gap-2"><UserIcon className="h-5 w-5 text-primary" /> Identificação</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <Label>Empresa</Label>
@@ -957,12 +960,14 @@ function NewOrderPage() {
             <Separator />
 
             <div className="space-y-4">
-              <Label>Seleção de Cliente</Label>
+              <Label className="text-base font-bold flex items-center gap-2">
+                <Search className="h-4 w-4" /> Buscar cliente
+              </Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input 
-                  placeholder={companyId ? "Buscar cliente (mínimo 3 letras)..." : "Selecione a empresa primeiro"} 
-                  className="pl-9"
+                  placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
+                  className="pl-9 h-12 text-base"
                   value={clientSearch} 
                   onChange={(e) => setClientSearch(e.target.value)} 
                   disabled={!companyId}
@@ -970,48 +975,125 @@ function NewOrderPage() {
               </div>
             </div>
 
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {clientsQ.isLoading && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              )}
-              
-              {!companyId && !clientsQ.isLoading && (
-                <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                  <p className="text-sm text-muted-foreground">Aguardando seleção de empresa...</p>
-                </div>
-              )}
-
-              {companyId && !clientsQ.isLoading && (clientsQ.data?.data?.clients || []).length === 0 && debouncedSearch.length >= 3 && (
-                <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                  <p className="text-sm text-muted-foreground">Nenhum cliente encontrado para "{debouncedSearch}"</p>
-                </div>
-              )}
-
-              {clientsQ.data?.data?.clients?.map((c) => (
-                <div key={c.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${clientId === c.id ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted'}`} onClick={() => {
-                  if (clientId && clientId !== c.id && items.length > 0) {
-                    if (confirm("Trocar de cliente limpará os itens atuais do carrinho. Deseja continuar?")) {
-                      resetItemsAndClient();
-                      setClient(c.id, c.name);
-                    }
-                  } else {
-                    setClient(c.id, c.name);
-                  }
-                }}>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-sm">{c.name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase">{c.document || 'Sem documento'} · {c.code || 'Sem código'}</span>
+            <div className="space-y-6">
+              {/* RESULTADOS DA BUSCA (Prioridade quando há texto) */}
+              {debouncedSearch.length >= 3 && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Resultados da pesquisa</h3>
+                    {clientsQ.isLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   </div>
-                  {clientId === c.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                  
+                  <div className="space-y-2">
+                    {clientsQ.data?.data?.clients?.map((c) => (
+                      <div 
+                        key={c.id} 
+                        className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-all active:scale-[0.98] ${clientId === c.id ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/10' : 'bg-card hover:bg-muted shadow-sm'}`} 
+                        onClick={() => {
+                          setClient(c.id, c.name);
+                          setStep("items");
+                        }}
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-sm text-primary">{c.name}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-medium">
+                            ID {c.id} {c.document && `· ${c.document}`} {c.code && `· ${c.code}`}
+                          </span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    ))}
+
+                    {clientsQ.isSuccess && (clientsQ.data?.data?.clients || []).length === 0 && (
+                      <div className="py-6 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                        <p className="text-sm text-muted-foreground">Nenhum cliente encontrado para "{debouncedSearch}"</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="flex justify-end pt-4 border-t">
-              <Button disabled={!clientId || !companyId} onClick={() => setStep("items")} className="w-full sm:w-auto">
-                Próximo Passo <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
+              )}
+
+              {/* PEDIDOS RECENTES (ÚLTIMOS PEDIDOS) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <History className="h-3.5 w-3.5 text-muted-foreground" />
+                  <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    {debouncedSearch.length >= 3 ? "Pedidos Recentes" : "Últimos Pedidos"}
+                  </h3>
+                </div>
+
+                <div className="grid gap-3">
+                  {recentOrders.isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : recentOrders.data?.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic px-2">Nenhum pedido recente encontrado.</p>
+                  ) : (
+                    recentOrders.data?.map((order: any) => {
+                      const payload = order.payload as any;
+                      const itemsList = payload?.items?.length 
+                        ? payload.items.map((i: any) => {
+                            const prod = (productsQ.data as any)?.data?.products?.find((p: any) => p.id === i.productId);
+                            return prod ? prod.description : `Produto ${i.productId}`;
+                          }).join(" · ")
+                        : order.customer_name_snapshot;
+
+                      return (
+                        <div key={order.id} className="group relative flex flex-col gap-3 p-4 rounded-xl border bg-card hover:shadow-md transition-all">
+                          <div className="flex justify-between items-start">
+                            <div className="flex flex-col gap-1 pr-8">
+                              <span className="font-bold text-sm truncate">{order.customer_name_snapshot || "Cliente não identificado"}</span>
+                              <p className="text-[10px] text-muted-foreground line-clamp-1">{itemsList}</p>
+                            </div>
+                            <Badge variant="outline" className="text-[9px] shrink-0 font-bold uppercase">{order.erp_order_number ? `ERP ${order.erp_order_number}` : 'Rascunho'}</Badge>
+                          </div>
+                          
+                          <div className="flex gap-2 mt-1">
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              className="h-8 flex-1 text-[11px] font-bold"
+                              onClick={() => {
+                                setClient(payload.clientId, order.customer_name_snapshot);
+                                setStep("items");
+                              }}
+                            >
+                              Novo
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 flex-1 text-[11px] font-bold border-primary/20 text-primary hover:bg-primary/5"
+                              onClick={() => {
+                                // Lógica de REPETIR: seleciona cliente + replica itens
+                                resetItemsAndClient();
+                                setClient(payload.clientId, order.customer_name_snapshot);
+                                if (payload.items) {
+                                  payload.items.forEach((item: any) => {
+                                    const prod = (productsQ.data as any)?.data?.products?.find((p: any) => p.id === item.productId);
+                                    if (prod) {
+                                      addItem({
+                                        productId: item.productId,
+                                        description: prod.description,
+                                        quantity: item.quantity,
+                                        unitPrice: 0, // Será reconsultado pelo ProductCard
+                                      });
+                                    }
+                                  });
+                                }
+                                setStep("items");
+                              }}
+                            >
+                              Repetir
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
