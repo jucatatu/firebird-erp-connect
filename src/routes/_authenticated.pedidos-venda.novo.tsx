@@ -177,7 +177,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
               </Button>
             </div>
           ) : (
-            <div className="mt-1 flex items-center gap-1 cursor-pointer" onClick={handlePriceClick}>
+            <div className="mt-1 flex items-center gap-1">
               <ProductPriceDisplay 
                 productId={product.id} 
                 clientId={clientId} 
@@ -185,8 +185,15 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
                 onPriceLoaded={setErpPrice}
                 manualPrice={cartItem?.manualPrice}
                 appliedPrice={cartItem?.appliedUnitPrice}
+                onEditPrice={() => {
+                  if (cartItem) setIsEditingPrice(true);
+                }}
               />
-              {cartItem?.manualPrice && <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+              {cartItem?.manualPrice && (
+                <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200 cursor-help" title="Preço editado manualmente">
+                  Manual
+                </Badge>
+              )}
             </div>
           )}
         </div>
