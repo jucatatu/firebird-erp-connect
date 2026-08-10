@@ -149,8 +149,10 @@ export async function callErp<T extends JsonValue = JsonValue>(
       }
     }
 
-    if (res.ok && parsed && parsed.success === true) {
-      return { ok: true, status: res.status, data: parsed.data as T, error: null };
+    if (res.ok && parsed && (parsed.success === true || parsed.data)) {
+      // Ajuste de contrato: se o Node retornar {success, order}, mapeamos order para data se data estiver vazio
+      const data = parsed.data ?? parsed.order;
+      return { ok: true, status: res.status, data: data as T, error: null };
     }
 
     return {

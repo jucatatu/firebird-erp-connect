@@ -739,42 +739,41 @@ function NewOrderPage() {
       
       const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
       
-      console.log("[ORDER CREATE] server function returned", { ok: result.ok, status: result.status });
+      console.log("[ORDER CREATE] server function returned", { 
+        ok: result.ok, 
+        status: result.status,
+        error: result.error?.code,
+        hasData: !!result.data,
+        orderId: result.data?.orderId,
+        orderNumber: result.data?.orderNumber
+      });
 
       if (result.ok && result.data && result.data.orderNumber) {
         console.log("[ORDER CREATE] success", result.data);
-        setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber
+        });
         toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
         
-        // Só resetamos após confirmação REAL
-        reset();
-        
-        // Pequeno delay para o usuário ver o número antes de navegar
+        // CORREÇÃO DO RESET PREMATURO:
+        // Mantemos o estado para visualização final, navegamos e SÓ ENTÃO resetamos.
         setTimeout(() => {
           navigate({ to: "/pedidos-venda", search: {} as any });
+          // Pequeno delay após navegação para limpar a store sem afetar a transição
+          setTimeout(() => resetItemsAndClient(), 500);
         }, 1500);
       } else {
         console.error("[ORDER CREATE] failed", result.error);
-        const status = result.status;
-        
-        if (status === 409) {
-          setSubmissionStatus("created"); // Provavelmente já existe
-          toast.info("Este pedido já foi processado anteriormente.");
-        } else if (status === 422) {
-          setSubmissionStatus("failed");
-          toast.error(result.error?.message || "Dados inválidos para o ERP.");
-        } else if (status === 403) {
-          setSubmissionStatus("failed");
-          toast.error("Sem permissão para esta empresa ou cliente.");
-        } else {
-          setSubmissionStatus("failed");
-          toast.error("Não foi possível criar o pedido no ERP.");
-        }
+        const errorMsg = result.error?.message || "Erro desconhecido ao criar pedido.";
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+        toast.error(`Falha ao criar pedido: ${errorMsg}`);
       }
     } catch (err: any) {
       console.error("[ORDER CREATE] exception", err);
-      setSubmissionStatus("unknown");
-      toast.error("Não foi possível confirmar se o pedido foi criado.");
+      const msg = err.message || "Erro ao criar pedido.";
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+      toast.error(msg);
     }
   };
 

@@ -21,7 +21,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   res.setHeader("X-Correlation-Id", correlationId);
   if (replayed) res.setHeader("Idempotent-Replay", "true");
-  return res.status(status).json({ success: true, order });
+  return res.status(status).json({ success: true, data: order });
 });
 
 module.exports = { createOrder };

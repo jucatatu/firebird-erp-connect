@@ -47,6 +47,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
     items: [{ productId: 1, quantity: 1 }],
     equipments: []
   };
+  const mockUserId = 'user-123';
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -54,7 +55,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
 
   it('TESTE 1: Usuário somente Graal [1], solicita 1 -> Permitido', async () => {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(true);
   });
 
@@ -62,7 +63,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { callErp } = await import('../../erp.server');
     
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', mockUserId, supabaseAdmin);
     
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('COMPANY_NOT_ALLOWED');
@@ -81,7 +82,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
       return {} as any;
     });
 
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(true);
   });
 
@@ -95,7 +96,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
       return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn() } as any;
     });
 
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('COMPANY_NOT_ALLOWED');
     expect(callErp).not.toHaveBeenCalled();
@@ -113,7 +114,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
       return {} as any;
     });
 
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 1 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(true);
   });
 
@@ -129,14 +130,14 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
       return {} as any;
     });
 
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 3 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(true);
   });
 
   it('TESTE 7: companyId inválido (99) -> Rejeitado antes do ERP', async () => {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { callErp } = await import('../../erp.server');
-    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 99 }, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder({ ...mockPayload, companyId: 99 }, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('INVALID_COMPANY');
     expect(callErp).not.toHaveBeenCalled();
@@ -152,7 +153,7 @@ describe('handleCreateErpOrder - Sprint 8.2 (Empresa)', () => {
       return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn() } as any;
     });
 
-    const result = await handleCreateErpOrder(mockPayload, 'key-1', supabaseAdmin);
+    const result = await handleCreateErpOrder(mockPayload, 'key-1', mockUserId, supabaseAdmin);
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe('NO_COMPANY_ACCESS');
     expect(callErp).not.toHaveBeenCalled();

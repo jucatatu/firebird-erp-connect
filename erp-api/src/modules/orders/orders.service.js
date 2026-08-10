@@ -235,7 +235,7 @@ async function createOrderTransactional({ payload, correlationId }) {
     }
 
     const result = {
-      id: Number(created.ID_ORDENS_VENDA),
+      orderId: Number(created.ID_ORDENS_VENDA),
       orderNumber: Number(created.N_PEDIDO),
       companyId: Number(created.ID_EMPRESA),
       clientId: payload.clientId,
@@ -300,7 +300,7 @@ async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) 
     }
 
     const order = await createOrderTransactional({ payload, correlationId });
-    const body = { success: true, order };
+    const body = { success: true, data: order };
     await store.put(key, buildEntry({ requestHash, status: 201, body }));
     
     return { replayed: false, order, status: 201 };
