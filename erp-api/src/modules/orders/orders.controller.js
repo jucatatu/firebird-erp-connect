@@ -1,8 +1,16 @@
 "use strict";
 
 const { asyncHandler } = require("../../shared/utils/async-handler");
-const { validateCreateOrder } = require("./orders.validator");
+const { validateCreateOrder, validateUpdateOrder } = require("./orders.validator");
 const service = require("./orders.service");
+
+const getBatchStatus = asyncHandler(async (req, res) => {
+  const { orderIds } = req.query;
+  if (!orderIds) return res.json({ success: true, data: [] });
+  const ids = String(orderIds).split(",").map(Number).filter(Boolean);
+  const statuses = await service.getBatchStatus(ids);
+  return res.json({ success: true, data: statuses });
+});
 
 const createOrder = asyncHandler(async (req, res) => {
   const idempotencyKey = req.header("idempotency-key");
@@ -24,4 +32,4 @@ const createOrder = asyncHandler(async (req, res) => {
   return res.status(status).json({ success: true, data: order });
 });
 
-module.exports = { createOrder };
+module.exports = { createOrder, getBatchStatus };

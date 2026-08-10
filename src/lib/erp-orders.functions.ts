@@ -18,6 +18,14 @@ export interface ErpResponse<T = JsonValue> {
   } | null;
 }
 
+export const EDITABLE_ERP_ORDER_STATUSES = [1, 20, 24, 27];
+
+export function canEditErpOrder(statusId: number | string | null | undefined): boolean {
+  if (statusId === null || statusId === undefined) return false;
+  const id = Number(statusId);
+  return EDITABLE_ERP_ORDER_STATUSES.includes(id);
+}
+
 // --- CLIENTS ---
 export interface ErpClient {
   id: number;
@@ -390,4 +398,25 @@ export const getErpClientDetail = createServerFn({ method: "GET" })
       path: `/api/v1/clients/${clientId}`
     }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number; defaultSaleTypeId?: number }>>;
   });
+
+export interface ErpOrderStatus {
+  orderId: number;
+  statusId: number;
+  statusDescription: string | null;
+  canEdit: boolean;
+}
+
+export const getErpOrdersStatus = createServerFn({ method: "GET" })
+  .inputValidator((ids: number[]) => z.array(z.number()).parse(ids))
+  .handler(async ({ data: orderIds }) => {
+    if (orderIds.length === 0) return { ok: true, status: 200, data: [], error: null };
+    
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: "/api/v1/orders/batch-status",
+      query: { orderIds: orderIds.join(",") }
+    }) as Promise<ErpResponse<ErpOrderStatus[]>>;
+  });
+
 

@@ -110,4 +110,23 @@ function validateCreateOrder(rawBody) {
   return data;
 }
 
-module.exports = { validateCreateOrder, LIMITS };
+const updateOrderSchema = bodySchema.extend({
+  orderId: positiveInt
+}).strict();
+
+function validateUpdateOrder(rawBody) {
+  const parsed = updateOrderSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    throw new AppError({
+      message: "Payload de atualização inválido.",
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+      retryable: false,
+      details: zodIssuesToDetails(parsed.error.issues),
+      exposeDetails: true,
+    });
+  }
+  return parsed.data;
+}
+
+module.exports = { validateCreateOrder, validateUpdateOrder, LIMITS };

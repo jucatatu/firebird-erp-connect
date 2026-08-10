@@ -307,11 +307,23 @@ async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) 
   });
 }
 
+async function getBatchStatus(orderIds) {
+  const rows = await repository.findStatusByIds(orderIds);
+  const { canEditErpOrder } = require("../../shared/orders/status-rules");
+  return rows.map(r => ({
+    orderId: Number(r.ID_ORDENS_VENDA),
+    statusId: Number(r.ID_STATUS),
+    statusDescription: r.STATUS_DESCRICAO ? String(r.STATUS_DESCRICAO).trim() : null,
+    canEdit: canEditErpOrder(r.ID_STATUS)
+  }));
+}
+
 function newCorrelationId() {
   return crypto.randomUUID();
 }
 
 module.exports = {
   createOrder,
+  getBatchStatus,
   newCorrelationId,
 };
