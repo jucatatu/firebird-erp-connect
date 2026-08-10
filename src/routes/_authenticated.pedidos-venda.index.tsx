@@ -6,6 +6,7 @@ import { useMyRoles, primaryRole } from "@/hooks/use-auth";
 import { useOrderDrafts, type OrderDraftStatus } from "@/hooks/use-drafts";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -94,7 +95,7 @@ function OrdersListPage() {
 
   const statusMap = useMemo(() => {
     const map = new Map<number, ErpOrderStatus>();
-    (erpStatusQ.data || []).forEach(s => map.set(s.orderId, s));
+    (erpStatusQ.data || []).forEach((s: ErpOrderStatus) => map.set(s.orderId, s));
     return map;
   }, [erpStatusQ.data]);
 
