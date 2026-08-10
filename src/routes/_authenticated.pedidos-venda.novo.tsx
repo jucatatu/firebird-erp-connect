@@ -1232,7 +1232,7 @@ function NewOrderPage() {
         )}
 
         {step === "payment" && clientId && (
-          <Card>
+          <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">4. Pagamento</CardTitle></CardHeader>
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
