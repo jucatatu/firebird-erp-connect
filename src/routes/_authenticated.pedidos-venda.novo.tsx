@@ -891,32 +891,46 @@ function NewOrderPage() {
         addEquipment={addEquipment}
         getProductCoverage={getProductCoverage}
       />
-      <div className="container max-w-5xl py-6">
+      <div className="container max-w-5xl py-4 sm:py-6 px-4">
       <PageHeader 
         title="Novo Pedido" 
         description="Siga os passos para cadastrar um novo pedido no ERP."
         crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: "Novo" }]}
       />
 
-      <div className="mb-8 flex items-center justify-between">
-        <div className="flex gap-2">
-          {[
-            { id: "client", label: "Cliente" },
-            { id: "items", label: "Itens + Equipamentos" },
-            { id: "delivery", label: "Entrega" },
-            { id: "payment", label: "Pagamento" },
-            { id: "review", label: "Revisão" }
-          ].map((s, i) => (
-            <Badge key={s.id} variant={step === s.id ? "default" : "outline"} className="px-3 py-1">
-              {i + 1}. {s.label}
-            </Badge>
-          ))}
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Stepper responsivo: Faixa rolável no mobile */}
+        <div className="flex w-full overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
+          <div className="flex gap-2 min-w-max">
+            {[
+              { id: "client", label: "Cliente" },
+              { id: "items", label: "Itens + Equipamentos" },
+              { id: "delivery", label: "Entrega" },
+              { id: "payment", label: "Pagamento" },
+              { id: "review", label: "Revisão" }
+            ].map((s, i) => (
+              <Badge 
+                key={s.id} 
+                variant={step === s.id ? "default" : "outline"} 
+                className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 ${step === s.id ? 'scale-105 shadow-sm ring-1 ring-primary/20' : 'opacity-80'}`}
+              >
+                {i + 1}. {s.label}
+              </Badge>
+            ))}
+          </div>
         </div>
-        {clientId && <p className="text-sm font-medium">{clientName}</p>}
+        
+        {/* Nome do cliente/usuário: Linha separada ou compacto no mobile */}
+        {clientId && (
+          <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded-lg border border-muted/50 w-full overflow-hidden animate-in fade-in duration-300">
+            <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase whitespace-nowrap shrink-0">Pedido para:</span>
+            <p className="text-xs sm:text-sm font-bold truncate text-primary">{clientName}</p>
+          </div>
+        )}
       </div>
 
       {step === "client" && (
-        <Card>
+        <Card className="shadow-none border-none sm:border">
           <CardHeader><CardTitle className="text-lg">Empresa e Cliente</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
@@ -1102,24 +1116,26 @@ function NewOrderPage() {
               </CardContent>
             </Card>
           </div>
-          
           <div className="space-y-4">
-            <Card className="sticky top-6">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Resumo do Carrinho</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+            <Card className="md:sticky md:top-6 shadow-sm border-primary/10">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm">Resumo do Pedido</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="space-y-4 px-4 sm:px-6">
+                <div className="space-y-2 max-h-[30vh] sm:max-h-[40vh] overflow-y-auto pr-1">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Itens</p>
                   {items.map(it => (
                     <div key={it.productId} className="flex flex-col py-2 border-b border-dashed last:border-0">
-                       <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold truncate max-w-[150px]">{it.description}</span>
-                          <span className="font-mono font-bold">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? " L" : ""}</span>
+                       <div className="flex justify-between items-center text-xs gap-2">
+                          <span className="font-bold truncate flex-1">{it.description}</span>
+                          <span className="font-mono font-bold shrink-0">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? " L" : ""}</span>
                        </div>
                        <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-0.5">
                           <span className={it.manualPrice ? "text-blue-600 font-medium" : ""}>
                             R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.appliedUnitPrice)}/un
                           </span>
-                          <span>Subtotal: R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.total)}</span>
+                          <span>Sub: R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.total)}</span>
                        </div>
                     </div>
                   ))}
@@ -1127,28 +1143,36 @@ function NewOrderPage() {
 
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-4">Equipamentos</p>
                   {equipments.map((eq, idx) => (
-                    <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}-${idx}`} className="flex justify-between items-center text-xs py-2 border-b border-dashed last:border-0">
-                       <span className="truncate max-w-[150px]">{eq.description}</span>
-                       <span className="font-mono font-bold">{eq.quantity}x</span>
+                    <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}-${idx}`} className="flex justify-between items-center text-xs py-2 border-b border-dashed last:border-0 gap-2">
+                       <span className="truncate flex-1">{eq.description}</span>
+                       <span className="font-mono font-bold shrink-0">{eq.quantity}x</span>
                     </div>
                   ))}
                   {equipments.length === 0 && <p className="text-[10px] text-muted-foreground italic">Nenhum equipamento</p>}
                 </div>
                 
-                <Separator />
+                <Separator className="bg-primary/5" />
                 
                 <div className="space-y-1">
                    <CoverageSummary />
                 </div>
 
-                <Button className="w-full" disabled={!isCoverageValid()} onClick={() => setStep("delivery")}>
-                  Continuar <ChevronRight className="ml-2 h-4 w-4"/>
-                </Button>
-                {!isCoverageValid() && (
-                  <p className="text-[10px] text-destructive text-center font-medium mt-1">
-                    Barris insuficientes para os litros de chope.
-                  </p>
-                )}
+                <div className="pt-2">
+                  <Button 
+                    className="w-full py-6 text-sm sm:text-base font-bold shadow-md active:scale-[0.98] transition-transform" 
+                    disabled={!isCoverageValid()} 
+                    onClick={() => setStep("delivery")}
+                  >
+                    Próximo Passo <ChevronRight className="ml-2 h-4 w-4"/>
+                  </Button>
+                  {!isCoverageValid() && (
+                    <div className="mt-2 p-2 bg-destructive/5 rounded border border-destructive/10 animate-pulse">
+                      <p className="text-[10px] text-destructive text-center font-bold">
+                        Barris insuficientes para cobertura dos litros.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1156,7 +1180,7 @@ function NewOrderPage() {
       )}
 
       {step === "delivery" && clientId && (
-        <Card>
+        <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-2">
@@ -1208,7 +1232,7 @@ function NewOrderPage() {
         )}
 
         {step === "payment" && clientId && (
-          <Card>
+          <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">4. Pagamento</CardTitle></CardHeader>
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
@@ -1298,7 +1322,7 @@ function NewOrderPage() {
         )}
 
         {step === "review" && clientId && (
-          <Card>
+          <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               {submissionStatus === "unknown" && (
