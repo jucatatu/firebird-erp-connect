@@ -327,6 +327,7 @@ function NewOrderPage() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
@@ -334,11 +335,13 @@ function NewOrderPage() {
     idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
-    setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
+    setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
+    repeatOrder, newOrderFromClient
   } = useOrderFormStore();
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const fetchPrice = useServerFn(resolveErpPrice);
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
     loading: boolean;
     error: string | null;
@@ -929,15 +932,49 @@ function NewOrderPage() {
               { id: "delivery", label: "Entrega" },
               { id: "payment", label: "Pagamento" },
               { id: "review", label: "Revisão" }
-            ].map((s, i) => (
-              <Badge 
-                key={s.id} 
-                variant={step === s.id ? "default" : "outline"} 
-                className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 ${step === s.id ? 'scale-105 shadow-sm ring-1 ring-primary/20' : 'opacity-80'}`}
-              >
-                {i + 1}. {s.label}
-              </Badge>
-            ))}
+            ].map((s, i) => {
+              const stepIds = ["client", "items", "delivery", "payment", "review"];
+              const currentIndex = stepIds.indexOf(step);
+              const targetIndex = stepIds.indexOf(s.id);
+              const isPast = targetIndex < currentIndex;
+              const isCurrent = step === s.id;
+              
+              const canNavigate = () => {
+                if (isPast) return true;
+                if (isCurrent) return true;
+                
+                // Regras de Navegação Sprint 8.9.22
+                if (s.id === "items") return !!companyId && !!clientId;
+                if (s.id === "delivery") return !!companyId && !!clientId && items.length > 0 && isCoverageValid();
+                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt;
+                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+                
+                return false;
+              };
+
+              const navigateToStep = () => {
+                if (canNavigate()) {
+                  setStep(s.id as any);
+                } else {
+                  if (!companyId || !clientId) toast.error("Selecione a empresa e o cliente primeiro.");
+                  else if (items.length === 0) toast.error("Adicione pelo menos um produto.");
+                  else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de continuar.");
+                  else if (!deliveryAt) toast.error("Defina os dados de entrega.");
+                  else toast.error("Complete as etapas anteriores para avançar.");
+                }
+              };
+
+              return (
+                <Badge 
+                  key={s.id} 
+                  variant={step === s.id ? "default" : "outline"} 
+                  className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 cursor-pointer ${step === s.id ? 'scale-105 shadow-sm ring-1 ring-primary/20' : 'opacity-80 hover:bg-muted'}`}
+                  onClick={navigateToStep}
+                >
+                  {i + 1}. {s.label}
+                </Badge>
+              );
+            })}
           </div>
         </div>
         
@@ -1086,7 +1123,7 @@ function NewOrderPage() {
                               size="sm" 
                               className="h-8 flex-1 text-[11px] font-bold shadow-sm"
                               onClick={() => {
-                                setClient(payload.clientId, order.customer_name_snapshot);
+                                newOrderFromClient(payload.clientId, order.customer_name_snapshot, order.company_id);
                                 setStep("items");
                               }}
                             >
@@ -1096,23 +1133,81 @@ function NewOrderPage() {
                               variant="outline" 
                               size="sm" 
                               className="h-8 flex-1 text-[11px] font-bold border-primary/20 text-primary hover:bg-primary/5"
-                              onClick={() => {
-                                // Lógica de REPETIR (Sprint 8.9.17)
-                                resetItemsAndClient();
-                                setClient(payload.clientId, order.customer_name_snapshot);
-                                if (payload.items) {
-                                  payload.items.forEach((item: any) => {
-                                    addItem({
-                                      productId: item.productId,
-                                      description: item.description || `Produto ${item.productId}`,
-                                      quantity: item.quantity,
-                                      unitPrice: 0, // Será reconsultado pelo ProductCard/useErpPrice
+                              onClick={async () => {
+                                setIsResolvingRepeat(true);
+                                try {
+                                  // 1. Reconstruir estado base (empresa, cliente, produtos, equipamentos, logística)
+                                  repeatOrder(payload, order.customer_name_snapshot);
+                                  
+                                  // 2. Resolver preços atuais do ERP
+                                  const updatedItems = [...useOrderFormStore.getState().items];
+                                  let allPricesResolved = true;
+                                  let firstErrorProduct = "";
+
+                                  for (let i = 0; i < updatedItems.length; i++) {
+                                    const item = updatedItems[i];
+                                    try {
+                                      const priceRes = await fetchPrice({ data: { productId: item.productId, clientId: payload.clientId } });
+                                      if (priceRes.ok && priceRes.data?.priceFound) {
+                                        updatedItems[i] = {
+                                          ...item,
+                                          unitPrice: priceRes.data.unitPrice,
+                                          appliedUnitPrice: priceRes.data.unitPrice,
+                                          total: item.quantity * priceRes.data.unitPrice
+                                        };
+                                      } else {
+                                        allPricesResolved = false;
+                                        if (!firstErrorProduct) firstErrorProduct = item.description;
+                                      }
+                                    } catch (err) {
+                                      allPricesResolved = false;
+                                      if (!firstErrorProduct) firstErrorProduct = item.description;
+                                    }
+                                  }
+
+                                  // Atualiza os itens com preços resolvidos
+                                  useOrderFormStore.setState({ items: updatedItems });
+
+                                  // 3. Validar se a logística do snapshot ainda é válida com o catálogo atual
+                                  // (as funções de cobertura usam o estado do Zustand que acabamos de setar)
+                                  const currentEquips = useOrderFormStore.getState().equipments;
+                                  const coverageValid = updatedItems.every(it => {
+                                    // Simulação local da lógica getProductCoverage sem precisar do componente
+                                    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
+                                    if (p?.logistics_type !== 'draft') return true;
+                                    
+                                    let provided = 0;
+                                    currentEquips.forEach(eq => {
+                                      if (eq.assignedProductId === it.productId) {
+                                        if (eq.capacityLiters) provided += eq.capacityLiters * eq.quantity;
+                                        else {
+                                          const litersMatch = eq.description.match(/(\d+)\s*l/i);
+                                          if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+                                        }
+                                      }
                                     });
+                                    return provided >= it.quantity;
                                   });
+
+                                  if (allPricesResolved && coverageValid && updatedItems.length > 0) {
+                                    setStep("delivery");
+                                    toast.success("Pedido repetido com sucesso. Revise a entrega.");
+                                  } else {
+                                    setStep("items");
+                                    if (!allPricesResolved) toast.error(`Não foi possível resolver o preço de: ${firstErrorProduct}`);
+                                    else if (!coverageValid) toast.error("A logística do pedido anterior precisa de revisão.");
+                                    else toast.warning("Revise os itens do pedido.");
+                                  }
+                                } catch (err) {
+                                  console.error("Erro ao repetir pedido:", err);
+                                  toast.error("Erro ao processar repetição do pedido.");
+                                } finally {
+                                  setIsResolvingRepeat(false);
                                 }
-                                setStep("items");
                               }}
+                              disabled={isResolvingRepeat}
                             >
+                              {isResolvingRepeat ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
                               Repetir
                             </Button>
                           </div>
