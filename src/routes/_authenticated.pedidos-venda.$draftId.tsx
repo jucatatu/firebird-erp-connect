@@ -34,6 +34,7 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
+import { canEditErpOrder } from "@/lib/erp-orders.functions";
 import {
   Loader2,
   Send,
@@ -109,7 +110,7 @@ function DraftDetailPage() {
     );
   }
 
-  const erpStatusId = draft.payload && typeof draft.payload === 'object' && 'statusId' in draft.payload 
+  const erpStatusId = draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
     ? (draft.payload as any).statusId 
     : null;
 
@@ -117,7 +118,6 @@ function DraftDetailPage() {
   
   // REGRA OFICIAL DE EDIÇÃO (Sprint 8.9.29):
   // EDITABLE_STATUS_IDS = [1, 20, 24, 27]
-  import { canEditErpOrder } from "@/lib/erp-orders.functions";
   const canEdit = (isOwner || isAdmin) && (
     draft.status === "draft" || 
     draft.status === "rejected" ||
@@ -125,6 +125,11 @@ function DraftDetailPage() {
   );
 
   const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
+  const canApprove = isApprover && draft.status === "pending_approval" && !(isOwner && !isAdmin);
+  const canReject = isApprover && draft.status === "pending_approval";
+  const canCancel =
+    (draft.status === "draft" || draft.status === "rejected") && (isOwner || isAdmin);
+  const canReopen = draft.status === "rejected" && (isOwner || isAdmin);
 
   const draftId_ = draft.id;
   const saveChanges = async () => {
