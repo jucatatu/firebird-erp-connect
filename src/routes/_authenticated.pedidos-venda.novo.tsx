@@ -1578,6 +1578,21 @@ function NewOrderPage() {
           </Card>
         )}
 
+        {/* Sprint 8.9.19: Fallback UI para estado inesperado (prevenir tela branca) */}
+        {step === "review" && submissionStatus === "created" && !submissionMeta?.orderNumber && (
+          <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center border rounded-xl bg-card">
+            <CheckCircle2 className="h-12 w-12 text-green-600" />
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold">Pedido Processado</h3>
+              <p className="text-sm text-muted-foreground">O pedido foi enviado com sucesso ao ERP.</p>
+            </div>
+            <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } as any })}>
+              Voltar para a Lista
+            </Button>
+          </div>
+        )}
+
+
       </div>
     </>
   );
