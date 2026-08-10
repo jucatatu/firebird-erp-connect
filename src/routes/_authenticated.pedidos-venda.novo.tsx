@@ -1026,27 +1026,27 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
                
-               {paymentOptionsQ.isLoading ? (
+               {localPaymentOptions.loading ? (
                  <div className="flex flex-col items-center justify-center py-8 space-y-3">
                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                    <p className="text-sm font-medium animate-pulse">Carregando opções do ERP...</p>
                  </div>
-               ) : paymentOptionsQ.isError ? (
+               ) : localPaymentOptions.error ? (
                  <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center border rounded-lg bg-destructive/5 border-destructive/20">
                    <div className="p-3 rounded-full bg-destructive/10 text-destructive">
-                     <Trash2 className="h-6 w-6" />
+                     <AlertCircle className="h-6 w-6" />
                    </div>
                    <div className="space-y-1">
                      <p className="text-sm font-bold text-destructive">Não foi possível carregar as opções de pagamento.</p>
-                     <p className="text-xs text-muted-foreground max-w-[300px]">O servidor ERP pode estar indisponível ou ocorreu um erro na autenticação.</p>
+                     <p className="text-xs text-muted-foreground max-w-[300px]">{localPaymentOptions.error}</p>
                    </div>
                    <Button 
                      variant="outline" 
                      size="sm" 
-                     onClick={() => paymentOptionsQ.refetch()}
+                     onClick={() => loadPaymentOptionsDirectly()}
                      className="gap-2"
                    >
-                     <Loader2 className="h-3 w-3" />
+                     <RefreshCcw className="h-3 w-3" />
                      Tentar novamente
                    </Button>
                  </div>
