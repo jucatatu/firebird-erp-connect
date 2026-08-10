@@ -22,6 +22,8 @@ import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { getItemsSummary, getEquipmentsSummary, getLogisticsSummary } from "@/lib/order-summary";
+import { getErpOrdersStatus, type ErpOrderStatus } from "@/lib/erp-orders.functions";
+import { useQuery } from "@tanstack/react-query";
 
 type StatusFilter = OrderDraftStatus | "all";
 
@@ -74,6 +76,27 @@ function OrdersListPage() {
   });
 
   const rows = useMemo(() => data ?? [], [data]);
+
+  const erpOrderIds = useMemo(() => 
+    rows.map(r => r.erp_order_id).filter((id): id is number => id !== null),
+  [rows]);
+
+  const erpStatusQ = useQuery({
+    queryKey: ["erp-orders-status", erpOrderIds],
+    queryFn: async () => {
+      const resp = await getErpOrdersStatus({ data: erpOrderIds });
+      if (!resp.ok) throw new Error(resp.error?.message || "Erro ao buscar status ERP");
+      return resp.data || [];
+    },
+    enabled: erpOrderIds.length > 0,
+    refetchInterval: 30000, // Refresh status every 30s
+  });
+
+  const statusMap = useMemo(() => {
+    const map = new Map<number, ErpOrderStatus>();
+    (erpStatusQ.data || []).forEach(s => map.set(s.orderId, s));
+    return map;
+  }, [erpStatusQ.data]);
 
   return (
     <div>
@@ -185,7 +208,14 @@ function OrdersListPage() {
                         <div className="flex items-center gap-2 mt-0.5">
                           <OrderIdentifier id={d.id} />
                           {d.erp_order_number && (
-                            <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
+                              {d.erp_order_id && statusMap.has(d.erp_order_id) && (
+                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
+                                  ERP: {statusMap.get(d.erp_order_id)?.statusDescription || "CARREGANDO..."}
+                                </Badge>
+                              )}
+                            </div>
                           )}
                         </div>
                       </Link>
@@ -239,7 +269,14 @@ function OrdersListPage() {
                       {d.customer_name_snapshot || "(sem cliente)"}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
-                      <span>{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold">{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
+                        {d.erp_order_id && statusMap.has(d.erp_order_id) && (
+                          <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
+                            ERP: {statusMap.get(d.erp_order_id)?.statusDescription || "..."}
+                          </Badge>
+                        )}
+                      </div>
                       <span>·</span>
                       <span>{companyLabel(d.company_id)}</span>
                       <span>·</span>
