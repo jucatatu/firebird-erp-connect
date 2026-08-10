@@ -265,17 +265,30 @@ function NewOrderPage() {
 
   // Efeito para carregar padrões do cliente
   useEffect(() => {
-    if (clientDetailQ.data?.ok && clientDetailQ.data.data) {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data && paymentOptionsQ.data?.ok) {
       const detail = clientDetailQ.data.data;
-      // Só aplica se não estiverem definidos (ou se acabamos de selecionar o cliente)
-      if (detail.defaultPaymentTermId || detail.defaultPaymentMethodId) {
-        setPayment(
-          paymentTermId || detail.defaultPaymentTermId || null,
-          paymentMethodId || detail.defaultPaymentMethodId || null
-        );
+      const options = paymentOptionsQ.data.data;
+
+      const termId = detail.defaultPaymentTermId;
+      const methodId = detail.defaultPaymentMethodId;
+
+      // Verificar se os IDs existem nas listas globais antes de aplicar
+      const termExists = termId ? options.paymentTerms.some((t: any) => t.id === termId) : false;
+      const methodExists = methodId ? options.paymentMethods.some((m: any) => m.id === methodId) : false;
+
+      setPayment(
+        termExists ? (termId as number) : null,
+        methodExists ? (methodId as number) : null
+      );
+      
+      if (termId && !termExists) {
+        toast.warning("Condição de pagamento padrão do cliente não disponível no ERP.");
+      }
+      if (methodId && !methodExists) {
+        toast.warning("Forma de pagamento padrão do cliente não disponível no ERP.");
       }
     }
-  }, [clientDetailQ.data, clientId, setPayment]);
+  }, [clientDetailQ.data, paymentOptionsQ.data, clientId, setPayment]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
