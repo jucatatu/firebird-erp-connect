@@ -259,6 +259,9 @@ function NewOrderPage() {
   
   const paymentOptionsQ = useErpPaymentOptions();
   const clientDetailQ = useErpClientDetail(clientId);
+  
+  // Acessa metadados da submissão para exibir o número do pedido
+  const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
 
   // Efeito para carregar padrões do cliente
   useEffect(() => {
