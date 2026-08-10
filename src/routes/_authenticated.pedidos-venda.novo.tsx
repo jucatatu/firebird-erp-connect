@@ -1061,7 +1061,7 @@ function NewOrderPage() {
                         onChange={(e) => setPayment(Number(e.target.value), paymentMethodId)}
                       >
                         <option value="">Selecione...</option>
-                        {paymentOptionsQ.data?.data?.paymentTerms?.map((t: any) => (
+                        {localPaymentOptions.data?.paymentTerms?.map((t: any) => (
                           <option key={t.id} value={t.id}>{t.description}</option>
                         ))}
                       </select>
