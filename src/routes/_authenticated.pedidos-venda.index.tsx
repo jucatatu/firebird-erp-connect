@@ -173,20 +173,34 @@ function OrdersListPage() {
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2 align-top">
+                    <td className="px-4 py-3 align-top">
                       <Link
                         to="/pedidos-venda/$draftId"
                         params={{ draftId: d.id }}
-                        className="block"
+                        className="block group"
                       >
-                        <OrderIdentifier id={d.id} />
-                        <div className="mt-0.5 truncate text-sm font-medium text-foreground">
-                          {d.title || "(sem título)"}
+                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                          {d.customer_name_snapshot || "(sem cliente)"}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <OrderIdentifier id={d.id} />
+                          {d.erp_order_number && (
+                            <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
+                          )}
                         </div>
                       </Link>
                     </td>
-                    <td className="px-4 py-2 align-top text-foreground/90">
-                      {d.customer_name_snapshot || "—"}
+                    <td className="px-4 py-3 align-top max-w-[250px]">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Produtos:</span>
+                          <span className="text-foreground/80 truncate">{getItemsSummary(d.payload)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Equipamentos:</span>
+                          <span className="text-foreground/80 truncate">{getEquipmentsSummary(d.payload)}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-2 align-top text-foreground/80">
                       {companyLabel(d.company_id)}
