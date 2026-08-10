@@ -361,22 +361,19 @@ function NewOrderPage() {
   const myCompanies = useMyCompanies(user);
 
   useEffect(() => {
-    // Ao montar a página de Novo Pedido, SEMPRE limpamos o estado para garantir um fluxo limpo,
-    // a menos que o usuário esteja em um rascunho ativo que não foi finalizado.
-    // Se o status for "created" ou "failed", o reset é obrigatório.
+    // Ciclo de vida: O formulário deve começar limpo apenas quando iniciamos 
+    // explicitamente um Novo Pedido (sem clientId ou vindo de sucesso/falha).
+    // O Zustand persist cuida da preservação entre passos do wizard.
     if (submissionStatus === "created" || submissionStatus === "failed") {
       resetItemsAndClient();
     }
     
-    // Se não houver clientId, forçamos um reset para garantir que nenhum lixo de itens permaneça
-    if (!clientId && items.length > 0) {
-      resetItemsAndClient();
-    }
-    
+    // Se o usuário está na rota /novo e não tem empresa definida, 
+    // e o sistema tem apenas uma empresa, pré-selecionamos.
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
       setCompany(myCompanies.data[0]);
     }
-  }, [myCompanies.data, companyId, setCompany, submissionStatus, reset]);
+  }, [myCompanies.data, companyId, setCompany, submissionStatus]);
 
   useEffect(() => {
     if (!idempotencyKey) {
