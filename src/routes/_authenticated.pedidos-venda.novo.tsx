@@ -1054,7 +1054,9 @@ function NewOrderPage() {
                           <span className="font-mono font-bold">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? " L" : ""}</span>
                        </div>
                        <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-0.5">
-                          <span>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.unitPrice)}/un</span>
+                          <span className={it.manualPrice ? "text-blue-600 font-medium" : ""}>
+                            R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.appliedUnitPrice)}/un
+                          </span>
                           <span>Subtotal: R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.total)}</span>
                        </div>
                     </div>
