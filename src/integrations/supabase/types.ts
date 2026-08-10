@@ -392,6 +392,7 @@ export type Database = {
           last_attempt_at: string | null
           last_send_error: string | null
           payload: Json
+          payload_v2: Json | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
@@ -415,6 +416,7 @@ export type Database = {
           last_attempt_at?: string | null
           last_send_error?: string | null
           payload?: Json
+          payload_v2?: Json | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -438,6 +440,7 @@ export type Database = {
           last_attempt_at?: string | null
           last_send_error?: string | null
           payload?: Json
+          payload_v2?: Json | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -734,6 +737,7 @@ export type Database = {
           last_attempt_at: string | null
           last_send_error: string | null
           payload: Json
+          payload_v2: Json | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null

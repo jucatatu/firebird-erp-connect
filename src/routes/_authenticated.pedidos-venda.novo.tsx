@@ -36,14 +36,16 @@ function ProductPriceDisplay({
   unit, 
   onPriceLoaded,
   manualPrice,
-  appliedPrice
+  appliedPrice,
+  onEditPrice
 }: { 
   productId: number, 
   clientId: number, 
   unit: string,
   onPriceLoaded?: (price: number) => void,
   manualPrice?: boolean,
-  appliedPrice?: number
+  appliedPrice?: number,
+  onEditPrice: () => void
 }) {
   const { data, isLoading } = useErpPrice({ productId, clientId });
   
@@ -52,7 +54,7 @@ function ProductPriceDisplay({
       onPriceLoaded(data.data.unitPrice);
     }
   }, [data, onPriceLoaded]);
-
+  
   if (isLoading) return <p className="text-xs text-muted-foreground animate-pulse mt-1">Consultando preço...</p>;
   if (!data?.ok || !data.data?.priceFound) return <p className="text-xs text-destructive font-medium mt-1">Preço não cadastrado</p>;
   
@@ -60,15 +62,27 @@ function ProductPriceDisplay({
   const strategyLabel = data.data.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
   
   return (
-    <div className="mt-1">
+    <div className="mt-1 group">
       <div className="flex flex-col">
-        <span className="text-sm font-bold text-primary">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-primary">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+            onClick={(e) => { e.stopPropagation(); onEditPrice(); }}
+          >
+            <Plus className="h-3 w-3 rotate-45" /> {/* Using Plus as a marker, or Pencil if preferred */}
+          </Button>
+        </div>
         {manualPrice && (
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-orange-600 font-bold uppercase">Preço alterado manualmente</span>
-            <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
+            </div>
           </div>
         )}
         {!manualPrice && <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>}
@@ -163,7 +177,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
               </Button>
             </div>
           ) : (
-            <div className="mt-1 flex items-center gap-1 cursor-pointer" onClick={handlePriceClick}>
+            <div className="mt-1 flex items-center gap-1">
               <ProductPriceDisplay 
                 productId={product.id} 
                 clientId={clientId} 
@@ -171,8 +185,15 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
                 onPriceLoaded={setErpPrice}
                 manualPrice={cartItem?.manualPrice}
                 appliedPrice={cartItem?.appliedUnitPrice}
+                onEditPrice={() => {
+                  if (cartItem) setIsEditingPrice(true);
+                }}
               />
-              {cartItem?.manualPrice && <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+              {cartItem?.manualPrice && (
+                <Badge variant="outline" className="text-[9px] h-3 px-1 text-blue-600 border-blue-200 cursor-help" title="Preço editado manualmente">
+                  Manual
+                </Badge>
+              )}
             </div>
           )}
         </div>
@@ -447,26 +468,15 @@ function NewOrderPage() {
     if (!it) return { required: 0, provided: 0 };
     
     let provided = 0;
-    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === productId);
-    const pDesc = (p?.description || "").toLowerCase();
-    const style = pDesc.split(" ")[0] || "";
     
     equipments.forEach(eq => {
-      const desc = eq.description.toLowerCase();
-      // Regra: se o equipamento for um barril (KEG)
-      if (eq.role === 'KEG' || desc.includes("barril")) {
-        // Se houver apenas um estilo de chope, qualquer barril conta.
-        // Se houver múltiplos, o barril deve conter o estilo no nome (injetado pelo suggest) ou ser genérico
-        const isGeneric = !desc.includes("(") || desc.includes("genérico");
-        const matchesStyle = style && desc.includes(style);
-
-        if (choppItems.length === 1 || isGeneric || matchesStyle) {
-           if (eq.capacityLiters) {
-             provided += eq.capacityLiters * eq.quantity;
-           } else {
-             const litersMatch = desc.match(/(\d+)\s*l/i);
-             if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
-           }
+      // Sprint 8.9.11: Cobertura estrita por assignedProductId
+      if (eq.assignedProductId === productId) {
+        if (eq.capacityLiters) {
+          provided += eq.capacityLiters * eq.quantity;
+        } else {
+          const litersMatch = eq.description.match(/(\d+)\s*l/i);
+          if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
         }
       }
     });
@@ -588,7 +598,8 @@ function NewOrderPage() {
             description: `${b.description} (${style})`, 
             quantity: qty,
             role: "KEG",
-            capacityLiters: capacity
+            capacityLiters: capacity,
+            assignedProductId: it.productId
           });
           remainingLiters -= qty * capacity;
         }
@@ -607,7 +618,8 @@ function NewOrderPage() {
              description: `${smallestToCover.description} (${style})`, 
              quantity: 1,
              role: "KEG",
-             capacityLiters: capacity
+             capacityLiters: capacity,
+             assignedProductId: it.productId
            });
         }
       }
@@ -618,11 +630,11 @@ function NewOrderPage() {
     toast.success("Sugestão otimizada de equipamentos aplicada");
   };
 
-  const updateEquipmentQty = (id: number, qty: number) => {
+  const updateEquipmentQty = (id: number, qty: number, assignedProductId?: number | null) => {
     if (qty <= 0) removeEquipment(id);
     else {
       const eqs = [...equipments];
-      const idx = eqs.findIndex(e => e.equipmentTypeId === id);
+      const idx = eqs.findIndex(e => e.equipmentTypeId === id && e.assignedProductId === assignedProductId);
       if (idx >= 0) {
         eqs[idx].quantity = qty;
         useOrderFormStore.setState({ equipments: eqs });
@@ -632,7 +644,7 @@ function NewOrderPage() {
 
   const isCoverageValid = () => {
     if (choppItems.length === 0) return true;
-    // Sprint 8.9.8: Chopeira opcional. Apenas barris/litros são obrigatórios.
+    // Sprint 8.9.11: Cobertura estrita por produto
     for (const it of choppItems) {
       const cov = getProductCoverage(it.productId);
       if (cov.provided < cov.required) return false;
@@ -676,6 +688,16 @@ function NewOrderPage() {
                 ) : (
                   <span className="text-[10px] text-green-600 font-bold">Coberto</span>
                 )}
+              </div>
+              
+              {/* Sprint 8.9.11: Mostrar barris alocados especificamente a este produto */}
+              <div className="mt-2 space-y-1">
+                {equipments.filter(e => e.assignedProductId === it.productId).map(eq => (
+                  <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}`} className="flex justify-between text-[10px] text-muted-foreground border-t border-muted/20 pt-1">
+                    <span>{eq.description}</span>
+                    <span>{eq.quantity}x</span>
+                  </div>
+                ))}
               </div>
             </div>
           );
@@ -987,15 +1009,20 @@ function NewOrderPage() {
                         {equipments.length > 0 && (
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Equipamentos Selecionados</p>
                         )}
-                        {equipments.map(eq => (
-                          <div key={eq.equipmentTypeId} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
+                        {equipments.map((eq, idx) => (
+                          <div key={`${eq.equipmentTypeId}-${eq.assignedProductId || 'unassigned'}-${idx}`} className="flex items-center justify-between p-3 border rounded-lg bg-card shadow-sm">
                              <div>
                                 <p className="text-sm font-bold">{eq.description}</p>
                                 <p className="text-xs text-muted-foreground">Qtd: {eq.quantity}</p>
+                                {eq.assignedProductId && (
+                                  <Badge variant="outline" className="text-[9px] h-3 px-1 mt-1 font-normal">
+                                    Para: {items.find(i => i.productId === eq.assignedProductId)?.description || "Produto removido"}
+                                  </Badge>
+                                )}
                              </div>
                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1)}>-</Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1)}>+</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity - 1, eq.assignedProductId)}>-</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => updateEquipmentQty(eq.equipmentTypeId, eq.quantity + 1, eq.assignedProductId)}>+</Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeEquipment(eq.equipmentTypeId)}><Trash2 className="h-4 w-4"/></Button>
                              </div>
                           </div>
@@ -1027,7 +1054,9 @@ function NewOrderPage() {
                           <span className="font-mono font-bold">{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? " L" : ""}</span>
                        </div>
                        <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-0.5">
-                          <span>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.unitPrice)}/un</span>
+                          <span className={it.manualPrice ? "text-blue-600 font-medium" : ""}>
+                            R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.appliedUnitPrice)}/un
+                          </span>
                           <span>Subtotal: R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(it.total)}</span>
                        </div>
                     </div>
