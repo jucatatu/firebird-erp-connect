@@ -21,6 +21,7 @@ import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
+import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 
 type StatusFilter = OrderDraftStatus | "all";
 

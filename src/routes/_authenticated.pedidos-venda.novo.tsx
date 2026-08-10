@@ -23,6 +23,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRecentOrderDrafts } from "@/hooks/use-order-drafts";
+import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
+import { companyLabel } from "@/components/order-identifier";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   head: () => ({
@@ -1032,28 +1034,41 @@ function NewOrderPage() {
                   ) : (
                     recentOrders.data?.map((order: any) => {
                       const payload = order.payload as any;
-                      const itemsList = payload?.items?.length 
-                        ? payload.items.map((i: any) => {
-                            const prod = (productsQ.data as any)?.data?.products?.find((p: any) => p.id === i.productId);
-                            return prod ? prod.description : `Produto ${i.productId}`;
-                          }).join(" · ")
-                        : order.customer_name_snapshot;
+                      const itemsSummary = getItemsSummary(payload);
+                      const equipmentsSummary = getEquipmentsSummary(payload);
 
                       return (
                         <div key={order.id} className="group relative flex flex-col gap-3 p-4 rounded-xl border bg-card hover:shadow-md transition-all">
                           <div className="flex justify-between items-start">
                             <div className="flex flex-col gap-1 pr-8">
                               <span className="font-bold text-sm truncate">{order.customer_name_snapshot || "Cliente não identificado"}</span>
-                              <p className="text-[10px] text-muted-foreground line-clamp-1">{itemsList}</p>
+                              <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
+                                <span>{order.erp_order_number ? `ERP ${order.erp_order_number}` : 'Rascunho'}</span>
+                                <span>·</span>
+                                <span>{companyLabel(order.company_id)}</span>
+                                <span>·</span>
+                                <span>{new Date(order.created_at).toLocaleDateString('pt-BR')}</span>
+                              </div>
                             </div>
-                            <Badge variant="outline" className="text-[9px] shrink-0 font-bold uppercase">{order.erp_order_number ? `ERP ${order.erp_order_number}` : 'Rascunho'}</Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
                           </div>
                           
+                          <div className="space-y-1.5 py-1">
+                            <div className="flex items-start gap-1 text-[10px]">
+                              <span className="font-bold text-muted-foreground shrink-0">Produtos:</span>
+                              <span className="text-foreground/80 line-clamp-1">{itemsSummary}</span>
+                            </div>
+                            <div className="flex items-start gap-1 text-[10px]">
+                              <span className="font-bold text-muted-foreground shrink-0">Equipamentos:</span>
+                              <span className="text-foreground/80 line-clamp-1">{equipmentsSummary}</span>
+                            </div>
+                          </div>
+
                           <div className="flex gap-2 mt-1">
                             <Button 
                               variant="default" 
                               size="sm" 
-                              className="h-8 flex-1 text-[11px] font-bold"
+                              className="h-8 flex-1 text-[11px] font-bold shadow-sm"
                               onClick={() => {
                                 setClient(payload.clientId, order.customer_name_snapshot);
                                 setStep("items");
@@ -1066,20 +1081,17 @@ function NewOrderPage() {
                               size="sm" 
                               className="h-8 flex-1 text-[11px] font-bold border-primary/20 text-primary hover:bg-primary/5"
                               onClick={() => {
-                                // Lógica de REPETIR: seleciona cliente + replica itens
+                                // Lógica de REPETIR (Sprint 8.9.17)
                                 resetItemsAndClient();
                                 setClient(payload.clientId, order.customer_name_snapshot);
                                 if (payload.items) {
                                   payload.items.forEach((item: any) => {
-                                    const prod = (productsQ.data as any)?.data?.products?.find((p: any) => p.id === item.productId);
-                                    if (prod) {
-                                      addItem({
-                                        productId: item.productId,
-                                        description: prod.description,
-                                        quantity: item.quantity,
-                                        unitPrice: 0, // Será reconsultado pelo ProductCard
-                                      });
-                                    }
+                                    addItem({
+                                      productId: item.productId,
+                                      description: item.description || `Produto ${item.productId}`,
+                                      quantity: item.quantity,
+                                      unitPrice: 0, // Será reconsultado pelo ProductCard/useErpPrice
+                                    });
                                   });
                                 }
                                 setStep("items");
