@@ -30,7 +30,8 @@ const positiveInt = z
 
 const isoDateTime = z
   .string()
-  .refine((s) => !Number.isNaN(Date.parse(s)), { message: "Data/hora inválida." });
+  .refine((s) => !Number.isNaN(Date.parse(s)) || /^\d{4}-\d{2}-\d{2}$/.test(s), { message: "Data/hora ou data (YYYY-MM-DD) inválida." });
+
 
 const itemSchema = z
   .object({
