@@ -1011,33 +1011,111 @@ function NewOrderPage() {
           <Card>
             <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-muted-foreground">Cliente</Label>
-                    <p className="font-bold">{clientName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Logística</Label>
-                    <p className="text-sm">• {deliver ? `Entrega em ${new Date(deliveryAt!).toLocaleDateString('pt-BR')}` : 'Retirada no local'}</p>
-                    <p className="text-sm">• {returnEquipment ? `Recolhimento em ${new Date(returnAt!).toLocaleDateString('pt-BR')}` : 'Sem recolhimento'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Observações</Label>
-                    <p className="text-sm italic">{notes || "Nenhuma"}</p>
+              {submissionStatus === "unknown" && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-3">
+                  <p className="text-sm font-bold text-yellow-800">Não foi possível confirmar se o pedido foi criado.</p>
+                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. O pedido pode ter sido criado no ERP mas a resposta não chegou.</p>
+                  <div className="flex gap-2">
+                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={handleCreateOrder}>
+                      Tentar novamente com a mesma chave
+                    </Button>
+                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("draft")}>
+                      Voltar
+                    </Button>
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-4">
-                  <Label className="text-muted-foreground">Resumo Financeiro</Label>
-                  <div className="border rounded-lg p-3 space-y-2 bg-muted/5">
-                    <div className="flex justify-between text-sm">
-                      <span>Total de Itens:</span>
-                      <span className="font-bold">{items.length}</span>
+              {submissionStatus === "created" && erpOrderNumber && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
+                  <div>
+                    <p className="text-lg font-bold text-green-800">Pedido criado no ERP!</p>
+                    <p className="text-sm text-green-700">Nº {erpOrderNumber}</p>
+                  </div>
+                  <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => navigate({ to: "/pedidos-venda", search: {} as any })}>
+                    Ir para Pedidos
+                  </Button>
+                </div>
+              )}
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Cliente</Label>
+                    <p className="font-bold">{clientName}</p>
+                    <p className="text-xs text-muted-foreground">ID ERP: {clientId}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Logística</Label>
+                    <div className="text-sm space-y-1">
+                      <p className="flex items-center gap-2">
+                        <Badge variant="outline" className="h-5 text-[10px]">{deliver ? "Entrega" : "Retirada"}</Badge>
+                        {deliver && deliveryAt && <span>{new Date(deliveryAt).toLocaleDateString('pt-BR')} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                      </p>
+                      {returnEquipment && (
+                        <p className="flex items-center gap-2">
+                          <Badge variant="outline" className="h-5 text-[10px]">Recolhimento</Badge>
+                          {returnAt && <span>{new Date(returnAt).toLocaleDateString('pt-BR')}</span>}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  </div>
+
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Pagamento</Label>
+                    <div className="text-sm space-y-1">
+                      <p><strong>Condição:</strong> {paymentOptionsQ.data?.data?.paymentTerms.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
+                      <p><strong>Forma:</strong> {paymentOptionsQ.data?.data?.paymentMethods.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
+                      <p><strong>Tipo de Venda:</strong> {paymentOptionsQ.data?.data?.saleTypes.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
+                    </div>
+                  </div>
+
+                  {notes && (
+                    <div>
+                      <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Observações</Label>
+                      <p className="text-sm italic p-2 border rounded bg-muted/5">{notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider mb-2 block">Itens e Equipamentos</Label>
+                    <div className="border rounded-lg divide-y bg-card overflow-hidden">
+                      {items.map(it => (
+                        <div key={it.productId} className="p-3 text-sm">
+                          <div className="flex justify-between font-bold">
+                            <span>{it.description}</span>
+                            <span>{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? "L" : "x"}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(it.appliedUnitPrice)}/un
+                              {it.manualPrice && <Badge variant="outline" className="ml-2 text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+                            </span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(it.total)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {equipments.map(eq => (
+                        <div key={eq.equipmentTypeId} className="p-2 px-3 text-xs bg-muted/30 flex justify-between italic text-muted-foreground">
+                          <span>{eq.description}</span>
+                          <span>{eq.quantity}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-4 space-y-2 bg-primary/5 border-primary/10">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc: number, it: any) => acc + it.total, 0))}</span>
+                    </div>
+                    <div className="flex justify-between text-xl font-bold border-t pt-2 text-primary">
                       <span>Total Geral:</span>
-                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc, it) => acc + it.total, 0))}</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc: number, it: any) => acc + it.total, 0))}</span>
                     </div>
                   </div>
                 </div>
@@ -1045,13 +1123,16 @@ function NewOrderPage() {
 
               <div className="flex justify-between pt-6 border-t">
                 <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
-                <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
-                  {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
-                </Button>
+                {submissionStatus !== "created" && (
+                  <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
+                    {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
+
     </div>
   );
 }
