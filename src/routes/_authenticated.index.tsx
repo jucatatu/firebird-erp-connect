@@ -66,47 +66,42 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.19 — CORREÇÃO DE REGRESSÕES NOVO PEDIDO CONCLUÍDA</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.28 — STATUS INICIAL 27 + CORREÇÃO DE DATA CIVIL + EDIÇÃO CONTROLADA</h2>
         
-        {"Foram implementadas melhorias críticas na precisão logística e flexibilidade comercial.\n\n"}
+        {"Todo pedido novo criado pelo APP deve ser salvo no ERP inicialmente com ID_STATUS = 27 (EM ANALISE).\n\n"}
 
         {"==================================================\n"}
-        {"1. EDIÇÃO DE PREÇO UNITÁRIO\n"}
+        {"1. FLUXO DE STATUS GARANTIDO\n"}
         {"==================================================\n"}
-        {"- Edição Manual: Operadores agora podem alterar o preço aplicado a cada item clicando no valor no card do produto.\n"}
-        {"- Rastreabilidade: O sistema mantém o preço original do ERP e o preço aplicado, sinalizando visualmente itens com preço 'Manual'.\n"}
-        {"- Recálculo em Tempo Real: Subtotais e totais do pedido são atualizados instantaneamente após a edição.\n"}
-        {"- Preservação de Master: Edições afetam apenas o pedido atual, sem alterar tabelas de preço no Firebird.\n\n"}
+        {"- Garantia de Status 27: Após a chamada da procedure SP_CAD_ORDEM_VENDA_COMPLETO, o Node executa um UPDATE explícito para forçar o status 27.\n"}
+        {"- Transacionalidade: A criação e o ajuste de status ocorrem dentro da mesma transação Firebird, garantindo que o pedido nunca nasça 'Liberado' por engano.\n"}
+        {"- Backend First: A regra reside no Node, tornando o sistema imune a falhas de rede ou manipulações no frontend.\n\n"}
 
         {"==================================================\n"}
-        {"2. COBERTURA DE BARRIS POR PRODUTO\n"}
+        {"2. CORREÇÃO DE DATA CIVIL (ANTI-TIMEZONE)\n"}
         {"==================================================\n"}
-        {"- Alocação Estrita: A cobertura de litros agora é calculada individualmente para cada tipo de chopp, eliminando a falha de 'pool global'.\n"}
-        {"- Sugestão Inteligente: O botão 'Sugerir' associa automaticamente cada barril ao seu respectivo produto draft.\n"}
-        {"- Validação Robusta: O botão 'Continuar' agora exige que TODOS os produtos draft estejam cobertos por seus barris específicos.\n"}
-        {"- UI Detalhada: O card de cobertura exibe quais barris estão alocados para cada chopp e sinaliza excessos por sabor.\n\n"}
+        {"- Problema Resolvido: Pedidos selecionados para o dia X estavam chegando no Firebird como dia X-1 às 21:00 devido a conversões automáticas para UTC.\n"}
+        {"- toDateCivil: Nova lógica no mapper do Node que interpreta strings 'YYYY-MM-DD' como meio-dia local (12:00:00), neutralizando desvios de fuso horário do servidor.\n"}
+        {"- Integridade: Data Prevista de Entrega e Recolhimento agora gravam exatamente o dia escolhido na UI.\n\n"}
 
         {"==================================================\n"}
-        {"3. LOGÍSTICA E EQUIPAMENTOS\n"}
+        {"3. EDIÇÃO CONTROLADA POR STATUS\n"}
         {"==================================================\n"}
-        {"- Preservação da Sprint 8.9.10: Mantida a otimização de vias de chopeira e minimização de equipamentos físicos.\n"}
-        {"- Ciclo de Vida: Novo Pedido continua iniciando limpo, garantindo integridade dos dados.\n\n"}
+        {"- Whitelist Oficial: EDITABLE_STATUS_IDS = [1, 20, 24, 27].\n"}
+        {"- Bloqueio de Faturamento: Pedidos com status 3 (FATURADO) ou outros fora da lista têm o botão 'Editar' desabilitado automaticamente.\n"}
+        {"- Sincronização: Ambas as camadas (Frontend e Backend) utilizam a mesma regra de negócio centralizada.\n\n"}
 
         {"==================================================\n"}
-        {"ENTREGA FINAL\n"}
+        {"ARQUIVOS ALTERADOS\n"}
         {"==================================================\n"}
-        {"1. Zustand Store: Adicionado assignedProductId em OrderEquipment e updateItemPrice em OrderItem.\n"}
-        {"2. ProductCard: Implementado modal de edição de preço inline.\n"}
-        {"3. Lógica de Cobertura: Refatorada para ser baseada em productId, não mais em pools globais.\n"}
-        {"4. Payload ERP: Preço unitário manual agora é enviado corretamente ao backend.\n"}
-        {"5. Arquivos alterados:\n"}
-        {"   - src/hooks/use-order-form.ts (Schema & State updates)\n"}
-        {"   - src/routes/_authenticated.pedidos-venda.novo.tsx (UI & Logic)\n"}
-        {"   - src/lib/erp-orders.functions.ts (Type consistency)\n"}
-        {"   - src/routes/_authenticated.index.tsx (Logs)\n"}
-
-
+        {"- erp-api/src/modules/orders/orders.service.js (Orquestração do Status 27)\n"}
+        {"- erp-api/src/modules/orders/orders.repository.js (SQL de Update de Status)\n"}
+        {"- erp-api/src/modules/orders/orders.mapper.js (Lógica toDateCivil)\n"}
+        {"- erp-api/src/modules/orders/orders.validator.js (Zod para Datas YYYY-MM-DD)\n"}
+        {"- src/lib/erp-orders.functions.ts (Regras de UI canEdit)\n"}
+        {"- src/routes/_authenticated.index.tsx (Logs)\n"}
       </div>
+
     </div>
   );
 }
