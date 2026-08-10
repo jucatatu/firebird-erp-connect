@@ -18,6 +18,14 @@ export interface ErpResponse<T = JsonValue> {
   } | null;
 }
 
+export const EDITABLE_ERP_ORDER_STATUSES = [1, 20, 24, 27];
+
+export function canEditErpOrder(statusId: number | string | null | undefined): boolean {
+  if (statusId === null || statusId === undefined) return false;
+  const id = Number(statusId);
+  return EDITABLE_ERP_ORDER_STATUSES.includes(id);
+}
+
 // --- CLIENTS ---
 export interface ErpClient {
   id: number;
