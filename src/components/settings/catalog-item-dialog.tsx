@@ -132,7 +132,7 @@ export function CatalogItemDialog({
                       companyIds: companies,
                       sortOrder: Number(sortOrder),
                       defaultQuantity: Number(defaultQuantity),
-                      quantity_step: Number(quantityStep),
+                      quantityStep: Number(quantityStep),
                       requiresPickup: null,
                       expectedVersion: target.setting?.version ?? null,
                     });
