@@ -115,6 +115,11 @@ export const resolveErpPrice = createServerFn({ method: "GET" })
 export interface CreateOrderInput {
   companyId: number;
   clientId: number;
+  client_snapshot?: {
+    id: number;
+    name: string;
+    fantasyName?: string | null;
+  };
   sellerId: number;
   saleTypeId: number;
   paymentTermId: number;
@@ -127,10 +132,16 @@ export interface CreateOrderInput {
   notes?: string | null;
   items: Array<{ 
     productId: number; 
+    description?: string;
     quantity: number;
+    unit?: string;
     manualUnitPrice?: number; 
   }>;
-  equipments: Array<{ equipmentTypeId: number; quantity: number }>;
+  equipments: Array<{ 
+    equipmentTypeId: number; 
+    description?: string;
+    quantity: number; 
+  }>;
 }
 
 export const createErpOrder = createServerFn({ method: "POST" })
@@ -223,8 +234,10 @@ export async function handleCreateErpOrder(
       created_by: userId,
       updated_by: userId,
       status: "sent",
-      title: `Pedido ${result.data.orderNumber}`,
-      customer_name_snapshot: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP",
+      title: input.notes?.split('\n')[0].substring(0, 100) || "Pedido ERP",
+      customer_name_snapshot: input.client_snapshot?.fantasyName 
+        ? `${input.client_snapshot.fantasyName}\n${input.client_snapshot.name}` 
+        : (input.client_snapshot?.name || "Pedido ERP"),
       company_id: requestedCompanyId,
       erp_order_id: result.data.orderId,
       erp_order_number: result.data.orderNumber,
