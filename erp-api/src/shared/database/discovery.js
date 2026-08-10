@@ -1,4 +1,4 @@
-import { firebird } from "./firebird-client";
+const firebird = require("./firebird-client");
 
 async function main() {
   console.log("--- Procedures Discovery ---");
