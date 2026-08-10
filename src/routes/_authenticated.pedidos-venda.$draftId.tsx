@@ -110,18 +110,25 @@ function DraftDetailPage() {
     );
   }
 
-  const erpStatusId = draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
-    ? (draft.payload as any).statusId 
-    : null;
+  const [erpStatus, setErpStatus] = useState<{ id: number; description: string | null } | null>(null);
+  const getStatusFn = useServerFn(getErpOrdersStatus);
 
-  console.log("[ORDER DETAIL STATUS] BEFORE AUDIT", {
-    orderNumber: draft.erp_order_number,
-    erpOrderId: draft.erp_order_id,
-    erpOrderNumber: draft.erp_order_number,
-    erpStatusId,
-    erpStatusDescription: draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null,
-    status: draft.status,
-  });
+  useEffect(() => {
+    if (draft?.erp_order_number) {
+      getStatusFn([draft.erp_order_number]).then(res => {
+        if (res.ok && res.data && res.data.length > 0) {
+          setErpStatus({ 
+            id: res.data[0].statusId, 
+            description: res.data[0].statusDescription 
+          });
+        }
+      });
+    }
+  }, [draft?.erp_order_number]);
+
+  const erpStatusId = erpStatus?.id ?? (draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
+    ? (draft.payload as any).statusId 
+    : null);
 
   const isOwner = draft.created_by === user?.id;
   
@@ -133,11 +140,8 @@ function DraftDetailPage() {
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
 
-  console.log("[ORDER DETAIL STATUS] AFTER CALC", {
-    canEdit,
-    canEditErpOrderResult: canEditErpOrder(erpStatusId),
-    erpStatusIdType: typeof erpStatusId
-  });
+  const erpStatusDescription = erpStatus?.description || (draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
+
 
   const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
   const canApprove = isApprover && draft.status === "pending_approval" && !(isOwner && !isAdmin);
