@@ -42,6 +42,13 @@ const SELECT_CREATED_ORDER_SQL = `
   WHERE ov.ID_ORDENS_VENDA = ?
 `;
 
+const UPDATE_ORDER_STATUS_SQL = `
+  UPDATE ORDENS_VENDA
+  SET ID_STATUS = 27
+  WHERE ID_ORDENS_VENDA = ?
+`;
+
+
 async function callCreateOrderComplete(tx, params) {
   const rows = await tx.query(SP_CAD_ORDEM_VENDA_COMPLETO_SQL, params);
   const row = rows && rows[0];
@@ -67,6 +74,11 @@ async function callAddItem(tx, params) {
 async function callAddEquipment(tx, params) {
   await tx.query(SP_CAD_EQUIP_ORDENS_VENDA_SQL, params);
 }
+
+async function updateStatusToPending(tx, orderId) {
+  await tx.query(UPDATE_ORDER_STATUS_SQL, [orderId]);
+}
+
 
 async function fetchCreatedOrder(tx, orderId) {
   const rows = await tx.query(SELECT_CREATED_ORDER_SQL, [orderId]);
@@ -121,7 +133,9 @@ module.exports = {
   callCreateOrderComplete,
   callAddItem,
   callAddEquipment,
+  updateStatusToPending,
   fetchCreatedOrder,
+
   fetchOrderById,
   findStatusByNumbers,
   fetchClientCompanyContext,

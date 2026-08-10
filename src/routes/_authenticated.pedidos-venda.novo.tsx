@@ -1636,6 +1636,7 @@ function NewOrderPage() {
                       <p className="flex items-center gap-2">
                         <Badge variant="outline" className="h-5 text-[10px] bg-orange-50 border-orange-200 text-orange-700 font-bold">{deliver ? "Entrega" : "Retirada"}</Badge>
                         {deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliver && deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+
                       </p>
                       {returnEquipment && (
                         <p className="flex items-center gap-2">
