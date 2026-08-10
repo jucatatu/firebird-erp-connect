@@ -168,6 +168,7 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
     deliveryAt: input.deliveryAt.includes('T') ? input.deliveryAt.split('T')[0] : input.deliveryAt,
     returnEquipment: input.returnEquipment,
     returnAt: (input.returnAt && input.returnAt.includes('T')) ? input.returnAt.split('T')[0] : (input.returnAt || null),
+
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
     items: input.items.map(item => ({

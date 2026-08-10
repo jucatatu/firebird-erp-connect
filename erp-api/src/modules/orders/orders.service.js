@@ -223,8 +223,15 @@ async function createOrderTransactional({ payload, correlationId }) {
       await repository.callAddEquipment(tx, eqParams);
     }
 
-    // 9. Reler o pedido para obter N_PEDIDO atribuído pelo ERP
+    // 9. Garantir STATUS = 27 (EM ANALISE) - Regra oficial SPRINT 8.9.28
+    // O pedido recém-criado deve nascer sempre com status 27, 
+    // independente do que a procedure tenha atribuído.
+    logger.info({ correlationId, orderId, status: 27 }, "orders.create: forçando status inicial 27");
+    await repository.updateStatusToPending(tx, orderId);
+
+    // 10. Reler o pedido para obter N_PEDIDO atribuído pelo ERP
     const created = await repository.fetchCreatedOrder(tx, orderId);
+
     if (!created) {
       throw new AppError({
         message: "Erro ao confirmar criação do pedido no ERP.",

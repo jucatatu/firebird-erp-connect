@@ -26,6 +26,24 @@ function toDateOrNull(v) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Converte data operacional YYYY-MM-DD para objeto Date (meio-dia local)
+ * para evitar que o fuso horário mude o dia durante a inserção no Firebird.
+ */
+function toDateCivil(v) {
+  if (!v || typeof v !== "string") return toDateOrNull(v);
+  
+  // Se for formato YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    // Forçamos 12:00:00 para garantir que o fuso não pule para o dia anterior/posterior
+    // dependendo de onde o Node está rodando.
+    return new Date(`${v}T12:00:00`);
+  }
+  
+  return toDateOrNull(v);
+}
+
+
 const companyRule = require("../../shared/company/company-rule");
 
 /**
@@ -67,11 +85,12 @@ function buildCompleteProcParams({ payload, companyId, clientContext, totals }) 
     /*  4 ID_PRAZO                 */ payload.paymentTermId,
     /*  5 ID_FORMA_PAGAMENTO       */ payload.paymentMethodId,
     /*  6 ENTREGAR                 */ payload.deliver ? 1 : 0,
-    /*  7 DATA_PREV_ENTREGA        */ toDateOrNull(payload.deliveryAt),
+    /*  7 DATA_PREV_ENTREGA        */ toDateCivil(payload.deliveryAt),
     /*  8 DATA_ENTREGA             */ null, // Criando: data de entrega real é futura
     /*  9 BUSCAR_EQUIP             */ payload.returnEquipment ? 1 : 0,
     /* 10 DATA_RETORNO             */ null,
-    /* 11 DATA_PREV_RETORNO        */ toDateOrNull(payload.returnAt),
+    /* 11 DATA_PREV_RETORNO        */ toDateCivil(payload.returnAt),
+
     /* 12 VALOR                    */ totals.total,
     /* 13 VALOR_FRETE              */ payload.freightValue,
     /* 14 UF                       */ truncate(addr.state, LIMITS.UF),
