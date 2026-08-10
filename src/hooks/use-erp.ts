@@ -27,7 +27,10 @@ import {
   type ErpEquipmentType,
   type PaymentOptionsPayload,
   type ErpClient,
+  type ErpOrderDetail,
+  getErpOrderDetail,
 } from "@/lib/erp-orders.functions";
+
 
 /** Ping público /api/v1/health da API Node. */
 export function useErpHealth() {
