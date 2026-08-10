@@ -155,7 +155,7 @@ export function useErpClients(input: { q?: string; document?: string; phone?: st
       if (!input) throw new Error("input ausente");
       return fn({ data: input });
     },
-    enabled: Boolean(input?.companyId),
+    enabled: Boolean(input?.companyId) && (input?.q?.trim().length ?? 0) >= 3,
     staleTime: 30_000,
   });
 }
