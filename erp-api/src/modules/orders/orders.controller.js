@@ -32,4 +32,28 @@ const createOrder = asyncHandler(async (req, res) => {
   return res.status(status).json({ success: true, data: order });
 });
 
-module.exports = { createOrder, getBatchStatus };
+const getOrder = asyncHandler(async (req, res) => {
+  const { orderNumber } = req.params;
+  const order = await service.getOrderDetail(Number(orderNumber));
+  return res.json({ success: true, data: order });
+});
+
+const updateOrder = asyncHandler(async (req, res) => {
+  const { orderNumber } = req.params;
+  const correlationId = req.requestId || service.newCorrelationId();
+
+  // O body deve vir com os campos de CreateOrderInput + possivelmente orderId/orderNumber
+  // O validador validateUpdateOrder espera orderId, vamos ajustar para pegar da URL se necessário
+  const payload = validateUpdateOrder({ ...req.body, orderNumber: Number(orderNumber) });
+
+  const order = await service.updateOrder({
+    orderNumber: Number(orderNumber),
+    payload,
+    correlationId,
+  });
+
+  res.setHeader("X-Correlation-Id", correlationId);
+  return res.json({ success: true, data: order });
+});
+
+module.exports = { createOrder, getBatchStatus, getOrder, updateOrder };

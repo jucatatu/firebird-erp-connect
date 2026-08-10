@@ -27,10 +27,11 @@ export interface OrderFormStore {
   clientName: string | null;
   companyId: number | null;
   idempotencyKey: string | null;
-  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed";
+  submissionStatus: "draft" | "submitting" | "created" | "unknown" | "failed" | "editing";
   lastAttemptAt: string | null;
   erpOrderId: number | null;
   erpOrderNumber: number | null;
+  isEditing: boolean;
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
@@ -64,6 +65,7 @@ export interface OrderFormStore {
   // Repetir/Novo (Sprint 8.9.22)
   repeatOrder: (payload: any, customerName: string) => void;
   newOrderFromClient: (clientId: number, customerName: string, companyId: number) => void;
+  editErpOrder: (draft: any) => void;
 }
 
 export const useOrderFormStore = create<OrderFormStore>()(
@@ -77,6 +79,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       lastAttemptAt: null,
       erpOrderId: null,
       erpOrderNumber: null,
+      isEditing: false,
       items: [],
       equipments: [],
       deliver: true, // true = Entrega, false = Retirada
@@ -191,6 +194,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         lastAttemptAt: null,
         erpOrderId: null,
         erpOrderNumber: null,
+        isEditing: false,
         items: [],
         equipments: [],
         deliver: true,
@@ -215,6 +219,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         lastAttemptAt: null,
         erpOrderId: null,
         erpOrderNumber: null,
+        isEditing: false,
         notes: "",
         deliveryAt: null,
         returnAt: null,
@@ -233,6 +238,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           lastAttemptAt: null,
           erpOrderId: null,
           erpOrderNumber: null,
+          isEditing: false,
           items: (payload.items || []).map((item: any) => ({
             productId: item.productId,
             description: item.description || `Produto ${item.productId}`,
@@ -271,6 +277,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           lastAttemptAt: null,
           erpOrderId: null,
           erpOrderNumber: null,
+          isEditing: false,
           items: [],
           equipments: [],
           deliver: true,
@@ -281,6 +288,42 @@ export const useOrderFormStore = create<OrderFormStore>()(
           paymentTermId: null,
           paymentMethodId: null,
           saleTypeId: null,
+        });
+      },
+      editErpOrder: (draft: any) => {
+        const payload = draft.payload || {};
+        
+        set({
+          clientId: payload.clientId,
+          clientName: draft.customer_name_snapshot,
+          companyId: draft.company_id,
+          idempotencyKey: draft.idempotency_key || crypto.randomUUID(),
+          submissionStatus: "editing",
+          isEditing: true,
+          erpOrderId: draft.erp_order_id,
+          erpOrderNumber: draft.erp_order_number,
+          items: (payload.items || []).map((i: any) => ({
+            productId: i.productId,
+            description: i.description || `Produto ${i.productId}`,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice || 0,
+            appliedUnitPrice: i.manualUnitPrice || i.unitPrice || 0,
+            manualPrice: !!i.manualUnitPrice,
+            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity
+          })),
+          equipments: (payload.equipments || []).map((e: any) => ({
+            equipmentTypeId: e.equipmentTypeId,
+            description: e.description || `Equip. ${e.equipmentTypeId}`,
+            quantity: e.quantity
+          })),
+          deliver: payload.deliver ?? true,
+          deliveryAt: payload.deliveryAt,
+          returnEquipment: payload.returnEquipment ?? false,
+          returnAt: payload.returnAt,
+          notes: payload.notes || "",
+          paymentTermId: payload.paymentTermId,
+          paymentMethodId: payload.paymentMethodId,
+          saleTypeId: payload.saleTypeId
         });
       },
     }),

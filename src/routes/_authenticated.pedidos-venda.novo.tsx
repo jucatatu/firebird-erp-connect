@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
-import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
+import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -335,12 +335,13 @@ function NewOrderPage() {
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient
   } = useOrderFormStore();
+
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
@@ -907,6 +908,77 @@ function NewOrderPage() {
       toast.error(err.message || "Erro ao criar pedido.");
     }
   };
+
+  const handleUpdateOrder = async () => {
+    if (!erpOrderNumber || !clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      return;
+    }
+    
+    if (!myProfile.data?.erp_seller_id) {
+      toast.error("Vendedor não mapeado no servidor.");
+      return;
+    }
+    
+    setSubmissionStatus("submitting");
+
+    try {
+      const payload: CreateOrderInput = {
+        companyId: companyId as number,
+        clientId: clientId,
+        client_snapshot: {
+          id: clientId,
+          name: clientName || "(sem nome)",
+          fantasyName: clientDetailQ.data?.data?.tradingName || null
+        },
+        sellerId: myProfile.data.erp_seller_id,
+        saleTypeId: saleTypeId!,
+        paymentTermId: paymentTermId!,
+        paymentMethodId: paymentMethodId!,
+        deliver,
+        deliveryAt: deliveryAt || new Date().toISOString(),
+        returnEquipment,
+        returnAt: returnEquipment ? returnAt : null,
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          description: i.description,
+          quantity: i.quantity, 
+          unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
+        equipments: equipments.map(e => ({ 
+          equipmentTypeId: e.equipmentTypeId, 
+          description: e.description,
+          quantity: e.quantity 
+        })),
+        notes: notes || null
+      };
+
+      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, data: payload } });
+      
+      if (result.ok && result.data) {
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
+        
+        toast.success(`Pedido ${result.data.orderNumber} atualizado com sucesso!`);
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
+        
+        setTimeout(async () => {
+          await navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          resetItemsAndClient();
+        }, 2000);
+      } else {
+        const errorMsg = result.error?.message || "Erro desconhecido ao atualizar pedido.";
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+        toast.error(`Falha ao atualizar pedido: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+      toast.error(err.message || "Erro ao atualizar pedido.");
+    }
+  };
+
 
   const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
   const currentStepIndex = stepsOrder.indexOf(step);
@@ -1595,24 +1667,29 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
               {submissionStatus === "unknown" && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-3">
-                  <p className="text-sm font-bold text-yellow-800">Não foi possível confirmar se o pedido foi criado.</p>
-                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. O pedido pode ter sido criado no ERP mas a resposta não chegou.</p>
+                  <p className="text-sm font-bold text-yellow-800">
+                    {isEditing ? "Não foi possível confirmar a atualização." : "Não foi possível confirmar se o pedido foi criado."}
+                  </p>
+                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. As alterações podem ter sido salvas no ERP mas a resposta não chegou.</p>
                   <div className="flex gap-2">
-                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={handleCreateOrder}>
-                      Tentar novamente com a mesma chave
+                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={isEditing ? handleUpdateOrder : handleCreateOrder}>
+                      Tentar novamente
                     </Button>
-                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("draft")}>
+                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("editing")}>
                       Voltar
                     </Button>
                   </div>
                 </div>
               )}
 
+
               {submissionStatus === "created" && submissionMeta?.orderNumber && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3 text-center">
                   <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
                   <div>
-                    <p className="text-lg font-bold text-green-800">Pedido criado no ERP!</p>
+                    <p className="text-lg font-bold text-green-800">
+                      {isEditing ? "Pedido atualizado com sucesso!" : "Pedido criado no ERP!"}
+                    </p>
                     <p className="text-sm text-green-700">Nº {submissionMeta.orderNumber}</p>
                   </div>
 
@@ -1621,6 +1698,7 @@ function NewOrderPage() {
                   </Button>
                 </div>
               )}
+
 
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-6">
@@ -1710,14 +1788,14 @@ function NewOrderPage() {
                 {submissionStatus !== "created" && (
                   <Button 
                     size="lg" 
-                    className="px-8 min-w-[160px]" 
-                    onClick={handleCreateOrder} 
+                    className={`px-8 min-w-[160px] font-bold ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`} 
+                    onClick={isEditing ? handleUpdateOrder : handleCreateOrder} 
                     disabled={submissionStatus === "submitting"}
                   >
                     {submissionStatus === "submitting" ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Criando pedido no ERP...</>
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> {isEditing ? "Salvando..." : "Criando..."}</>
                     ) : (
-                      "Finalizar Pedido"
+                      isEditing ? "Salvar Alterações" : "Finalizar Pedido"
                     )}
                   </Button>
                 )}
@@ -1725,12 +1803,13 @@ function NewOrderPage() {
                   <div className="flex flex-col items-end gap-1">
                     <Badge className="bg-green-600 hover:bg-green-600 text-white gap-1 py-1.5 px-3">
                       <CheckCircle2 className="h-4 w-4" />
-                      Pedido {submissionMeta?.orderNumber} criado
+                      Pedido {submissionMeta?.orderNumber} {isEditing ? 'atualizado' : 'criado'}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground animate-pulse">Redirecionando...</span>
                   </div>
                 )}
               </div>
+
             </CardContent>
           </Card>
         )}
