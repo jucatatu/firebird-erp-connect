@@ -144,6 +144,36 @@ export interface CreateOrderInput {
   }>;
 }
 
+/**
+ * Sprint 8.9.21: Construtor de Payload Estrito (ERP API Contract)
+ * Fonte da Verdade: erp-api/src/modules/orders/orders.validator.js
+ */
+function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
+  return {
+    companyId: input.companyId,
+    clientId: input.clientId,
+    sellerId: sellerId,
+    saleTypeId: input.saleTypeId,
+    paymentTermId: input.paymentTermId,
+    paymentMethodId: input.paymentMethodId,
+    deliver: input.deliver,
+    deliveryAt: input.deliveryAt,
+    returnEquipment: input.returnEquipment,
+    returnAt: input.returnAt || null,
+    freightValue: input.freightValue ?? 0,
+    notes: input.notes ?? null,
+    items: input.items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      manualUnitPrice: item.manualUnitPrice ?? null
+    })),
+    equipments: input.equipments.map(eq => ({
+      equipmentTypeId: eq.equipmentTypeId,
+      quantity: eq.quantity
+    }))
+  };
+}
+
 export const createErpOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { data: CreateOrderInput; idempotencyKey?: string }) => d)
@@ -202,26 +232,7 @@ export async function handleCreateErpOrder(
     return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado.", retryable: false } };
   }
 
-  const erpPayload = {
-    companyId: requestedCompanyId,
-    clientId: input.clientId,
-    sellerId: profile.erp_seller_id,
-    saleTypeId: input.saleTypeId,
-    paymentTermId: input.paymentTermId,
-    paymentMethodId: input.paymentMethodId,
-    deliver: input.deliver,
-    deliveryAt: input.deliveryAt,
-    notes: input.notes,
-    items: input.items.map(item => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: item.manualUnitPrice ?? 0 // O ERP espera unitPrice
-    })),
-    equipments: input.equipments.map(eq => ({
-      equipmentTypeId: eq.equipmentTypeId,
-      quantity: eq.quantity
-    }))
-  };
+  const erpPayload = buildErpCreateOrderPayload(input, profile.erp_seller_id);
 
   console.log("[ORDER SERVER] calling ERP POST /api/v1/orders", JSON.stringify(erpPayload));
   const result = await callErp({

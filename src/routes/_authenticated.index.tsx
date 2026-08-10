@@ -15,7 +15,7 @@ function Index() {
 
   useEffect(() => {
     // Redireciona para pedidos-venda por padrão conforme a nova UX (Sprint 8.9.19)
-    navigate({ to: "/pedidos-venda", replace: true });
+    navigate({ to: "/pedidos-venda", search: { status: "all" } as any, replace: true });
   }, [navigate]);
 
   useEffect(() => {
