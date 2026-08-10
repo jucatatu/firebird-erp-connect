@@ -114,6 +114,15 @@ function DraftDetailPage() {
     ? (draft.payload as any).statusId 
     : null;
 
+  console.log("[ORDER DETAIL STATUS] BEFORE AUDIT", {
+    orderNumber: draft.erp_order_number,
+    erpOrderId: draft.erp_order_id,
+    erpOrderNumber: draft.erp_order_number,
+    erpStatusId,
+    erpStatusDescription: draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null,
+    status: draft.status,
+  });
+
   const isOwner = draft.created_by === user?.id;
   
   // REGRA OFICIAL DE EDIÇÃO (Sprint 8.9.29):
@@ -123,6 +132,12 @@ function DraftDetailPage() {
     draft.status === "rejected" ||
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
+
+  console.log("[ORDER DETAIL STATUS] AFTER CALC", {
+    canEdit,
+    canEditErpOrderResult: canEditErpOrder(erpStatusId),
+    erpStatusIdType: typeof erpStatusId
+  });
 
   const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
   const canApprove = isApprover && draft.status === "pending_approval" && !(isOwner && !isAdmin);
