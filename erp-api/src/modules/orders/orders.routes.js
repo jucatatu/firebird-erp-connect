@@ -11,5 +11,6 @@ const router = Router();
 // - Idempotency-Key obrigatória (validada no service).
 // - Transação Firebird única; rollback integral em qualquer erro.
 router.post("/", authMiddleware, controller.createOrder);
+router.get("/batch-status", authMiddleware, controller.getBatchStatus);
 
 module.exports = router;

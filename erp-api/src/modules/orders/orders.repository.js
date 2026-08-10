@@ -86,11 +86,41 @@ async function fetchClientCompanyContext(tx, clientId) {
   return rows && rows[0] ? rows[0] : null;
 }
 
+async function fetchOrderById(tx, orderId) {
+  const sql = `
+    SELECT 
+      ov.*, 
+      s.DESCRICAO AS STATUS_DESCRICAO
+    FROM ORDENS_VENDA ov
+    LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
+    WHERE ov.ID_ORDENS_VENDA = ?
+  `;
+  const rows = await tx.query(sql, [orderId]);
+  return rows && rows[0] ? rows[0] : null;
+}
+
+async function findStatusByIds(orderIds) {
+  if (!orderIds || orderIds.length === 0) return [];
+  const placeholders = orderIds.map(() => "?").join(", ");
+  const sql = `
+    SELECT 
+      ov.ID_ORDENS_VENDA, 
+      ov.ID_STATUS, 
+      s.DESCRICAO AS STATUS_DESCRICAO
+    FROM ORDENS_VENDA ov
+    LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
+    WHERE ov.ID_ORDENS_VENDA IN (${placeholders})
+  `;
+  return firebird.executeQuery(sql, orderIds);
+}
+
 module.exports = {
   callCreateOrderComplete,
   callAddItem,
   callAddEquipment,
   fetchCreatedOrder,
+  fetchOrderById,
+  findStatusByIds,
   fetchClientCompanyContext,
   _sql: {
     SP_CAD_ORDEM_VENDA_COMPLETO_SQL,
