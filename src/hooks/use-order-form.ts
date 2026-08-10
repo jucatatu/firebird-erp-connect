@@ -327,7 +327,6 @@ export const useOrderFormStore = create<OrderFormStore>()(
         });
       },
     }),
-    }),
     { name: "order-form-storage" }
   )
 );
