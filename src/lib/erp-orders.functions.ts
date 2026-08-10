@@ -122,7 +122,11 @@ export interface CreateOrderInput {
   returnAt?: string | null;
   freightValue?: number;
   notes?: string | null;
-  items: Array<{ productId: number; quantity: number }>;
+  items: Array<{ 
+    productId: number; 
+    quantity: number;
+    manualUnitPrice?: number; 
+  }>;
   equipments: Array<{ equipmentTypeId: number; quantity: number }>;
 }
 
