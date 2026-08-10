@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { addDaysToDateOnly } from "@/utils/date-utils";
 
 export interface OrderItem {
   productId: number;
@@ -167,18 +168,14 @@ export const useOrderFormStore = create<OrderFormStore>()(
       setDelivery: (deliver: boolean, date: string | null) => set((state) => {
         const newState: Partial<OrderFormStore> = { deliver, deliveryAt: date };
         if (state.returnEquipment && date) {
-          const d = new Date(date + (date.includes('T') ? '' : 'T12:00:00'));
-          d.setDate(d.getDate() + 7);
-          newState.returnAt = d.toISOString().split('T')[0];
+          newState.returnAt = addDaysToDateOnly(date, 7);
         }
         return newState;
       }),
       setReturn: (ret: boolean, date: string | null) => set((state) => {
         const newState: Partial<OrderFormStore> = { returnEquipment: ret, returnAt: date };
         if (ret && !date && state.deliveryAt) {
-          const d = new Date(state.deliveryAt.split('T')[0] + 'T12:00:00');
-          d.setDate(d.getDate() + 7);
-          newState.returnAt = d.toISOString().split('T')[0];
+          newState.returnAt = addDaysToDateOnly(state.deliveryAt.split('T')[0], 7);
         }
         return newState;
       }),
