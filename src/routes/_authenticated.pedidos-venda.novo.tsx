@@ -689,6 +689,16 @@ function NewOrderPage() {
                   <span className="text-[10px] text-green-600 font-bold">Coberto</span>
                 )}
               </div>
+              
+              {/* Sprint 8.9.11: Mostrar barris alocados especificamente a este produto */}
+              <div className="mt-2 space-y-1">
+                {equipments.filter(e => e.assignedProductId === it.productId).map(eq => (
+                  <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}`} className="flex justify-between text-[10px] text-muted-foreground border-t border-muted/20 pt-1">
+                    <span>{eq.description}</span>
+                    <span>{eq.quantity}x</span>
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })}
