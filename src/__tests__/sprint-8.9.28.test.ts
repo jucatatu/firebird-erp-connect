@@ -1,6 +1,6 @@
 
 import { test, expect, describe, beforeAll } from 'vitest';
-import { toDateCivil, buildCompleteProcParams } from '../../erp-api/src/modules/orders/orders.mapper';
+const { toDateCivil, buildCompleteProcParams } = require('../../erp-api/src/modules/orders/orders.mapper');
 
 describe('Sprint 8.9.28: Data Civil e Status Inicial 27', () => {
   
