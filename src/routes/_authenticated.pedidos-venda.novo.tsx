@@ -36,14 +36,16 @@ function ProductPriceDisplay({
   unit, 
   onPriceLoaded,
   manualPrice,
-  appliedPrice
+  appliedPrice,
+  onEditPrice
 }: { 
   productId: number, 
   clientId: number, 
   unit: string,
   onPriceLoaded?: (price: number) => void,
   manualPrice?: boolean,
-  appliedPrice?: number
+  appliedPrice?: number,
+  onEditPrice: () => void
 }) {
   const { data, isLoading } = useErpPrice({ productId, clientId });
   
@@ -52,7 +54,7 @@ function ProductPriceDisplay({
       onPriceLoaded(data.data.unitPrice);
     }
   }, [data, onPriceLoaded]);
-
+  
   if (isLoading) return <p className="text-xs text-muted-foreground animate-pulse mt-1">Consultando preço...</p>;
   if (!data?.ok || !data.data?.priceFound) return <p className="text-xs text-destructive font-medium mt-1">Preço não cadastrado</p>;
   
@@ -60,15 +62,27 @@ function ProductPriceDisplay({
   const strategyLabel = data.data.strategy === 'client_specific' ? 'Preço do cliente' : 'Preço padrão';
   
   return (
-    <div className="mt-1">
+    <div className="mt-1 group">
       <div className="flex flex-col">
-        <span className="text-sm font-bold text-primary">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-primary">
+            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(appliedPrice ?? erpPrice)} / {unit}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+            onClick={(e) => { e.stopPropagation(); onEditPrice(); }}
+          >
+            <Plus className="h-3 w-3 rotate-45" /> {/* Using Plus as a marker, or Pencil if preferred */}
+          </Button>
+        </div>
         {manualPrice && (
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-orange-600 font-bold uppercase">Preço alterado manualmente</span>
-            <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-muted-foreground">Original ERP: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(erpPrice)}</span>
+            </div>
           </div>
         )}
         {!manualPrice && <p className="text-[10px] font-medium uppercase text-muted-foreground tracking-tight">{strategyLabel}</p>}
