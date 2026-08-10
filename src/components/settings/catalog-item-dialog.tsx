@@ -81,6 +81,7 @@ export function CatalogItemDialog({
     try {
       await upsert.mutateAsync({
         itemType: target.itemType,
+        logisticsType: target.setting?.logistics_type ?? null,
         erpItemId: target.erpItemId,
         erpDescriptionSnapshot: target.erpDescription,
         displayName: displayName.trim() === "" ? null : displayName.trim(),
