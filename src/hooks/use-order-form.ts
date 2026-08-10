@@ -65,7 +65,7 @@ export interface OrderFormStore {
   // Repetir/Novo (Sprint 8.9.22)
   repeatOrder: (payload: any, customerName: string) => void;
   newOrderFromClient: (clientId: number, customerName: string, companyId: number) => void;
-  editErpOrder: (draft: any) => void;
+  editErpOrder: (order: any) => void;
 }
 
 export const useOrderFormStore = create<OrderFormStore>()(

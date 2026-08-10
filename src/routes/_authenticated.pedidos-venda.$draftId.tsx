@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,8 +35,10 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
-import { canEditErpOrder, getErpOrdersStatus } from "@/lib/erp-orders.functions";
+import { canEditErpOrder, getErpOrdersStatus, getErpOrderDetail } from "@/lib/erp-orders.functions";
 import { useOrderFormStore } from "@/hooks/use-order-form";
+import { useErpOrderDetail } from "@/hooks/use-erp";
+
 import {
   Loader2,
   Send,
@@ -137,12 +139,44 @@ function DraftDetailPage() {
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
 
-  const handleEdit = () => {
-    if (draft) {
-      editErpOrder(draft);
-      navigate({ to: "/pedidos-venda/novo" });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const detailFn = useServerFn(getErpOrderDetail);
+
+  const handleEdit = async () => {
+    if (!draft?.erp_order_number) return;
+    
+    setIsRefreshing(true);
+    try {
+      // 1. Revalidar status antes de qualquer coisa
+      const statusRes = await getStatusFn({ data: [Number(draft.erp_order_number)] });
+      if (statusRes.ok && statusRes.data && statusRes.data.length > 0) {
+        const liveStatusId = statusRes.data[0].statusId;
+        if (!canEditErpOrder(liveStatusId)) {
+          toast.error("Pedido não pode mais ser editado", {
+            description: `O status atual no ERP é: ${statusRes.data[0].statusDescription}`
+          });
+          setErpStatus({ id: liveStatusId, description: statusRes.data[0].statusDescription });
+          return;
+        }
+      }
+
+      // 2. Carregar detalhe completo oficial do ERP
+      const detailRes = await detailFn({ data: Number(draft.erp_order_number) });
+      if (detailRes.ok && detailRes.data) {
+        editErpOrder(detailRes.data);
+        navigate({ to: "/pedidos-venda/novo" });
+      } else {
+        toast.error("Erro ao carregar dados do ERP", {
+          description: detailRes.error?.message
+        });
+      }
+    } catch (err) {
+      toast.error("Falha na comunicação com o ERP");
+    } finally {
+      setIsRefreshing(false);
     }
   };
+
 
   if (draftQ.isLoading) {
     return (
@@ -428,8 +462,14 @@ function DraftDetailPage() {
                   className="w-full"
                   variant="default"
                   onClick={handleEdit}
+                  disabled={isRefreshing}
                 >
-                  <Pencil className="mr-2 h-4 w-4" /> Editar pedido
+                  {isRefreshing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pencil className="mr-2 h-4 w-4" />
+                  )}
+                  Editar pedido
                 </Button>
               )}
               {canCancel && (
