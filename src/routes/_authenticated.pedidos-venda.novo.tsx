@@ -1423,7 +1423,8 @@ function NewOrderPage() {
           </Card>
         )}
 
-    </div>
+      </div>
+    </>
   );
 }
 
