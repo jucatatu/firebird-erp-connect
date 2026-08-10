@@ -608,49 +608,91 @@ function NewOrderPage() {
 
   const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
+    
     if (!myProfile.data?.erp_seller_id) {
-      toast.error("Vendedor não mapeado");
+      toast.error("Vendedor não mapeado no servidor.");
       return;
     }
+    
     if (!companyId) {
-      toast.error("Empresa não selecionada");
+      toast.error("Empresa não selecionada.");
       setStep("client");
       return;
     }
+
+    if (!paymentTermId || !paymentMethodId || !saleTypeId) {
+      toast.error("Selecione a condição, forma de pagamento e tipo de venda.");
+      setStep("payment");
+      return;
+    }
+
+    console.log("[ORDER CREATE] start", { idempotencyKey });
     setSubmissionStatus("submitting");
     const currentKey = idempotencyKey || crypto.randomUUID();
     if (!idempotencyKey) setIdempotencyKey(currentKey);
 
     try {
-      const payload = {
+      const payload: CreateOrderInput = {
         companyId: companyId as number,
         clientId: clientId,
         sellerId: myProfile.data.erp_seller_id,
-        saleTypeId: saleTypeId || 1,
-        paymentTermId: paymentTermId || 1,
-        paymentMethodId: paymentMethodId || 1,
+        saleTypeId: saleTypeId,
+        paymentTermId: paymentTermId,
+        paymentMethodId: paymentMethodId,
         deliver,
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
         returnAt: returnEquipment ? returnAt : null,
-        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined })),
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          quantity: i.quantity, 
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
         equipments: equipments.map(e => ({ equipmentTypeId: e.equipmentTypeId, quantity: e.quantity })),
         notes: notes || null
       };
 
+      console.log("[ORDER CREATE] payload built", { ...payload, sellerId: "PROTECTED" });
+      console.log("[ORDER CREATE] calling server function");
+      
       const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
-      if (result.ok && result.data) {
+      
+      console.log("[ORDER CREATE] server function returned", { ok: result.ok, status: result.status });
+
+      if (result.ok && result.data && result.data.orderNumber) {
+        console.log("[ORDER CREATE] success", result.data);
         setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
-        toast.success(`Pedido criado! Nº ERP: ${result.data.orderNumber}`);
+        toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
+        
+        // Só resetamos após confirmação REAL
         reset();
-        navigate({ to: "/pedidos-venda", search: {} as any });
+        
+        // Pequeno delay para o usuário ver o número antes de navegar
+        setTimeout(() => {
+          navigate({ to: "/pedidos-venda", search: {} as any });
+        }, 1500);
       } else {
-        setSubmissionStatus(result.status === 409 ? "created" : "failed");
-        toast.error("Erro ao criar pedido");
+        console.error("[ORDER CREATE] failed", result.error);
+        const status = result.status;
+        
+        if (status === 409) {
+          setSubmissionStatus("created"); // Provavelmente já existe
+          toast.info("Este pedido já foi processado anteriormente.");
+        } else if (status === 422) {
+          setSubmissionStatus("failed");
+          toast.error(result.error?.message || "Dados inválidos para o ERP.");
+        } else if (status === 403) {
+          setSubmissionStatus("failed");
+          toast.error("Sem permissão para esta empresa ou cliente.");
+        } else {
+          setSubmissionStatus("failed");
+          toast.error("Não foi possível criar o pedido no ERP.");
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[ORDER CREATE] exception", err);
       setSubmissionStatus("unknown");
-      toast.error("Falha na comunicação");
+      toast.error("Não foi possível confirmar se o pedido foi criado.");
     }
   };
 
