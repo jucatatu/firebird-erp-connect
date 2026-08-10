@@ -60,40 +60,45 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.10 — OTIMIZAÇÃO DE CHOPEIRAS + CICLO DE VIDA CONCLUÍDA</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.11 — EDIÇÃO DE PREÇO + COBERTURA DE BARRIS CONCLUÍDA</h2>
         
-        {"Foram corrigidas as regressões de sugestão de equipamentos e persistência de estado.\n\n"}
+        {"Foram implementadas melhorias críticas na precisão logística e flexibilidade comercial.\n\n"}
 
         {"==================================================\n"}
-        {"1. OTIMIZAÇÃO DE CHOPEIRAS (VIAS)\n"}
+        {"1. EDIÇÃO DE PREÇO UNITÁRIO\n"}
         {"==================================================\n"}
-        {"- Sugestão por Vias: Agora calculada pelo número de produtos distintos de CHOPP (logistics_type=draft), não pelo volume.\n"}
-        {"- Algoritmo de Minimização: O sistema agora prioriza equipamentos que cubram as vias necessárias com a menor quantidade física (ex: 1x 2 vias ao invés de 2x 1 via).\n"}
-        {"- Metadados Reais: A regra agora utiliza os campos 'equipment_role' e 'tap_count' adicionados ao catálogo, eliminando a dependência de parsing de texto.\n\n"}
+        {"- Edição Manual: Operadores agora podem alterar o preço aplicado a cada item clicando no valor no card do produto.\n"}
+        {"- Rastreabilidade: O sistema mantém o preço original do ERP e o preço aplicado, sinalizando visualmente itens com preço 'Manual'.\n"}
+        {"- Recálculo em Tempo Real: Subtotais e totais do pedido são atualizados instantaneamente após a edição.\n"}
+        {"- Preservação de Master: Edições afetam apenas o pedido atual, sem alterar tabelas de preço no Firebird.\n\n"}
 
         {"==================================================\n"}
-        {"2. CICLO DE VIDA DO FORMULÁRIO\n"}
+        {"2. COBERTURA DE BARRIS POR PRODUTO\n"}
         {"==================================================\n"}
-        {"- Reset Explícito: O estado agora é limpo deliberadamente ao clicar em 'Novo Pedido' na listagem ou após sucesso/falha.\n"}
-        {"- Preservação Transacional: Durante o preenchimento (wizard), o Zustand continua preservando os dados entre os passos.\n"}
-        {"- Isolamento por Empresa: Correção na validação de reset ao trocar de empresa para evitar itens órfãos.\n\n"}
+        {"- Alocação Estrita: A cobertura de litros agora é calculada individualmente para cada tipo de chopp, eliminando a falha de 'pool global'.\n"}
+        {"- Sugestão Inteligente: O botão 'Sugerir' associa automaticamente cada barril ao seu respectivo produto draft.\n"}
+        {"- Validação Robusta: O botão 'Continuar' agora exige que TODOS os produtos draft estejam cobertos por seus barris específicos.\n"}
+        {"- UI Detalhada: O card de cobertura exibe quais barris estão alocados para cada chopp e sinaliza excessos por sabor.\n\n"}
 
         {"==================================================\n"}
-        {"3. CHOPEIRA CONTINUA OPCIONAL\n"}
+        {"3. LOGÍSTICA E EQUIPAMENTOS\n"}
         {"==================================================\n"}
-        {"- A sugestão é automática, mas a validação bloqueante de vias foi removida. O pedido segue se os barris cobrirem a litragem.\n\n"}
+        {"- Preservação da Sprint 8.9.10: Mantida a otimização de vias de chopeira e minimização de equipamentos físicos.\n"}
+        {"- Ciclo de Vida: Novo Pedido continua iniciando limpo, garantindo integridade dos dados.\n\n"}
 
         {"==================================================\n"}
         {"ENTREGA FINAL\n"}
         {"==================================================\n"}
-        {"1. Migração Supabase: Adicionados equipment_role e tap_count em order_catalog_settings.\n"}
-        {"2. Novo Pedido: Botão na lista agora dispara resetItemsAndClient().\n"}
-        {"3. ProductCard: Preservados botões rápidos 10L/20L/30L/50L.\n"}
-        {"4. Arquivos alterados:\n"}
-        {"   - src/lib/erp.functions.ts (Metadata loading)\n"}
-        {"   - src/hooks/use-order-form.ts (State logic)\n"}
-        {"   - src/routes/_authenticated.pedidos-venda.novo.tsx (Algoritmo & LifeCycle)\n"}
-        {"   - src/routes/_authenticated.pedidos-venda.index.tsx (Reset trigger)\n"}
+        {"1. Zustand Store: Adicionado assignedProductId em OrderEquipment e updateItemPrice em OrderItem.\n"}
+        {"2. ProductCard: Implementado modal de edição de preço inline.\n"}
+        {"3. Lógica de Cobertura: Refatorada para ser baseada em productId, não mais em pools globais.\n"}
+        {"4. Payload ERP: Preço unitário manual agora é enviado corretamente ao backend.\n"}
+        {"5. Arquivos alterados:\n"}
+        {"   - src/hooks/use-order-form.ts (Schema & State updates)\n"}
+        {"   - src/routes/_authenticated.pedidos-venda.novo.tsx (UI & Logic)\n"}
+        {"   - src/lib/erp-orders.functions.ts (Type consistency)\n"}
+        {"   - src/routes/_authenticated.index.tsx (Logs)\n"}
+
 
       </div>
     </div>
