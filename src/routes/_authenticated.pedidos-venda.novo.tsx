@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -246,6 +247,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
 
 function NewOrderPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
@@ -766,10 +768,7 @@ function NewOrderPage() {
 
         // Invalidação do cache para garantir que o espelho apareça na lista
         console.log("[ORDER CREATE] invalidating order_drafts cache");
-        const queryClient = useOrderFormStore.getState().queryClient || (window as any).queryClient;
-        if (queryClient) {
-          queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
-        }
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
         
         // Navegação e reset (Sprint 8.9.4)
         setTimeout(() => {
