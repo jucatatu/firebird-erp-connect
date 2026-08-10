@@ -1322,7 +1322,7 @@ function NewOrderPage() {
         )}
 
         {step === "review" && clientId && (
-          <Card>
+          <Card className="shadow-none border-none sm:border">
             <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               {submissionStatus === "unknown" && (
