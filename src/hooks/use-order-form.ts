@@ -290,6 +290,43 @@ export const useOrderFormStore = create<OrderFormStore>()(
           saleTypeId: null,
         });
       },
+      editErpOrder: (draft: any) => {
+        const payload = draft.payload || {};
+        
+        set({
+          clientId: payload.clientId,
+          clientName: draft.customer_name_snapshot,
+          companyId: draft.company_id,
+          idempotencyKey: draft.idempotency_key || crypto.randomUUID(),
+          submissionStatus: "editing",
+          isEditing: true,
+          erpOrderId: draft.erp_order_id,
+          erpOrderNumber: draft.erp_order_number,
+          items: (payload.items || []).map((i: any) => ({
+            productId: i.productId,
+            description: i.description || `Produto ${i.productId}`,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice || 0,
+            appliedUnitPrice: i.manualUnitPrice || i.unitPrice || 0,
+            manualPrice: !!i.manualUnitPrice,
+            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity
+          })),
+          equipments: (payload.equipments || []).map((e: any) => ({
+            equipmentTypeId: e.equipmentTypeId,
+            description: e.description || `Equip. ${e.equipmentTypeId}`,
+            quantity: e.quantity
+          })),
+          deliver: payload.deliver ?? true,
+          deliveryAt: payload.deliveryAt,
+          returnEquipment: payload.returnEquipment ?? false,
+          returnAt: payload.returnAt,
+          notes: payload.notes || "",
+          paymentTermId: payload.paymentTermId,
+          paymentMethodId: payload.paymentMethodId,
+          saleTypeId: payload.saleTypeId
+        });
+      },
+    }),
     }),
     { name: "order-form-storage" }
   )
