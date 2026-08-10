@@ -115,10 +115,12 @@ function DraftDetailPage() {
 
   const [erpStatus, setErpStatus] = useState<{ id: number; description: string | null } | null>(null);
   const getStatusFn = useServerFn(getErpOrdersStatus);
+  const navigate = useNavigate();
+  const editErpOrder = useOrderFormStore((s) => s.editErpOrder);
 
   useEffect(() => {
     if (draft?.erp_order_number) {
-      getStatusFn([draft.erp_order_number]).then(res => {
+      getStatusFn({ data: [draft.erp_order_number] }).then(res => {
         if (res.ok && res.data && res.data.length > 0) {
           setErpStatus({ 
             id: res.data[0].statusId, 
@@ -133,6 +135,8 @@ function DraftDetailPage() {
     ? (draft.payload as any).statusId 
     : null);
 
+  const erpStatusDescription = erpStatus?.description || (draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
+
   const isOwner = draft.created_by === user?.id;
   
   // REGRA OFICIAL DE EDIÇÃO (Sprint 8.9.29):
@@ -143,7 +147,11 @@ function DraftDetailPage() {
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
 
-  const erpStatusDescription = erpStatus?.description || (draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
+  const handleEdit = () => {
+    editErpOrder(draft);
+    navigate({ to: "/pedidos-venda/novo" });
+  };
+
 
 
   const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
