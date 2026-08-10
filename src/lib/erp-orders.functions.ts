@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { JsonValue } from "@/types/json";
-import type { JsonValue } from "./erp.server";
+
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
+
 
 // Reutilizamos tipos básicos para consistência
 export interface ErpResponse<T = JsonValue> {
