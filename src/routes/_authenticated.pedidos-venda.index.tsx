@@ -205,11 +205,11 @@ function OrdersListPage() {
                     <td className="px-4 py-2 align-top text-foreground/80">
                       {companyLabel(d.company_id)}
                     </td>
-                    <td className="px-4 py-2 align-top">
+                    <td className="px-4 py-3 align-top">
                       <StatusBadge status={d.status} />
                     </td>
-                    <td className="px-4 py-2 align-top text-xs text-muted-foreground">
-                      {new Date(d.updated_at).toLocaleString()}
+                    <td className="px-4 py-3 align-top text-xs text-muted-foreground">
+                      {new Date(d.created_at).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
                 ))}
