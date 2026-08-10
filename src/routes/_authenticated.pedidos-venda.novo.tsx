@@ -422,7 +422,8 @@ function NewOrderPage() {
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
-    return p?.equipment_mode === 'CHOPE' || p?.requires_equipment;
+    // Sprint 8.9.8: Regra logística oficial
+    return p?.logistics_type === 'draft';
   });
 
   const getRequiredVias = () => choppItems.length;
