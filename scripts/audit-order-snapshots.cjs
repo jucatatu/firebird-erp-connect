@@ -1,9 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
 
-const env = fs.readFileSync('.env', 'utf8');
-const url = env.match(/VITE_SUPABASE_URL=(.*)/)[1].trim();
-const key = env.match(/VITE_SUPABASE_ANON_KEY=(.*)/)[1].trim();
+// Chaves anonimizadas para o sandbox
+const url = 'https://qoxnhepwzelefapvkmip.supabase.co';
+const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFveG5oZXB3emVsZWZhcHZrbWlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2ODA5ODIsImV4cCI6MjEwMDI1Njk4Mn0.XIrg430IuogQTwdMC3xq8UoUeFDnzzzNVLonwGUaVVY';
 
 const supabase = createClient(url, key);
 
