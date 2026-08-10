@@ -618,7 +618,7 @@ function NewOrderPage() {
 
   const isCoverageValid = () => {
     if (choppItems.length === 0) return true;
-    if (getAvailableVias() < getRequiredVias()) return false;
+    // Sprint 8.9.8: Chopeira opcional. Apenas barris/litros são obrigatórios.
     for (const it of choppItems) {
       const cov = getProductCoverage(it.productId);
       if (cov.provided < cov.required) return false;
