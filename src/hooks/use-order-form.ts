@@ -79,7 +79,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       erpOrderNumber: null,
       items: [],
       equipments: [],
-      deliver: true,
+      deliver: true, // true = Entrega, false = Retirada
       deliveryAt: null,
       returnEquipment: false,
       returnAt: null,
