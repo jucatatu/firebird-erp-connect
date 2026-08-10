@@ -1584,12 +1584,12 @@ function NewOrderPage() {
                     <div className="text-sm space-y-1">
                       <p className="flex items-center gap-2">
                         <Badge variant="outline" className="h-5 text-[10px]">{deliver ? "Entrega" : "Retirada"}</Badge>
-                        {deliver && deliveryAt && <span>{new Date(deliveryAt).toLocaleDateString('pt-BR')} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                        {deliver && deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
                       </p>
                       {returnEquipment && (
                         <p className="flex items-center gap-2">
                           <Badge variant="outline" className="h-5 text-[10px]">Recolhimento</Badge>
-                          {returnAt && <span>{new Date(returnAt).toLocaleDateString('pt-BR')}</span>}
+                          {returnAt && <span>{formatDateOnly(returnAt)}</span>}
                         </p>
                       )}
                     </div>
