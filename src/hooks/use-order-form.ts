@@ -18,6 +18,7 @@ export interface OrderEquipment {
   role?: "TAP" | "KEG" | "OTHER";
   tapLines?: number;
   capacityLiters?: number;
+  assignedProductId?: number | null; // Produto de chopp ao qual este barril está associado
 }
 
 export interface OrderFormStore {
