@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles } from "@/hooks/use-auth";
@@ -34,7 +35,8 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
-import { canEditErpOrder } from "@/lib/erp-orders.functions";
+import { canEditErpOrder, getErpOrdersStatus } from "@/lib/erp-orders.functions";
+import { useOrderFormStore } from "@/hooks/use-order-form";
 import {
   Loader2,
   Send,
@@ -43,6 +45,7 @@ import {
   Ban,
   RefreshCw,
   Save,
+  Pencil,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/$draftId")({
@@ -110,9 +113,38 @@ function DraftDetailPage() {
     );
   }
 
-  const erpStatusId = draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
+  const [erpStatus, setErpStatus] = useState<{ id: number; description: string | null } | null>(null);
+  const getStatusFn = useServerFn(getErpOrdersStatus);
+  const navigate = useNavigate();
+  const editErpOrder = useOrderFormStore((s) => s.editErpOrder);
+
+  useEffect(() => {
+    const orderNum = draft?.erp_order_number;
+    if (orderNum) {
+      console.log("[ORDER DETAIL STATUS] FETCHING FOR:", orderNum);
+      const fetchStatus = async () => {
+        try {
+          const res = await getStatusFn({ data: [Number(orderNum)] });
+          console.log("[ORDER DETAIL STATUS] RESPONSE:", res);
+          if (res.ok && res.data && res.data.length > 0) {
+            setErpStatus({ 
+              id: res.data[0].statusId, 
+              description: res.data[0].statusDescription 
+            });
+          }
+        } catch (err) {
+          console.error("[ORDER DETAIL STATUS] FETCH ERROR:", err);
+        }
+      };
+      fetchStatus();
+    }
+  }, [draft?.erp_order_number, getStatusFn]);
+
+  const erpStatusId = erpStatus?.id ?? (draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
     ? (draft.payload as any).statusId 
-    : null;
+    : null);
+
+  const erpStatusDescription = erpStatus?.description || (draft.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
 
   const isOwner = draft.created_by === user?.id;
   
@@ -123,6 +155,13 @@ function DraftDetailPage() {
     draft.status === "rejected" ||
     (draft.status === "sent" && canEditErpOrder(erpStatusId))
   );
+
+  const handleEdit = () => {
+    editErpOrder(draft);
+    navigate({ to: "/pedidos-venda/novo" });
+  };
+
+
 
   const canSendForApproval = canEdit && (draft.status === "draft" || draft.status === "rejected");
   const canApprove = isApprover && draft.status === "pending_approval" && !(isOwner && !isAdmin);
@@ -182,9 +221,16 @@ function DraftDetailPage() {
           {/* Cliente / dados */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Dados do pedido</CardTitle>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-base">Dados do pedido</CardTitle>
+                {erpStatusDescription && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase">
+                    ERP: {erpStatusDescription}
+                  </div>
+                )}
+              </div>
               {!canEdit && (
-                <span className="text-xs text-muted-foreground">Somente leitura no status atual</span>
+                <span className="text-xs text-muted-foreground italic">Somente leitura — {erpStatusDescription || "STATUS BLOQUEADO"}</span>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
@@ -373,6 +419,15 @@ function DraftDetailPage() {
                   disabled={transition.isPending}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" /> Retornar para rascunho
+                </Button>
+              )}
+              {canEdit && draft.status === "sent" && (
+                <Button
+                  className="w-full"
+                  variant="default"
+                  onClick={handleEdit}
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> Editar pedido
                 </Button>
               )}
               {canCancel && (
