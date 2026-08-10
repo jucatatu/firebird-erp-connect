@@ -1,3 +1,5 @@
+"use strict";
+
 const firebird = require("./firebird-client");
 
 async function main() {
