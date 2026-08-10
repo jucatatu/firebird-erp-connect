@@ -190,8 +190,14 @@ export function useErpPaymentOptions() {
   const fn = useServerFn(getErpPaymentOptions);
   return useQuery({
     queryKey: ["erp", "payment-options"],
-    queryFn: () => fn(),
-    staleTime: 3600_000, // 1 hora de cache, muda pouco
+    queryFn: async () => {
+      console.log("[HOOK] useErpPaymentOptions queryFn triggered");
+      const result = await fn();
+      console.log("[HOOK] useErpPaymentOptions result:", result.ok ? "SUCCESS" : "ERROR");
+      return result;
+    },
+    staleTime: 3600_000, 
+    retry: 1,
   });
 }
 

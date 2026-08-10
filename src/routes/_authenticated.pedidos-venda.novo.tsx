@@ -258,6 +258,17 @@ function NewOrderPage() {
   } = useOrderFormStore() as OrderFormStore;
   
   const paymentOptionsQ = useErpPaymentOptions();
+  
+  useEffect(() => {
+    console.log("[PAGE] paymentOptionsQ state:", {
+      isLoading: paymentOptionsQ.isLoading,
+      isError: paymentOptionsQ.isError,
+      status: paymentOptionsQ.status,
+      hasData: !!paymentOptionsQ.data,
+      isFetching: paymentOptionsQ.isFetching
+    });
+  }, [paymentOptionsQ.isLoading, paymentOptionsQ.isError, paymentOptionsQ.status, paymentOptionsQ.data, paymentOptionsQ.isFetching]);
+
   const clientDetailQ = useErpClientDetail(clientId);
   
   // Acessa metadados da submissão para exibir o número do pedido
