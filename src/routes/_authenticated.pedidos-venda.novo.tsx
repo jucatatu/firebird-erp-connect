@@ -766,13 +766,13 @@ function NewOrderPage() {
       } else {
         console.error("[ORDER CREATE] failed", result.error);
         const errorMsg = result.error?.message || "Erro desconhecido ao criar pedido.";
-        setSubmissionStatus("failed", null, errorMsg);
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
         toast.error(`Falha ao criar pedido: ${errorMsg}`);
       }
     } catch (err: any) {
       console.error("[ORDER CREATE] exception", err);
       const msg = err.message || "Erro ao criar pedido.";
-      setSubmissionStatus("failed", null, msg);
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
       toast.error(msg);
     }
   };
