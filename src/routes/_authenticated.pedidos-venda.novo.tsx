@@ -468,26 +468,15 @@ function NewOrderPage() {
     if (!it) return { required: 0, provided: 0 };
     
     let provided = 0;
-    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === productId);
-    const pDesc = (p?.description || "").toLowerCase();
-    const style = pDesc.split(" ")[0] || "";
     
     equipments.forEach(eq => {
-      const desc = eq.description.toLowerCase();
-      // Regra: se o equipamento for um barril (KEG)
-      if (eq.role === 'KEG' || desc.includes("barril")) {
-        // Se houver apenas um estilo de chope, qualquer barril conta.
-        // Se houver múltiplos, o barril deve conter o estilo no nome (injetado pelo suggest) ou ser genérico
-        const isGeneric = !desc.includes("(") || desc.includes("genérico");
-        const matchesStyle = style && desc.includes(style);
-
-        if (choppItems.length === 1 || isGeneric || matchesStyle) {
-           if (eq.capacityLiters) {
-             provided += eq.capacityLiters * eq.quantity;
-           } else {
-             const litersMatch = desc.match(/(\d+)\s*l/i);
-             if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
-           }
+      // Sprint 8.9.11: Cobertura estrita por assignedProductId
+      if (eq.assignedProductId === productId) {
+        if (eq.capacityLiters) {
+          provided += eq.capacityLiters * eq.quantity;
+        } else {
+          const litersMatch = eq.description.match(/(\d+)\s*l/i);
+          if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
         }
       }
     });
