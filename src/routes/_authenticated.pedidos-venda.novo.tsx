@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
@@ -8,9 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send } from "lucide-react";
-import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpPaymentOptions, useErpClientDetail } from "@/hooks/use-erp";
-import type { CreateOrderInput } from "@/lib/erp-orders.functions";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw } from "lucide-react";
+import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
+import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -257,33 +258,75 @@ function NewOrderPage() {
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
   } = useOrderFormStore() as OrderFormStore;
   
-  const paymentOptionsQ = useErpPaymentOptions();
-  
+  // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
+  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const [localPaymentOptions, setLocalPaymentOptions] = useState<{
+    loading: boolean;
+    error: string | null;
+    data: PaymentOptionsPayload | null;
+  }>({ loading: false, error: null, data: null });
+
+  const loadPaymentOptionsDirectly = async () => {
+    console.log("[PAYMENT UI] calling getErpPaymentOptions directly");
+    setLocalPaymentOptions(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const result = await fetchPaymentOptions();
+      console.log("[PAYMENT UI] result received", {
+        type: typeof result,
+        keys: Object.keys(result || {}),
+        ok: result?.ok,
+        status: result?.status,
+        hasData: !!result?.data
+      });
+
+      if (result.ok && result.data) {
+        // Validação de contrato (Item 7 da instrução)
+        const isValid = Array.isArray(result.data.paymentTerms) && 
+                      Array.isArray(result.data.paymentMethods) && 
+                      Array.isArray(result.data.saleTypes);
+        
+        if (!isValid) {
+          console.error("[PAYMENT UI] Erro de contrato: Dados malformados", result.data);
+          setLocalPaymentOptions({ loading: false, error: "Erro de contrato no ERP API (formato inválido)", data: null });
+          return;
+        }
+
+        setLocalPaymentOptions({ loading: false, error: null, data: result.data });
+      } else {
+        console.error("[PAYMENT UI] error", result.error);
+        setLocalPaymentOptions({ 
+          loading: false, 
+          error: result.error?.message || "Não foi possível carregar as opções de pagamento.", 
+          data: null 
+        });
+      }
+    } catch (err: any) {
+      console.error("[PAYMENT UI] exception", err);
+      setLocalPaymentOptions({ loading: false, error: "Falha na comunicação com o servidor.", data: null });
+    }
+  };
+
   useEffect(() => {
-    console.log("[PAGE] paymentOptionsQ state:", {
-      isLoading: paymentOptionsQ.isLoading,
-      isError: paymentOptionsQ.isError,
-      status: paymentOptionsQ.status,
-      hasData: !!paymentOptionsQ.data,
-      isFetching: paymentOptionsQ.isFetching
-    });
-  }, [paymentOptionsQ.isLoading, paymentOptionsQ.isError, paymentOptionsQ.status, paymentOptionsQ.data, paymentOptionsQ.isFetching]);
+    if (step === "payment" && !localPaymentOptions.data && !localPaymentOptions.loading) {
+      console.log("[PAYMENT UI] entered payment step, triggering load");
+      loadPaymentOptionsDirectly();
+    }
+  }, [step]);
 
   const clientDetailQ = useErpClientDetail(clientId);
   
   // Acessa metadados da submissão para exibir o número do pedido
   const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
 
-  // Efeito para carregar padrões do cliente
+  // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
-    if (clientDetailQ.data?.ok && clientDetailQ.data.data && paymentOptionsQ.data?.ok && paymentOptionsQ.data.data) {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data && localPaymentOptions.data) {
       const detail = clientDetailQ.data.data;
-      const options = paymentOptionsQ.data.data;
+      const options = localPaymentOptions.data;
 
       const termId = detail.defaultPaymentTermId;
       const methodId = detail.defaultPaymentMethodId;
 
-      // Verificar se os IDs existem nas listas globais antes de aplicar
       const termExists = termId ? options.paymentTerms.some((t: any) => t.id === termId) : false;
       const methodExists = methodId ? options.paymentMethods.some((m: any) => m.id === methodId) : false;
 
@@ -299,7 +342,7 @@ function NewOrderPage() {
         toast.warning("Forma de pagamento padrão do cliente não disponível no ERP.");
       }
     }
-  }, [clientDetailQ.data, paymentOptionsQ.data, clientId, setPayment]);
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
@@ -1127,9 +1170,9 @@ function NewOrderPage() {
                   <div>
                     <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Pagamento</Label>
                     <div className="text-sm space-y-1">
-                      <p><strong>Condição:</strong> {paymentOptionsQ.data?.data?.paymentTerms.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
-                      <p><strong>Forma:</strong> {paymentOptionsQ.data?.data?.paymentMethods.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
-                      <p><strong>Tipo de Venda:</strong> {paymentOptionsQ.data?.data?.saleTypes.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
+                      <p><strong>Condição:</strong> {localPaymentOptions.data?.paymentTerms?.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
+                      <p><strong>Forma:</strong> {localPaymentOptions.data?.paymentMethods?.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
+                      <p><strong>Tipo de Venda:</strong> {localPaymentOptions.data?.saleTypes?.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
                     </div>
                   </div>
 
