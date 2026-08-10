@@ -122,19 +122,23 @@ function DraftDetailPage() {
     const orderNum = draft?.erp_order_number;
     if (orderNum) {
       console.log("[ORDER DETAIL STATUS] FETCHING FOR:", orderNum);
-      getStatusFn({ data: [Number(orderNum)] }).then(res => {
-        console.log("[ORDER DETAIL STATUS] RESPONSE:", res);
-        if (res.ok && res.data && res.data.length > 0) {
-          setErpStatus({ 
-            id: res.data[0].statusId, 
-            description: res.data[0].statusDescription 
-          });
+      const fetchStatus = async () => {
+        try {
+          const res = await getStatusFn({ data: [Number(orderNum)] });
+          console.log("[ORDER DETAIL STATUS] RESPONSE:", res);
+          if (res.ok && res.data && res.data.length > 0) {
+            setErpStatus({ 
+              id: res.data[0].statusId, 
+              description: res.data[0].statusDescription 
+            });
+          }
+        } catch (err) {
+          console.error("[ORDER DETAIL STATUS] FETCH ERROR:", err);
         }
-      }).catch(err => {
-        console.error("[ORDER DETAIL STATUS] FETCH ERROR:", err);
-      });
+      };
+      fetchStatus();
     }
-  }, [draft?.erp_order_number]);
+  }, [draft?.erp_order_number, getStatusFn]);
 
   const erpStatusId = erpStatus?.id ?? (draft.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
     ? (draft.payload as any).statusId 
