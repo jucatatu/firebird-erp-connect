@@ -19,6 +19,7 @@ const productsRoutes = require("./modules/products/products.routes");
 const equipmentTypesRoutes = require("./modules/equipment-types/equipment-types.routes");
 const pricingRoutes = require("./modules/pricing/pricing.routes");
 const mapRoutes = require("./modules/map/map.routes");
+const paymentOptionsRoutes = require("./modules/payment-options/payment-options.routes");
 
 function createApp() {
   const app = express();
@@ -61,6 +62,7 @@ function createApp() {
   v1.use("/equipment-types", equipmentTypesRoutes);
   v1.use("/pricing", pricingRoutes);
   v1.use("/map", mapRoutes);
+  v1.use("/payment-options", paymentOptionsRoutes);
   app.use("/api/v1", v1);
 
   app.use(notFoundMiddleware);

@@ -19,10 +19,14 @@ import {
   searchErpClients,
   resolveErpPrice,
   createErpOrder,
+  getErpPaymentOptions,
+  getErpClientDetail,
   type CreateOrderInput,
   type ErpResponse,
   type ErpProduct,
   type ErpEquipmentType,
+  type PaymentOptionsPayload,
+  type ErpClient,
 } from "@/lib/erp-orders.functions";
 
 /** Ping público /api/v1/health da API Node. */
@@ -178,5 +182,29 @@ export function useCreateErpOrder() {
       fn({ 
         data: args 
       }),
+  });
+}
+
+/** GET /api/v1/payment-options — opções globais de pagamento do ERP. */
+export function useErpPaymentOptions() {
+  const fn = useServerFn(getErpPaymentOptions);
+  return useQuery({
+    queryKey: ["erp", "payment-options"],
+    queryFn: () => fn(),
+    staleTime: 3600_000, // 1 hora de cache, muda pouco
+  });
+}
+
+/** GET /api/v1/clients/:id — detalhe do cliente com defaults de pagamento. */
+export function useErpClientDetail(clientId: number | null) {
+  const fn = useServerFn(getErpClientDetail);
+  return useQuery({
+    queryKey: ["erp", "clients", clientId, "detail"],
+    queryFn: () => {
+      if (!clientId) throw new Error("clientId ausente");
+      return fn({ data: clientId });
+    },
+    enabled: Boolean(clientId),
+    staleTime: 60_000,
   });
 }

@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send } from "lucide-react";
-import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder } from "@/hooks/use-erp";
-import { useOrderFormStore } from "@/hooks/use-order-form";
+import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpPaymentOptions, useErpClientDetail } from "@/hooks/use-erp";
+import type { CreateOrderInput } from "@/lib/erp-orders.functions";
+import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +255,27 @@ function NewOrderPage() {
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient
-  } = useOrderFormStore();
+  } = useOrderFormStore() as OrderFormStore;
+  
+  const paymentOptionsQ = useErpPaymentOptions();
+  const clientDetailQ = useErpClientDetail(clientId);
+  
+  // Acessa metadados da submissão para exibir o número do pedido
+  const submissionMeta = useOrderFormStore((state: any) => state.submissionMeta);
+
+  // Efeito para carregar padrões do cliente
+  useEffect(() => {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data) {
+      const detail = clientDetailQ.data.data;
+      // Só aplica se não estiverem definidos (ou se acabamos de selecionar o cliente)
+      if (detail.defaultPaymentTermId || detail.defaultPaymentMethodId) {
+        setPayment(
+          paymentTermId || detail.defaultPaymentTermId || null,
+          paymentMethodId || detail.defaultPaymentMethodId || null
+        );
+      }
+    }
+  }, [clientDetailQ.data, clientId, setPayment]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
@@ -591,49 +612,91 @@ function NewOrderPage() {
 
   const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") return;
+    
     if (!myProfile.data?.erp_seller_id) {
-      toast.error("Vendedor não mapeado");
+      toast.error("Vendedor não mapeado no servidor.");
       return;
     }
+    
     if (!companyId) {
-      toast.error("Empresa não selecionada");
+      toast.error("Empresa não selecionada.");
       setStep("client");
       return;
     }
+
+    if (!paymentTermId || !paymentMethodId || !saleTypeId) {
+      toast.error("Selecione a condição, forma de pagamento e tipo de venda.");
+      setStep("payment");
+      return;
+    }
+
+    console.log("[ORDER CREATE] start", { idempotencyKey });
     setSubmissionStatus("submitting");
     const currentKey = idempotencyKey || crypto.randomUUID();
     if (!idempotencyKey) setIdempotencyKey(currentKey);
 
     try {
-      const payload = {
+      const payload: CreateOrderInput = {
         companyId: companyId as number,
         clientId: clientId,
         sellerId: myProfile.data.erp_seller_id,
-        saleTypeId: saleTypeId || 1,
-        paymentTermId: paymentTermId || 1,
-        paymentMethodId: paymentMethodId || 1,
+        saleTypeId: saleTypeId,
+        paymentTermId: paymentTermId,
+        paymentMethodId: paymentMethodId,
         deliver,
         deliveryAt: deliveryAt || new Date().toISOString(),
         returnEquipment,
         returnAt: returnEquipment ? returnAt : null,
-        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined })),
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          quantity: i.quantity, 
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
         equipments: equipments.map(e => ({ equipmentTypeId: e.equipmentTypeId, quantity: e.quantity })),
         notes: notes || null
       };
 
+      console.log("[ORDER CREATE] payload built", { ...payload, sellerId: "PROTECTED" });
+      console.log("[ORDER CREATE] calling server function");
+      
       const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
-      if (result.ok && result.data) {
+      
+      console.log("[ORDER CREATE] server function returned", { ok: result.ok, status: result.status });
+
+      if (result.ok && result.data && result.data.orderNumber) {
+        console.log("[ORDER CREATE] success", result.data);
         setSubmissionStatus("created", { orderId: result.data.orderId, orderNumber: result.data.orderNumber });
-        toast.success(`Pedido criado! Nº ERP: ${result.data.orderNumber}`);
+        toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
+        
+        // Só resetamos após confirmação REAL
         reset();
-        navigate({ to: "/pedidos-venda", search: {} as any });
+        
+        // Pequeno delay para o usuário ver o número antes de navegar
+        setTimeout(() => {
+          navigate({ to: "/pedidos-venda", search: {} as any });
+        }, 1500);
       } else {
-        setSubmissionStatus(result.status === 409 ? "created" : "failed");
-        toast.error("Erro ao criar pedido");
+        console.error("[ORDER CREATE] failed", result.error);
+        const status = result.status;
+        
+        if (status === 409) {
+          setSubmissionStatus("created"); // Provavelmente já existe
+          toast.info("Este pedido já foi processado anteriormente.");
+        } else if (status === 422) {
+          setSubmissionStatus("failed");
+          toast.error(result.error?.message || "Dados inválidos para o ERP.");
+        } else if (status === 403) {
+          setSubmissionStatus("failed");
+          toast.error("Sem permissão para esta empresa ou cliente.");
+        } else {
+          setSubmissionStatus("failed");
+          toast.error("Não foi possível criar o pedido no ERP.");
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[ORDER CREATE] exception", err);
       setSubmissionStatus("unknown");
-      toast.error("Falha na comunicação");
+      toast.error("Não foi possível confirmar se o pedido foi criado.");
     }
   };
 
@@ -896,21 +959,53 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
                {/* Futuramente: Carregar termos de pagamento do ERP aqui */}
-               <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Condição de Pagamento</Label>
-                    <Badge variant="outline">Padrão ERP (ID 1)</Badge>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={paymentTermId || ""}
+                      onChange={(e) => setPayment(Number(e.target.value), paymentMethodId)}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.paymentTerms.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.description}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Forma de Pagamento</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={paymentMethodId || ""}
+                      onChange={(e) => setPayment(paymentTermId, Number(e.target.value))}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.paymentMethods.map((m: any) => (
+                        <option key={m.id} value={m.id}>{m.description}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Venda</Label>
-                    <Badge variant="outline">Venda Normal (ID 1)</Badge>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={saleTypeId || ""}
+                      onChange={(e) => setSaleType(Number(e.target.value))}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.saleTypes.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.description}</option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+                
+                <div className="flex justify-between pt-4">
+                 <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
+                 <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
                </div>
-               
-               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
-                <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
-              </div>
+
             </CardContent>
           </Card>
         )}
@@ -919,33 +1014,112 @@ function NewOrderPage() {
           <Card>
             <CardHeader><CardTitle className="text-lg">5. Revisão Final</CardTitle></CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-muted-foreground">Cliente</Label>
-                    <p className="font-bold">{clientName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Logística</Label>
-                    <p className="text-sm">• {deliver ? `Entrega em ${new Date(deliveryAt!).toLocaleDateString('pt-BR')}` : 'Retirada no local'}</p>
-                    <p className="text-sm">• {returnEquipment ? `Recolhimento em ${new Date(returnAt!).toLocaleDateString('pt-BR')}` : 'Sem recolhimento'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Observações</Label>
-                    <p className="text-sm italic">{notes || "Nenhuma"}</p>
+              {submissionStatus === "unknown" && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg space-y-3">
+                  <p className="text-sm font-bold text-yellow-800">Não foi possível confirmar se o pedido foi criado.</p>
+                  <p className="text-xs text-yellow-700">Pode ter ocorrido um timeout ou falha de rede. O pedido pode ter sido criado no ERP mas a resposta não chegou.</p>
+                  <div className="flex gap-2">
+                    <Button variant="default" className="bg-yellow-600 hover:bg-yellow-700 h-8" onClick={handleCreateOrder}>
+                      Tentar novamente com a mesma chave
+                    </Button>
+                    <Button variant="outline" className="h-8 border-yellow-300" onClick={() => setSubmissionStatus("draft")}>
+                      Voltar
+                    </Button>
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-4">
-                  <Label className="text-muted-foreground">Resumo Financeiro</Label>
-                  <div className="border rounded-lg p-3 space-y-2 bg-muted/5">
-                    <div className="flex justify-between text-sm">
-                      <span>Total de Itens:</span>
-                      <span className="font-bold">{items.length}</span>
+              {submissionStatus === "created" && submissionMeta?.orderNumber && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
+                  <div>
+                    <p className="text-lg font-bold text-green-800">Pedido criado no ERP!</p>
+                    <p className="text-sm text-green-700">Nº {submissionMeta.orderNumber}</p>
+                  </div>
+
+                  <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => navigate({ to: "/pedidos-venda", search: {} as any })}>
+                    Ir para Pedidos
+                  </Button>
+                </div>
+              )}
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Cliente</Label>
+                    <p className="font-bold">{clientName}</p>
+                    <p className="text-xs text-muted-foreground">ID ERP: {clientId}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Logística</Label>
+                    <div className="text-sm space-y-1">
+                      <p className="flex items-center gap-2">
+                        <Badge variant="outline" className="h-5 text-[10px]">{deliver ? "Entrega" : "Retirada"}</Badge>
+                        {deliver && deliveryAt && <span>{new Date(deliveryAt).toLocaleDateString('pt-BR')} {deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                      </p>
+                      {returnEquipment && (
+                        <p className="flex items-center gap-2">
+                          <Badge variant="outline" className="h-5 text-[10px]">Recolhimento</Badge>
+                          {returnAt && <span>{new Date(returnAt).toLocaleDateString('pt-BR')}</span>}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                  </div>
+
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Pagamento</Label>
+                    <div className="text-sm space-y-1">
+                      <p><strong>Condição:</strong> {paymentOptionsQ.data?.data?.paymentTerms.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
+                      <p><strong>Forma:</strong> {paymentOptionsQ.data?.data?.paymentMethods.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
+                      <p><strong>Tipo de Venda:</strong> {paymentOptionsQ.data?.data?.saleTypes.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
+                    </div>
+                  </div>
+
+                  {notes && (
+                    <div>
+                      <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Observações</Label>
+                      <p className="text-sm italic p-2 border rounded bg-muted/5">{notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider mb-2 block">Itens e Equipamentos</Label>
+                    <div className="border rounded-lg divide-y bg-card overflow-hidden">
+                      {items.map(it => (
+                        <div key={it.productId} className="p-3 text-sm">
+                          <div className="flex justify-between font-bold">
+                            <span>{it.description}</span>
+                            <span>{it.quantity}{it.description?.toUpperCase().includes("CHOPP") ? "L" : "x"}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(it.appliedUnitPrice)}/un
+                              {it.manualPrice && <Badge variant="outline" className="ml-2 text-[9px] h-3 px-1 text-blue-600 border-blue-200">Manual</Badge>}
+                            </span>
+                            <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(it.total)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {equipments.map(eq => (
+                        <div key={eq.equipmentTypeId} className="p-2 px-3 text-xs bg-muted/30 flex justify-between italic text-muted-foreground">
+                          <span>{eq.description}</span>
+                          <span>{eq.quantity}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border rounded-lg p-4 space-y-2 bg-primary/5 border-primary/10">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc: number, it: any) => acc + it.total, 0))}</span>
+                    </div>
+                    <div className="flex justify-between text-xl font-bold border-t pt-2 text-primary">
                       <span>Total Geral:</span>
-                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc, it) => acc + it.total, 0))}</span>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(items.reduce((acc: number, it: any) => acc + it.total, 0))}</span>
                     </div>
                   </div>
                 </div>
@@ -953,13 +1127,16 @@ function NewOrderPage() {
 
               <div className="flex justify-between pt-6 border-t">
                 <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
-                <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
-                  {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
-                </Button>
+                {submissionStatus !== "created" && (
+                  <Button size="lg" className="px-8" onClick={handleCreateOrder} disabled={submissionStatus === "submitting"}>
+                    {submissionStatus === "submitting" ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Enviando...</> : "Finalizar Pedido"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
+
     </div>
   );
 }
