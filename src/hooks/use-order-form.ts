@@ -59,6 +59,10 @@ export interface OrderFormStore {
   setSaleType: (typeId: number | null) => void;
   reset: () => void;
   resetItemsAndClient: () => void;
+  
+  // Repetir/Novo (Sprint 8.9.22)
+  repeatOrder: (payload: any, customerName: string) => void;
+  newOrderFromClient: (clientId: number, customerName: string, companyId: number) => void;
 }
 
 export const useOrderFormStore = create<OrderFormStore>()(
@@ -218,6 +222,70 @@ export const useOrderFormStore = create<OrderFormStore>()(
         deliveryAt: null,
         returnAt: null,
       }),
+      repeatOrder: (payload: any, customerName: string) => {
+        // Reset base mas preserva empresa e cliente
+        const companyId = payload.companyId;
+        const clientId = payload.clientId;
+        
+        set({
+          clientId,
+          clientName: customerName,
+          companyId,
+          idempotencyKey: crypto.randomUUID(),
+          submissionStatus: "draft",
+          lastAttemptAt: null,
+          erpOrderId: null,
+          erpOrderNumber: null,
+          items: (payload.items || []).map((item: any) => ({
+            productId: item.productId,
+            description: item.description || `Produto ${item.productId}`,
+            quantity: item.quantity,
+            unitPrice: 0, // Será resolvido no stepper
+            appliedUnitPrice: 0,
+            manualPrice: false,
+            total: 0
+          })),
+          equipments: (payload.equipments || []).map((eq: any) => ({
+            equipmentTypeId: eq.equipmentTypeId,
+            description: eq.description || `Equip. ${eq.equipmentTypeId}`,
+            quantity: eq.quantity,
+            role: eq.role || "OTHER",
+            tapLines: eq.tapLines,
+            capacityLiters: eq.capacityLiters,
+            assignedProductId: eq.assignedProductId
+          })),
+          deliver: payload.deliver ?? true,
+          deliveryAt: null, // Data deve ser preenchida pelo vendedor
+          returnEquipment: payload.returnEquipment ?? false,
+          returnAt: null,
+          notes: payload.notes || "",
+          paymentTermId: payload.paymentTermId || null,
+          paymentMethodId: payload.paymentMethodId || null,
+          saleTypeId: payload.saleTypeId || null,
+        });
+      },
+      newOrderFromClient: (clientId: number, customerName: string, companyId: number) => {
+        set({
+          clientId,
+          clientName: customerName,
+          companyId,
+          idempotencyKey: crypto.randomUUID(),
+          submissionStatus: "draft",
+          lastAttemptAt: null,
+          erpOrderId: null,
+          erpOrderNumber: null,
+          items: [],
+          equipments: [],
+          deliver: true,
+          deliveryAt: null,
+          returnEquipment: false,
+          returnAt: null,
+          notes: "",
+          paymentTermId: null,
+          paymentMethodId: null,
+          saleTypeId: null,
+        });
+      },
     }),
     { name: "order-form-storage" }
   )
