@@ -813,12 +813,12 @@ function NewOrderPage() {
     if (!idempotencyKey) setIdempotencyKey(currentKey);
 
     try {
-      const payload: CreateOrderInput & { client_snapshot: any } = {
+      const payload: CreateOrderInput = {
         companyId: companyId as number,
         clientId: clientId,
         client_snapshot: {
           id: clientId,
-          name: clientName,
+          name: clientName || "(sem nome)",
           fantasyName: clientDetailQ.data?.data?.tradingName || null
         },
         sellerId: myProfile.data.erp_seller_id,
