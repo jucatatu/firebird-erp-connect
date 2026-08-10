@@ -1145,7 +1145,7 @@ function NewOrderPage() {
                                 <span>·</span>
                                 <span>{companyLabel(order.company_id)}</span>
                                 <span>·</span>
-                                <span>{new Date(order.created_at).toLocaleDateString('pt-BR')}</span>
+                                <span>{formatDateOnly(order.created_at)}</span>
                               </div>
                             </div>
                             <ChevronRight className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary transition-colors" />
