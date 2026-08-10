@@ -80,7 +80,7 @@ function OrdersListPage() {
         description="Todos os pedidos internos com filtros por status, empresa e busca."
         actions={
           (role === "vendedor" || isAdmin) && (
-            <Button asChild size="sm">
+            <Button asChild size="sm" onClick={() => useOrderFormStore.getState().resetItemsAndClient()}>
               <Link to="/pedidos-venda/novo">
                 <PlusCircle className="mr-2 h-4 w-4" /> Novo pedido
               </Link>
