@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { JsonValue } from "@/types/json";
 import type { JsonValue } from "./erp.server";
 
 // Reutilizamos tipos básicos para consistência
