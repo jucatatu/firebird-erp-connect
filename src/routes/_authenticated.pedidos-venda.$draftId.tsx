@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles } from "@/hooks/use-auth";
@@ -34,7 +35,8 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
-import { canEditErpOrder } from "@/lib/erp-orders.functions";
+import { canEditErpOrder, getErpOrdersStatus } from "@/lib/erp-orders.functions";
+import { useOrderFormStore } from "@/hooks/use-order-form";
 import {
   Loader2,
   Send,
@@ -43,6 +45,7 @@ import {
   Ban,
   RefreshCw,
   Save,
+  Pencil,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/$draftId")({
