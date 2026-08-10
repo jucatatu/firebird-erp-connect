@@ -252,7 +252,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
             role: eq.role || "OTHER",
             tapLines: eq.tapLines,
             capacityLiters: eq.capacityLiters,
-            assignedProductId: eq.assignedProductId
+            assignedProductId: eq.assignedProductId || (payload.items?.length === 1 ? payload.items[0].productId : null)
           })),
           deliver: payload.deliver ?? true,
           deliveryAt: null, // Data deve ser preenchida pelo vendedor
