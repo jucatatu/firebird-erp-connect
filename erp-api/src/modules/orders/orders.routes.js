@@ -12,5 +12,7 @@ const router = Router();
 // - Transação Firebird única; rollback integral em qualquer erro.
 router.post("/", authMiddleware, controller.createOrder);
 router.get("/batch-status", authMiddleware, controller.getBatchStatus);
+router.get("/:orderNumber", authMiddleware, controller.getOrder);
+router.put("/:orderNumber", authMiddleware, controller.updateOrder);
 
 module.exports = router;
