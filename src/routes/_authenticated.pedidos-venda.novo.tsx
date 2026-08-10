@@ -1116,7 +1116,6 @@ function NewOrderPage() {
               </CardContent>
             </Card>
           </div>
-          
           <div className="space-y-4">
             <Card className="md:sticky md:top-6 shadow-sm border-primary/10">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
