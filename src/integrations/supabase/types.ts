@@ -274,6 +274,7 @@ export type Database = {
           default_quantity: number
           display_name: string | null
           enabled: boolean
+          equipment_role: Database["public"]["Enums"]["equipment_role"] | null
           erp_description_snapshot: string
           erp_item_id: number
           id: string
@@ -282,6 +283,7 @@ export type Database = {
           quantity_step: number
           requires_pickup: boolean | null
           sort_order: number
+          tap_count: number | null
           updated_at: string
           updated_by: string | null
           version: number
@@ -293,6 +295,7 @@ export type Database = {
           default_quantity?: number
           display_name?: string | null
           enabled?: boolean
+          equipment_role?: Database["public"]["Enums"]["equipment_role"] | null
           erp_description_snapshot: string
           erp_item_id: number
           id?: string
@@ -301,6 +304,7 @@ export type Database = {
           quantity_step?: number
           requires_pickup?: boolean | null
           sort_order?: number
+          tap_count?: number | null
           updated_at?: string
           updated_by?: string | null
           version?: number
@@ -312,6 +316,7 @@ export type Database = {
           default_quantity?: number
           display_name?: string | null
           enabled?: boolean
+          equipment_role?: Database["public"]["Enums"]["equipment_role"] | null
           erp_description_snapshot?: string
           erp_item_id?: number
           id?: string
@@ -320,6 +325,7 @@ export type Database = {
           quantity_step?: number
           requires_pickup?: boolean | null
           sort_order?: number
+          tap_count?: number | null
           updated_at?: string
           updated_by?: string | null
           version?: number
@@ -768,6 +774,9 @@ export type Database = {
               default_quantity: number
               display_name: string | null
               enabled: boolean
+              equipment_role:
+                | Database["public"]["Enums"]["equipment_role"]
+                | null
               erp_description_snapshot: string
               erp_item_id: number
               id: string
@@ -778,6 +787,7 @@ export type Database = {
               quantity_step: number
               requires_pickup: boolean | null
               sort_order: number
+              tap_count: number | null
               updated_at: string
               updated_by: string | null
               version: number
@@ -811,6 +821,9 @@ export type Database = {
               default_quantity: number
               display_name: string | null
               enabled: boolean
+              equipment_role:
+                | Database["public"]["Enums"]["equipment_role"]
+                | null
               erp_description_snapshot: string
               erp_item_id: number
               id: string
@@ -821,6 +834,7 @@ export type Database = {
               quantity_step: number
               requires_pickup: boolean | null
               sort_order: number
+              tap_count: number | null
               updated_at: string
               updated_by: string | null
               version: number
@@ -842,6 +856,7 @@ export type Database = {
         | "updated"
         | "snapshot_updated"
       catalog_item_type: "product" | "equipment"
+      equipment_role: "dispenser" | "keg" | "other"
       logistics_type: "draft" | "packaged"
       operation_event_origin: "local" | "erp"
       operation_event_type:
@@ -1027,6 +1042,7 @@ export const Constants = {
         "snapshot_updated",
       ],
       catalog_item_type: ["product", "equipment"],
+      equipment_role: ["dispenser", "keg", "other"],
       logistics_type: ["draft", "packaged"],
       operation_event_origin: ["local", "erp"],
       operation_event_type: [
