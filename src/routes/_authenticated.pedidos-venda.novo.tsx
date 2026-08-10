@@ -956,21 +956,53 @@ function NewOrderPage() {
             <CardContent className="space-y-6">
                <p className="text-sm text-muted-foreground italic">Opções de pagamento sincronizadas com o ERP para este cliente.</p>
                {/* Futuramente: Carregar termos de pagamento do ERP aqui */}
-               <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Condição de Pagamento</Label>
-                    <Badge variant="outline">Padrão ERP (ID 1)</Badge>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={paymentTermId || ""}
+                      onChange={(e) => setPayment(Number(e.target.value), paymentMethodId)}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.paymentTerms.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.description}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Forma de Pagamento</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={paymentMethodId || ""}
+                      onChange={(e) => setPayment(paymentTermId, Number(e.target.value))}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.paymentMethods.map((m: any) => (
+                        <option key={m.id} value={m.id}>{m.description}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo de Venda</Label>
-                    <Badge variant="outline">Venda Normal (ID 1)</Badge>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={saleTypeId || ""}
+                      onChange={(e) => setSaleType(Number(e.target.value))}
+                    >
+                      <option value="">Selecione...</option>
+                      {paymentOptionsQ.data?.data?.saleTypes.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.description}</option>
+                      ))}
+                    </select>
                   </div>
+                </div>
+                
+                <div className="flex justify-between pt-4">
+                 <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
+                 <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
                </div>
-               
-               <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep("delivery")}>Voltar</Button>
-                <Button onClick={() => setStep("review")}>Revisar Pedido</Button>
-              </div>
+
             </CardContent>
           </Card>
         )}
