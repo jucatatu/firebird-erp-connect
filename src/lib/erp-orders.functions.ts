@@ -249,11 +249,20 @@ export interface PaymentOptionsPayload {
 
 export const getErpPaymentOptions = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { callErp } = await import("./erp.server");
-    return callErp({
-      method: "GET",
-      path: "/api/v1/payment-options"
-    }) as Promise<ErpResponse<PaymentOptionsPayload>>;
+    console.log("[SERVER-FN] Entering getErpPaymentOptions");
+    try {
+      const { callErp } = await import("./erp.server");
+      console.log("[SERVER-FN] Calling callErp for payment-options");
+      const result = await callErp({
+        method: "GET",
+        path: "/api/v1/payment-options"
+      }) as ErpResponse<PaymentOptionsPayload>;
+      console.log("[SERVER-FN] callErp result ok:", result.ok, "status:", result.status);
+      return result;
+    } catch (err: any) {
+      console.error("[SERVER-FN] ERROR in getErpPaymentOptions:", err.message);
+      throw err;
+    }
   });
 
 export const getErpClientDetail = createServerFn({ method: "GET" })

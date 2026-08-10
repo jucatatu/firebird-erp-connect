@@ -112,18 +112,16 @@ export async function callErp<T extends JsonValue = JsonValue>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    console.log("[ERP] ANTES DO FETCH");
-    console.log("[ERP] URL", url);
-    console.log("[ERP] METHOD", method);
-    console.log("[ERP] HEADERS", {
-      "x-api-key": apiKey ? `${apiKey.slice(0, 6)}…(${apiKey.length})` : "MISSING",
+    console.log(`[ERP CALL] ${method} ${pathWithQuery}`);
+    console.log(`[ERP CALL] Target URL: ${url}`);
+    console.log(`[ERP CALL] Body Hash: ${bodyHash}`);
+    console.log(`[ERP CALL] Headers keys: ${Object.keys({
+      "x-api-key": apiKey,
       "x-timestamp": timestamp,
       "x-nonce": nonce,
-      "x-signature": signature ? `${signature.slice(0, 12)}…(${signature.length})` : "MISSING",
-    });
-    console.log("[ERP] CANONICAL", JSON.stringify({
-      method, path: pathWithQuery, timestamp, nonce, bodyHash,
-    }));
+      "x-signature": signature,
+      ...(opts.headers ?? {}),
+    }).join(", ")}`);
     const res = await fetch(url, {
       method,
       headers: {
