@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -246,6 +247,7 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
 
 function NewOrderPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
@@ -745,22 +747,32 @@ function NewOrderPage() {
         error: result.error?.code,
         hasData: !!result.data,
         orderId: result.data?.orderId,
-        orderNumber: result.data?.orderNumber
+        orderNumber: result.data?.orderNumber,
+        mirrorId: result.data?.mirrorId
       });
 
       if (result.ok && result.data && result.data.orderNumber) {
         console.log("[ORDER CREATE] success", result.data);
+        
+        // Se houver erro no espelho mas sucesso no ERP
+        if (result.error?.code === "ORDER_CREATED_MIRROR_FAILED") {
+          toast.warning(`Pedido ${result.data.orderNumber} criado no ERP, mas houve um erro ao sincronizar com a lista.`);
+        } else {
+          toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
+        }
+
         setSubmissionStatus("created", { 
           orderId: result.data.orderId, 
           orderNumber: result.data.orderNumber
         });
-        toast.success(`Pedido criado no ERP! Nº ${result.data.orderNumber}`);
+
+        // Invalidação do cache para garantir que o espelho apareça na lista
+        console.log("[ORDER CREATE] invalidating order_drafts cache");
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
         
-        // CORREÇÃO DO RESET PREMATURO:
-        // Mantemos o estado para visualização final, navegamos e SÓ ENTÃO resetamos.
+        // Navegação e reset (Sprint 8.9.4)
         setTimeout(() => {
-          navigate({ to: "/pedidos-venda", search: {} as any });
-          // Pequeno delay após navegação para limpar a store sem afetar a transição
+          navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
           setTimeout(() => resetItemsAndClient(), 500);
         }, 1500);
       } else {
