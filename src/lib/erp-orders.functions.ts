@@ -399,8 +399,53 @@ export const getErpClientDetail = createServerFn({ method: "GET" })
       path: `/api/v1/clients/${clientId}`
     }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number; defaultSaleTypeId?: number }>>;
   });
+export const updateErpOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { orderNumber: number; data: CreateOrderInput }) => d)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { callErp } = await import("./erp.server");
+    const { userId } = context;
 
-export interface ErpOrderStatus {
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("erp_seller_id")
+      .eq("id", userId)
+      .single();
+    
+    if (!profile?.erp_seller_id) {
+      return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado.", retryable: false } };
+    }
+
+    const erpPayload = buildErpCreateOrderPayload(data.data, profile.erp_seller_id);
+
+    const result = await callErp({
+      method: "PUT",
+      path: `/api/v1/orders/${data.orderNumber}`,
+      body: erpPayload as any
+    }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
+
+    if (!result.ok) return result;
+
+    await supabaseAdmin
+      .from("order_drafts")
+      .update({
+        updated_by: userId,
+        customer_name_snapshot: data.data.client_snapshot?.fantasyName 
+          ? `${data.data.client_snapshot.fantasyName}\n${data.data.client_snapshot.name}` 
+          : (data.data.client_snapshot?.name || "Pedido ERP"),
+        company_id: data.data.companyId,
+        payload: {
+          ...data.data,
+          erp_response: result.data,
+          updated_at: new Date().toISOString()
+        }
+      })
+      .eq("erp_order_id", result.data.orderId);
+
+    return result;
+  });
+
   orderId: number;
   statusId: number;
   statusDescription: string | null;
