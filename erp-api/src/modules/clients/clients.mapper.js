@@ -161,7 +161,7 @@ function mapClientDetail(row, schema, ctx = {}) {
       ? toNullableInt(pick(row, "ID_FORMA_PAGAMENTO"))
       : null,
     defaultPaymentTermId: schema.client.paymentTermId
-      ? toNullableInt(pick(row, "ID_FPGTO"))
+      ? toNullableInt(pick(row, "ID_PRAZO"))
       : null,
     defaultSaleTypeId: schema.client.saleTypeId
       ? toNullableInt(pick(row, "ID_OPERACAO"))
