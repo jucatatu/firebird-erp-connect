@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
@@ -8,9 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send } from "lucide-react";
-import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpPaymentOptions, useErpClientDetail } from "@/hooks/use-erp";
-import type { CreateOrderInput } from "@/lib/erp-orders.functions";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw } from "lucide-react";
+import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
+import { getErpPaymentOptions, type CreateOrderInput, type PaymentOptionsPayload } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -1169,9 +1170,9 @@ function NewOrderPage() {
                   <div>
                     <Label className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider">Pagamento</Label>
                     <div className="text-sm space-y-1">
-                      <p><strong>Condição:</strong> {paymentOptionsQ.data?.data?.paymentTerms.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
-                      <p><strong>Forma:</strong> {paymentOptionsQ.data?.data?.paymentMethods.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
-                      <p><strong>Tipo de Venda:</strong> {paymentOptionsQ.data?.data?.saleTypes.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
+                      <p><strong>Condição:</strong> {localPaymentOptions.data?.paymentTerms?.find((t: any) => t.id === paymentTermId)?.description || "—"}</p>
+                      <p><strong>Forma:</strong> {localPaymentOptions.data?.paymentMethods?.find((m: any) => m.id === paymentMethodId)?.description || "—"}</p>
+                      <p><strong>Tipo de Venda:</strong> {localPaymentOptions.data?.saleTypes?.find((s: any) => s.id === saleTypeId)?.description || "—"}</p>
                     </div>
                   </div>
 
