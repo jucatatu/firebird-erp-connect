@@ -819,13 +819,63 @@ function NewOrderPage() {
           <CardHeader><CardTitle className="text-lg">Empresa e Cliente</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
-              <Label>Seleção de Cliente</Label>
-              <Input placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+              <Label>Empresa</Label>
+              <div className="flex gap-4">
+                {(myCompanies.data || []).map((id: any) => (
+                  <Button
+                    key={id}
+                    variant={companyId === id ? "default" : "outline"}
+                    className="flex-1 py-8 text-lg font-bold"
+                    onClick={() => setCompany(id)}
+                  >
+                    {id === 1 ? "GRAAL" : id === 3 ? "GROTT" : `Empresa ${id}`}
+                  </Button>
+                ))}
+              </div>
+              {!companyId && (
+                <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" /> Selecione uma empresa para buscar clientes
+                </p>
+              )}
             </div>
-            <div className="space-y-2">
+
+            <Separator />
+
+            <div className="space-y-4">
+              <Label>Seleção de Cliente</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input 
+                  placeholder={companyId ? "Buscar cliente (mínimo 3 letras)..." : "Selecione a empresa primeiro"} 
+                  className="pl-9"
+                  value={clientSearch} 
+                  onChange={(e) => setClientSearch(e.target.value)} 
+                  disabled={!companyId}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {clientsQ.isLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              
+              {!companyId && !clientsQ.isLoading && (
+                <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                  <p className="text-sm text-muted-foreground">Aguardando seleção de empresa...</p>
+                </div>
+              )}
+
+              {companyId && !clientsQ.isLoading && (clientsQ.data?.data?.clients || []).length === 0 && debouncedSearch.length >= 3 && (
+                <div className="py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                  <p className="text-sm text-muted-foreground">Nenhum cliente encontrado para "{debouncedSearch}"</p>
+                </div>
+              )}
+
               {clientsQ.data?.data?.clients?.map((c) => (
-                <div key={c.id} className="flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-muted" onClick={() => {
-                  // Ao trocar de cliente, limpamos itens e equipamentos para evitar vazamento de preços/logística
+                <div key={c.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${clientId === c.id ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted'}`} onClick={() => {
                   if (clientId && clientId !== c.id && items.length > 0) {
                     if (confirm("Trocar de cliente limpará os itens atuais do carrinho. Deseja continuar?")) {
                       resetItemsAndClient();
@@ -835,12 +885,19 @@ function NewOrderPage() {
                     setClient(c.id, c.name);
                   }
                 }}>
-                  {c.name}
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">{c.name}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase">{c.document || 'Sem documento'} · {c.code || 'Sem código'}</span>
+                  </div>
                   {clientId === c.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
                 </div>
               ))}
             </div>
-            <Button disabled={!clientId} onClick={() => setStep("items")}>Próximo</Button>
+            <div className="flex justify-end pt-4 border-t">
+              <Button disabled={!clientId || !companyId} onClick={() => setStep("items")} className="w-full sm:w-auto">
+                Próximo Passo <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
