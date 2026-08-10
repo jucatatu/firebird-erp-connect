@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
@@ -133,12 +134,12 @@ export interface CreateOrderInput {
 }
 
 export const createErpOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d: { data: CreateOrderInput; idempotencyKey?: string }) => d)
-  .handler(async ({ data }) => {
-    const { callErp } = await import("./erp.server");
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    return handleCreateErpOrder(data.data, data.idempotencyKey, supabaseAdmin);
+    return handleCreateErpOrder(data.data, data.idempotencyKey, context.userId, supabaseAdmin);
   });
 
 /**
@@ -147,27 +148,24 @@ export const createErpOrder = createServerFn({ method: "POST" })
 export async function handleCreateErpOrder(
   input: CreateOrderInput,
   idempotencyKey: string | undefined,
+  userId: string,
   supabaseAdmin: any
 ): Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>> {
   const { callErp } = await import("./erp.server");
 
-  // 1. Resolver o sellerId a partir do auth.uid()
-  const { data: { user } } = await supabaseAdmin.auth.getUser();
-  if (!user) {
-    return {
-      ok: false,
-      status: 401,
-      data: null,
-      error: { code: "UNAUTHORIZED", message: "Usuário não autenticado no servidor.", retryable: false }
-    };
-  }
+  console.log("[ORDER SERVER] authenticated user resolved:", userId);
+
+  // 1. Resolver o sellerId a partir do userId fornecido pelo middleware
+  // Removido supabaseAdmin.auth.getUser() incorreto.
 
   // 2. Auditoria Server-Side de Empresa (Sprint 8.2)
   // Buscamos as empresas permitidas ao usuário no banco
   const { data: userCompanies, error: ucaErr } = await supabaseAdmin
     .from("user_company_access")
     .select("company_id")
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
+  
+  console.log("[ORDER SERVER] company access validated for user:", userId);
 
   if (ucaErr || !userCompanies || userCompanies.length === 0) {
     return {
@@ -204,7 +202,9 @@ export async function handleCreateErpOrder(
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from("profiles")
     .select("erp_seller_id")
-    .eq("id", user.id)
+    .eq("id", userId)
+  
+  console.log("[ORDER SERVER] seller resolved for user:", userId);
     .single();
 
   if (profileErr || !profile?.erp_seller_id) {
@@ -227,12 +227,22 @@ export async function handleCreateErpOrder(
     sellerId: profile.erp_seller_id
   };
   
-  return callErp({
+  console.log("[ORDER SERVER] before callErp POST /api/v1/orders");
+  const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
     body: finalPayload as unknown as JsonValue,
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
-  }) as Promise<ErpResponse<{ orderId: number; orderNumber: number; status: string }>>;
+  }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
+
+  console.log("[ORDER SERVER] callErp returned", { 
+    ok: result.ok, 
+    status: result.status, 
+    hasData: !!result.data,
+    orderNumber: result.data?.orderNumber
+  });
+
+  return result;
 }
 
 // --- PAYMENT OPTIONS ---
