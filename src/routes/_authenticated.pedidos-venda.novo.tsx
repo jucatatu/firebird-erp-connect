@@ -326,23 +326,34 @@ function NewOrderPage() {
 
       const termId = detail.defaultPaymentTermId;
       const methodId = detail.defaultPaymentMethodId;
+      const saleTypeId = detail.defaultSaleTypeId;
 
       const termExists = termId ? options.paymentTerms.some((t: any) => t.id === termId) : false;
       const methodExists = methodId ? options.paymentMethods.some((m: any) => m.id === methodId) : false;
+      const saleTypeExists = saleTypeId ? options.saleTypes.some((s: any) => s.id === saleTypeId) : false;
 
+      // Se o cliente tem padrão mas não está na lista (inativo/deletado no ERP), não selecionamos
       setPayment(
         termExists ? (termId as number) : null,
         methodExists ? (methodId as number) : null
       );
       
+      if (saleTypeExists) {
+        setSaleType(saleTypeId as number);
+      } else {
+        // Fallback homologado: se não tem padrão ou padrão é inválido, manter 1 se existir
+        const saleType1Exists = options.saleTypes.some((s: any) => s.id === 1);
+        if (saleType1Exists) setSaleType(1);
+      }
+      
       if (termId && !termExists) {
-        toast.warning("Condição de pagamento padrão do cliente não disponível no ERP.");
+        toast.warning("Condição de pagamento padrão do cliente não disponível ou inativa no ERP.");
       }
       if (methodId && !methodExists) {
-        toast.warning("Forma de pagamento padrão do cliente não disponível no ERP.");
+        toast.warning("Forma de pagamento padrão do cliente não disponível ou inativa no ERP.");
       }
     }
-  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment]);
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);

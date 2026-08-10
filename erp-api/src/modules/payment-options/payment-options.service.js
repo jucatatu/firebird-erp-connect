@@ -12,9 +12,20 @@ async function getPaymentOptions() {
     ]);
 
     return {
-      paymentTerms: terms.map(t => ({ id: Number(t.ID || t.id), description: String(t.DESCRIPTION || t.description).trim() })),
-      paymentMethods: methods.map(m => ({ id: Number(m.ID || m.id), description: String(m.DESCRIPTION || m.description).trim() })),
-      saleTypes: saleTypes.map(s => ({ id: Number(s.ID || s.id), description: String(s.DESCRIPTION || s.description).trim() }))
+      paymentTerms: terms.map(t => ({ 
+        id: Number(t.ID || t.id), 
+        code: String(t.CODE || t.code || "").trim(),
+        description: String(t.DESCRIPTION || t.description || "").trim() 
+      })),
+      paymentMethods: methods.map(m => ({ 
+        id: Number(m.ID || m.id), 
+        description: String(m.DESCRIPTION || m.description || "").trim(),
+        type: String(m.TYPE || m.type || "").trim()
+      })),
+      saleTypes: saleTypes.map(s => ({ 
+        id: Number(s.ID || s.id), 
+        description: String(s.DESCRIPTION || s.description || "").trim() 
+      }))
     };
   } catch (err) {
     throw new AppError({

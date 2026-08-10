@@ -236,15 +236,27 @@ export async function handleCreateErpOrder(
 }
 
 // --- PAYMENT OPTIONS ---
-export interface PaymentOption {
+export interface PaymentTerm {
+  id: number;
+  code: string;
+  description: string;
+}
+
+export interface PaymentMethod {
+  id: number;
+  description: string;
+  type: string;
+}
+
+export interface SaleType {
   id: number;
   description: string;
 }
 
 export interface PaymentOptionsPayload {
-  paymentTerms: PaymentOption[];
-  paymentMethods: PaymentOption[];
-  saleTypes: PaymentOption[];
+  paymentTerms: PaymentTerm[];
+  paymentMethods: PaymentMethod[];
+  saleTypes: SaleType[];
 }
 
 export const getErpPaymentOptions = createServerFn({ method: "GET" })
@@ -290,6 +302,6 @@ export const getErpClientDetail = createServerFn({ method: "GET" })
     return callErp({
       method: "GET",
       path: `/api/v1/clients/${clientId}`
-    }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number }>>;
+    }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number; defaultSaleTypeId?: number }>>;
   });
 
