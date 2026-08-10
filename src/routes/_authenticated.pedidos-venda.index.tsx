@@ -21,7 +21,7 @@ import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
-import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
+import { getItemsSummary, getEquipmentsSummary, getLogisticsSummary } from "@/lib/order-summary";
 
 type StatusFilter = OrderDraftStatus | "all";
 
@@ -200,6 +200,10 @@ function OrdersListPage() {
                           <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Equipamentos:</span>
                           <span className="text-foreground/80 truncate">{getEquipmentsSummary(d.payload)}</span>
                         </div>
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Logística:</span>
+                          <span className="text-foreground/80 truncate">{getLogisticsSummary(d.payload)}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 align-top text-foreground/80">
@@ -251,6 +255,10 @@ function OrdersListPage() {
                     <div className="flex items-start gap-1 text-[10px]">
                       <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Equipamentos:</span>
                       <span className="text-foreground/80 line-clamp-1">{getEquipmentsSummary(d.payload)}</span>
+                    </div>
+                    <div className="flex items-start gap-1 text-[10px]">
+                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Logística:</span>
+                      <span className="text-foreground/80 line-clamp-1">{getLogisticsSummary(d.payload)}</span>
                     </div>
                   </div>
                 </Link>

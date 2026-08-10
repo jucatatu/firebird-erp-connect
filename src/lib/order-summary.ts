@@ -1,4 +1,5 @@
 import { OrderDraftRow } from "@/hooks/use-drafts";
+import { formatDateOnly } from "@/utils/date-utils";
 
 /**
  * Resumo de produtos: Chopp Pilsen 30L, American IPA 10L...
@@ -36,4 +37,16 @@ export function getEquipmentsSummary(payload: any, limit: number = 2): string {
     return `${summary} +${equipments.length - limit} equipamentos`;
   }
   return summary;
+}
+
+/**
+ * Resumo logístico compacto
+ */
+export function getLogisticsSummary(payload: any): string {
+  const isDelivery = payload?.deliver === true;
+  const date = payload?.deliveryAt;
+  const typeLabel = isDelivery ? "Entrega" : "Retirada";
+  
+  if (!date) return typeLabel;
+  return `${typeLabel} ${formatDateOnly(date)}`;
 }
