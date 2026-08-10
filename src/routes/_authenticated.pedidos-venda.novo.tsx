@@ -930,7 +930,7 @@ function NewOrderPage() {
       </div>
 
       {step === "client" && (
-        <Card>
+        <Card className="shadow-none border-none sm:border">
           <CardHeader><CardTitle className="text-lg">Empresa e Cliente</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
