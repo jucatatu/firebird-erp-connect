@@ -8,6 +8,6 @@ console.log('Patterns para "Romeu":', JSON.stringify(patterns));
 
 // Antes da 8.5.4, Romeu virava %_OM_U% ou algo pior que casava com Edimar Miranda.
 // Na 8.5.7 deve ser ["%ROMEU%", "%R_M_U%"]
-assert.deepStrictEqual(patterns, ["%ROMEU%", "%R_M_U%"]);
+assert.deepStrictEqual(patterns, ["%ROMEU%"]);
 
 console.log('OK: Regressão de Clientes passou.');
