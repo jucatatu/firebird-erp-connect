@@ -160,8 +160,24 @@ export const useOrderFormStore = create<OrderFormStore>()(
           !(e.equipmentTypeId === typeId && (e.assignedProductId ?? null) === (assignedProductId ?? null))
         )
       })),
-      setDelivery: (deliver: boolean, date: string | null) => set({ deliver, deliveryAt: date }),
-      setReturn: (ret: boolean, date: string | null) => set({ returnEquipment: ret, returnAt: date }),
+      setDelivery: (deliver: boolean, date: string | null) => set((state) => {
+        const newState: Partial<OrderFormStore> = { deliver, deliveryAt: date };
+        if (state.returnEquipment && date) {
+          const d = new Date(date + (date.includes('T') ? '' : 'T12:00:00'));
+          d.setDate(d.getDate() + 7);
+          newState.returnAt = d.toISOString().split('T')[0];
+        }
+        return newState;
+      }),
+      setReturn: (ret: boolean, date: string | null) => set((state) => {
+        const newState: Partial<OrderFormStore> = { returnEquipment: ret, returnAt: date };
+        if (ret && !date && state.deliveryAt) {
+          const d = new Date(state.deliveryAt.split('T')[0] + 'T12:00:00');
+          d.setDate(d.getDate() + 7);
+          newState.returnAt = d.toISOString().split('T')[0];
+        }
+        return newState;
+      }),
       setNotes: (notes: string) => set({ notes }),
       setPayment: (termId: number | null, methodId: number | null) => set({ paymentTermId: termId, paymentMethodId: methodId }),
       setSaleType: (typeId: number | null) => set({ saleTypeId: typeId }),

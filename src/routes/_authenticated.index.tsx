@@ -60,7 +60,7 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.11 — EDIÇÃO DE PREÇO + COBERTURA DE BARRIS CONCLUÍDA</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.19 — CORREÇÃO DE REGRESSÕES NOVO PEDIDO CONCLUÍDA</h2>
         
         {"Foram implementadas melhorias críticas na precisão logística e flexibilidade comercial.\n\n"}
 
