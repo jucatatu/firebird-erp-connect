@@ -598,7 +598,8 @@ function NewOrderPage() {
             description: `${b.description} (${style})`, 
             quantity: qty,
             role: "KEG",
-            capacityLiters: capacity
+            capacityLiters: capacity,
+            assignedProductId: it.productId
           });
           remainingLiters -= qty * capacity;
         }
@@ -617,7 +618,8 @@ function NewOrderPage() {
              description: `${smallestToCover.description} (${style})`, 
              quantity: 1,
              role: "KEG",
-             capacityLiters: capacity
+             capacityLiters: capacity,
+             assignedProductId: it.productId
            });
         }
       }
