@@ -15,7 +15,7 @@ export function useCatalogSettings(itemType?: CatalogItemType) {
       let q = supabase
         .from("order_catalog_settings")
         .select(
-          "id, item_type, erp_item_id, erp_description_snapshot, display_name, enabled, company_ids, sort_order, default_quantity, quantity_step, requires_pickup, version, updated_at",
+          "id, item_type, logistics_type, erp_item_id, erp_description_snapshot, display_name, enabled, company_ids, sort_order, default_quantity, quantity_step, requires_pickup, version, updated_at",
         )
         .order("sort_order", { ascending: true })
         .order("erp_item_id", { ascending: true });
@@ -45,6 +45,7 @@ export function useUpsertCatalogSetting() {
         _display_name: draft.displayName?.trim() ? draft.displayName.trim() : undefined,
         _requires_pickup: draft.requiresPickup ?? undefined,
         _expected_version: draft.expectedVersion ?? undefined,
+        _logistics_type: draft.logisticsType ?? undefined,
       });
       if (error) throw new Error(translateCatalogError(error.message));
       return data as unknown as CatalogSetting;
