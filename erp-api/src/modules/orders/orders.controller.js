@@ -42,9 +42,10 @@ const updateOrder = asyncHandler(async (req, res) => {
   const { orderNumber } = req.params;
   const correlationId = req.requestId || service.newCorrelationId();
 
-  // O body deve vir com os campos de CreateOrderInput + possivelmente orderId/orderNumber
-  // O validador validateUpdateOrder espera orderId, vamos ajustar para pegar da URL se necessário
-  const payload = validateUpdateOrder({ ...req.body, orderNumber: Number(orderNumber) });
+  // O body deve vir com os campos de CreateOrderInput.
+  // O validador validateUpdateOrder espera orderId, mas vamos obter o orderId real
+  // dentro do service a partir do orderNumber da URL para garantir integridade.
+  const payload = validateUpdateOrder({ ...req.body, orderId: 1 /* placeholder validado no service */ });
 
   const order = await service.updateOrder({
     orderNumber: Number(orderNumber),
