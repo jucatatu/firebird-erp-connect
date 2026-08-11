@@ -163,7 +163,12 @@ function DraftDetailPage() {
       // 2. Carregar detalhe completo oficial do ERP
       const detailRes = await detailFn({ data: Number(draft.erp_order_number) });
       if (detailRes.ok && detailRes.data) {
-        editErpOrder(detailRes.data);
+        // Garantir que carregamos os nomes corretos do snapshot se não vierem do ERP
+        const erpData = detailRes.data;
+        editErpOrder({
+          ...erpData,
+          clientName: erpData.clientName || draft.customer_name_snapshot
+        });
         navigate({ to: "/pedidos-venda/novo" });
       } else {
         toast.error("Erro ao carregar dados do ERP", {

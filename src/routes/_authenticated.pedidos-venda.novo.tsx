@@ -448,7 +448,7 @@ function NewOrderPage() {
     // Ciclo de vida: O formulário deve começar limpo apenas quando iniciamos 
     // explicitamente um Novo Pedido (sem clientId ou vindo de sucesso/falha).
     // O Zustand persist cuida da preservação entre passos do wizard.
-    if (submissionStatus === "created" || submissionStatus === "failed") {
+    if (!isEditing && (submissionStatus === "created" || submissionStatus === "failed")) {
       resetItemsAndClient();
     }
     
