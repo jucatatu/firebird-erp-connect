@@ -32,6 +32,7 @@ export interface OrderFormStore {
   erpOrderId: number | null;
   erpOrderNumber: number | null;
   isEditing: boolean;
+  identityLocked: boolean; // Sprint 8.9.36: Bloqueio de identidade
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
@@ -80,6 +81,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       erpOrderId: null,
       erpOrderNumber: null,
       isEditing: false,
+      identityLocked: false,
       items: [],
       equipments: [],
       deliver: true, // true = Entrega, false = Retirada
@@ -91,7 +93,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       paymentMethodId: null,
       saleTypeId: null,
 
-      setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setClient: (id: number, name: string) => set({ clientId: id, clientName: name, identityLocked: true }),
       setCompany: (id: number | null) => set({ companyId: id }),
       setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
       setSubmissionStatus: (status, erpData) => set({ 
@@ -195,6 +197,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         erpOrderId: null,
         erpOrderNumber: null,
         isEditing: false,
+        identityLocked: false,
         items: [],
         equipments: [],
         deliver: true,
@@ -220,6 +223,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         erpOrderId: null,
         erpOrderNumber: null,
         isEditing: false,
+        identityLocked: false,
         notes: "",
         deliveryAt: null,
         returnAt: null,
@@ -239,6 +243,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           erpOrderId: null,
           erpOrderNumber: null,
           isEditing: false,
+          identityLocked: true,
           items: (payload.items || []).map((item: any) => ({
             productId: item.productId,
             description: item.description || `Produto ${item.productId}`,
@@ -278,6 +283,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           erpOrderId: null,
           erpOrderNumber: null,
           isEditing: false,
+          identityLocked: true,
           items: [],
           equipments: [],
           deliver: true,
@@ -302,6 +308,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           idempotencyKey: isFromErp ? crypto.randomUUID() : (order.idempotency_key || crypto.randomUUID()),
           submissionStatus: "editing",
           isEditing: true,
+          identityLocked: true,
           erpOrderId: isFromErp ? order.orderId : order.erp_order_id,
           erpOrderNumber: isFromErp ? order.orderNumber : order.erp_order_number,
           items: (payload.items || []).map((i: any) => ({

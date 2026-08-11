@@ -30,6 +30,11 @@ import { useSwipeable } from "react-swipeable";
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      edit: search.edit ? String(search.edit) : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Novo Pedido — ERP" },
@@ -329,13 +334,22 @@ function NewOrderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
-  const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+
+  // Sprint 8.9.36: Guard de navegação para impedir retorno ao cliente se a identidade estiver bloqueada
+  const setStep = (newStep: typeof step) => {
+    if (identityLocked && newStep === "client") {
+      console.log("[WIZARD] Bloqueando navegação para 'client' porque a identidade está travada.");
+      return;
+    }
+    setStepState(newStep);
+  };
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
@@ -352,8 +366,15 @@ function NewOrderPage() {
 
   useEffect(() => {
     const hydrate = async () => {
-      if (!editParam || isEditing || hydrationLoading) return;
+      // Se não há parâmetro ou já está editando/hidratando, não faz nada
+      if (!editParam || hydrationLoading) return;
       
+      // Se já está na store com o mesmo número, apenas garante o step
+      if (isEditing && erpOrderNumber === Number(editParam)) {
+        if (step === "client") setStep("items");
+        return;
+      }
+
       const orderNum = Number(editParam);
       if (isNaN(orderNum)) return;
 
@@ -364,10 +385,15 @@ function NewOrderPage() {
         const result = await fetchOrderDetail({ data: orderNum });
         if (result.ok && result.data) {
           editErpOrder(result.data);
+          // O setStep aqui usa a função com guard, mas como editErpOrder 
+          // já seta identityLocked=true no Zustand, precisamos garantir que 
+          // a transição aconteça. O setStepState contornaria o guard se necessário,
+          // mas o guard é para bloquear o 'client'.
           setStep("items");
           toast.success(`Pedido ${orderNum} carregado para edição.`);
         } else {
           toast.error(result.error?.message || "Erro ao carregar pedido.");
+          navigate({ to: "/pedidos-venda" });
         }
       } catch (err) {
         toast.error("Erro na comunicação com o servidor.");
@@ -376,7 +402,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, fetchOrderDetail, editErpOrder]);
+  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]);
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
@@ -1037,6 +1063,11 @@ function NewOrderPage() {
       }
     },
     onSwipedRight: () => {
+      // Sprint 8.9.36: Bloqueio de retorno ao cliente via swipe
+      if (step === "items" && identityLocked) {
+        console.log("[WIZARD] Swipe para a direita bloqueado: identidade travada no Passo 2.");
+        return;
+      }
       const prevStep = stepsOrder[currentStepIndex - 1];
       if (prevStep) setStep(prevStep);
     },
@@ -1063,6 +1094,38 @@ function NewOrderPage() {
         crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
+      {identityLocked && (
+        <div className="mt-4 mb-2 p-3 bg-muted/40 border border-muted-foreground/20 rounded-lg flex flex-col gap-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                {isEditing ? `Pedido ERP ${erpOrderNumber}` : "Identidade Bloqueada"}
+              </p>
+              <h3 className="text-sm font-semibold text-foreground leading-tight">
+                {clientName}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Empresa: {companyId === 3 ? "GROTT" : "GRAAL"}
+              </p>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs border-destructive/20 hover:bg-destructive/10 hover:text-destructive text-destructive"
+              onClick={() => {
+                if (window.confirm(isEditing ? "Deseja cancelar a edição? As alterações não salvas serão perdidas." : "Deseja cancelar o pedido atual?")) {
+                  reset();
+                  navigate({ to: "/pedidos-venda" });
+                }
+              }}
+            >
+              {isEditing ? "Cancelar Edição" : "Cancelar Pedido"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col gap-4">
         {/* Stepper responsivo: Faixa rolável no mobile */}
         <div className="flex w-full overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
@@ -1073,7 +1136,11 @@ function NewOrderPage() {
               { id: "delivery", label: "Entrega" },
               { id: "payment", label: "Pagamento" },
               { id: "review", label: "Revisão" }
-            ].map((s, i) => {
+            ].filter(s => {
+              // Sprint 8.9.36: No mobile, oculta a aba Cliente se a identidade estiver bloqueada
+              if (s.id === "client" && identityLocked) return false;
+              return true;
+            }).map((s, i) => {
               const stepIds = ["client", "items", "delivery", "payment", "review"];
               const currentIndex = stepIds.indexOf(step);
               const targetIndex = stepIds.indexOf(s.id);
@@ -1094,6 +1161,7 @@ function NewOrderPage() {
               };
 
               const navigateToStep = () => {
+                if (s.id === "client" && identityLocked) return;
                 if (canNavigate()) {
                   setStep(s.id as any);
                 } else {
@@ -1317,6 +1385,9 @@ function NewOrderPage() {
 
                                   // Atualiza os itens com preços resolvidos
                                   useOrderFormStore.setState({ items: updatedItems });
+                                  
+                                  // Sprint 8.9.36: Transição automática para Passo 2 após repetir pedido
+                                  setStep("items");
 
                                   // 3. Validar se a logística do snapshot ainda é válida com o catálogo atual
                                   // (as funções de cobertura usam o estado do Zustand que acabamos de setar)
