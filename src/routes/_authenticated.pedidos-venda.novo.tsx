@@ -628,10 +628,12 @@ function NewOrderPage() {
     
     equipments.forEach(eq => {
       // Sprint 8.9.11: Cobertura estrita por assignedProductId
+      // Sprint 8.9.36.5: Garantir que capacityLiters esteja presente para o cálculo
       if (eq.assignedProductId === productId) {
         if (eq.capacityLiters) {
           provided += eq.capacityLiters * eq.quantity;
         } else {
+          // Fallback seguro de parsing se o enriquecimento ainda não ocorreu
           const litersMatch = eq.description.match(/(\d+)\s*l/i);
           if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
         }
@@ -656,9 +658,70 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
+  // Sprint 8.9.36.5: Normalização de metadados de equipamentos no MODO EDIÇÃO
+  useEffect(() => {
+    if (!isEditing || !erpOrderNumber || hydrationLoading) return;
+    
+    const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
+    const allProducts = (productsQ.data as any)?.data?.products || [];
+    
+    // Só procedemos se o catálogo estiver carregado
+    if (allEquipTypes.length === 0 || allProducts.length === 0) return;
+
+    const needsNormalization = equipments.some(eq => !eq.role || eq.capacityLiters === undefined || (choppItems.length === 1 && !eq.assignedProductId && eq.role === 'KEG'));
+    
+    if (!needsNormalization) return;
+
+    console.log("[EQUIPMENT LOGISTICS] Normalizando metadados para pedido ERP:", erpOrderNumber);
+    
+    // Tenta localizar o snapshot correspondente para recuperar assignedProductId
+    const drafts = recentOrders.data || [];
+    const draftSnapshot = drafts.find((d: any) => d.erp_order_number === erpOrderNumber);
+    const snapshotEquips = (draftSnapshot as any)?.payload?.equipments || [];
+
+    const normalizedEquips = equipments.map(eq => {
+      const catalogInfo = allEquipTypes.find((et: any) => et.id === eq.equipmentTypeId);
+      if (!catalogInfo) return eq;
+
+      const role = catalogInfo.equipment_role || (catalogInfo.description?.toLowerCase().includes("barril") ? "KEG" : "TAP");
+      const capacity = catalogInfo.capacity_liters || Number(catalogInfo.description?.match(/(\d+)\s*l/i)?.[1] || 0);
+      const tapLines = catalogInfo.tap_count || Number(catalogInfo.description?.match(/(\d+)\s*vias/i)?.[1] || 1);
+
+      // Recuperação do assignedProductId
+      let assignedProductId = eq.assignedProductId;
+      
+      if (!assignedProductId) {
+        // 1. Snapshot do Supabase
+        const snap = snapshotEquips.find((se: any) => se.equipmentTypeId === eq.equipmentTypeId);
+        if (snap?.assignedProductId) {
+          assignedProductId = snap.assignedProductId;
+        } 
+        // 2. Fallback: Produto único
+        else if (role === "KEG" && choppItems.length === 1) {
+          assignedProductId = choppItems[0].productId;
+        }
+      }
+
+      return {
+        ...eq,
+        role: role as any,
+        capacityLiters: capacity,
+        tapLines: role === "TAP" ? tapLines : undefined,
+        assignedProductId
+      };
+    });
+
+    // Só atualiza se houver mudança real para evitar loops
+    const hasChanged = JSON.stringify(normalizedEquips) !== JSON.stringify(equipments);
+    if (hasChanged) {
+      console.log("[EQUIPMENT LOGISTICS] Atualizando equipamentos normalizados");
+      useOrderFormStore.setState({ equipments: normalizedEquips });
+    }
+  }, [isEditing, erpOrderNumber, hydrationLoading, equipmentTypesQ.data, productsQ.data, recentOrders.data, equipments.length, choppItems.length]);
+
   // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
   useEffect(() => {
-    const hasReturnables = equipments.length > 0; // Se a sugestão ou manual adicionou algo, provavelmente é retornável
+    const hasReturnables = equipments.length > 0;
     if (hasReturnables && !returnEquipment && step === "items") {
       console.log("[LOGISTICS] auto-enabling returnEquipment due to items in cart");
       setReturn(true, returnAt);
@@ -676,17 +739,12 @@ function NewOrderPage() {
         et.equipment_role === 'dispenser' || et.description?.toLowerCase().includes("chopeira")
       );
 
-      // Algoritmo: Encontrar combinação que use MENOS equipamentos
-      // Como o número de vias é pequeno (geralmente < 5), podemos fazer uma busca simples
-      // ou apenas priorizar a chopeira que mais se aproxima das vias necessárias sem excesso desnecessário
-      
       const sortedChopeiras = [...chopeiras].sort((a, b) => {
          const vA = a.tap_count || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          const vB = b.tap_count || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          return vB - vA; // Maior primeiro
       });
 
-      // Busca por equipamento único que cubra tudo
       const exactMatch = sortedChopeiras.find(ch => (ch.tap_count || 1) === requiredVias);
       const nextBest = [...sortedChopeiras].reverse().find(ch => (ch.tap_count || 1) >= requiredVias);
 
@@ -707,7 +765,6 @@ function NewOrderPage() {
           tapLines: nextBest.tap_count || 1
         });
       } else {
-        // Fallback: Combinar equipamentos se não houver um que cubra tudo sozinho
         let remaining = requiredVias;
         for (const ch of sortedChopeiras) {
           const vias = ch.tap_count || 1;
@@ -771,7 +828,6 @@ function NewOrderPage() {
         }
       }
 
-      // Se sobrar, pegar o menor barril que cubra o resto do produto
       if (remainingLiters > 0 && sortedBarris.length > 0) {
         const smallestToCover = [...sortedBarris].reverse().find(b => {
           const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
@@ -791,6 +847,7 @@ function NewOrderPage() {
       }
     });
 
+    // Sprint 8.9.36.5: Atualização atômica para garantir que isCoverageValid() dispare imediatamente
     useOrderFormStore.setState({ equipments: newEquips });
     setSuggestionDirty(false);
     toast.success("Sugestão otimizada de equipamentos aplicada");
