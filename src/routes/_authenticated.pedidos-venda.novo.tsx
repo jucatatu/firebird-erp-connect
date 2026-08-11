@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
-import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
+import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -339,7 +339,7 @@ function NewOrderPage() {
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
-    repeatOrder, newOrderFromClient
+    repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
 
   
@@ -837,6 +837,53 @@ function NewOrderPage() {
   };
 
   const handleCreateOrder = async () => {
+  const handleUpdateOrder = async () => {
+    if (!erpOrderNumber) return;
+    try {
+      setSubmissionStatus("submitting");
+      toast.info(`Salvando alterações no pedido ${erpOrderNumber}...`);
+      
+      const payload: CreateOrderInput = {
+        companyId: companyId!,
+        clientId: clientId!,
+        items: items.map(it => ({
+          productId: it.productId,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          manualUnitPrice: it.manualPrice ? it.appliedUnitPrice : null
+        })),
+        equipments: equipments.map(eq => ({
+          equipmentTypeId: eq.equipmentTypeId,
+          quantity: eq.quantity,
+          assignedProductId: eq.assignedProductId
+        })),
+        deliver,
+        deliveryAt: deliveryAt!,
+        returnEquipment,
+        returnAt,
+        notes,
+        paymentTermId: paymentTermId!,
+        paymentMethodId: paymentMethodId!,
+        saleTypeId: saleTypeId!,
+        freightValue: 0
+      };
+
+      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, payload } });
+      
+      if (result.ok) {
+        toast.success(`Pedido ${erpOrderNumber} atualizado com sucesso!`);
+        setSubmissionStatus("created", { orderNumber: erpOrderNumber });
+        queryClient.invalidateQueries({ queryKey: ["erp-orders"] });
+        navigate({ to: "/pedidos-venda" });
+      } else {
+        setSubmissionStatus("failed");
+        toast.error(result.error?.message || "Erro ao atualizar pedido");
+      }
+    } catch (err) {
+      setSubmissionStatus("failed");
+      toast.error("Erro interno ao processar atualização");
+    }
+  };
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
       console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
       return;
