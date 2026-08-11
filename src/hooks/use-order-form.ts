@@ -81,6 +81,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       erpOrderId: null,
       erpOrderNumber: null,
       isEditing: false,
+      identityLocked: false,
       items: [],
       equipments: [],
       deliver: true, // true = Entrega, false = Retirada
