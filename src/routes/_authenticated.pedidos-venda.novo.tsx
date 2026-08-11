@@ -361,7 +361,7 @@ function NewOrderPage() {
       toast.info(`Carregando pedido ERP ${orderNum}...`);
       
       try {
-        const result = await fetchOrderDetail({ data: { orderNumber: orderNum } });
+        const result = await fetchOrderDetail({ data: orderNum });
         if (result.ok && result.data) {
           editErpOrder(result.data);
           setStep("items");
@@ -837,53 +837,6 @@ function NewOrderPage() {
   };
 
   const handleCreateOrder = async () => {
-  const handleUpdateOrder = async () => {
-    if (!erpOrderNumber) return;
-    try {
-      setSubmissionStatus("submitting");
-      toast.info(`Salvando alterações no pedido ${erpOrderNumber}...`);
-      
-      const payload: CreateOrderInput = {
-        companyId: companyId!,
-        clientId: clientId!,
-        items: items.map(it => ({
-          productId: it.productId,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          manualUnitPrice: it.manualPrice ? it.appliedUnitPrice : null
-        })),
-        equipments: equipments.map(eq => ({
-          equipmentTypeId: eq.equipmentTypeId,
-          quantity: eq.quantity,
-          assignedProductId: eq.assignedProductId
-        })),
-        deliver,
-        deliveryAt: deliveryAt!,
-        returnEquipment,
-        returnAt,
-        notes,
-        paymentTermId: paymentTermId!,
-        paymentMethodId: paymentMethodId!,
-        saleTypeId: saleTypeId!,
-        freightValue: 0
-      };
-
-      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, payload } });
-      
-      if (result.ok) {
-        toast.success(`Pedido ${erpOrderNumber} atualizado com sucesso!`);
-        setSubmissionStatus("created", { orderNumber: erpOrderNumber });
-        queryClient.invalidateQueries({ queryKey: ["erp-orders"] });
-        navigate({ to: "/pedidos-venda" });
-      } else {
-        setSubmissionStatus("failed");
-        toast.error(result.error?.message || "Erro ao atualizar pedido");
-      }
-    } catch (err) {
-      setSubmissionStatus("failed");
-      toast.error("Erro interno ao processar atualização");
-    }
-  };
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
       console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
       return;
