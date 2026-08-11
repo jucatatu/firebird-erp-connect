@@ -836,6 +836,7 @@ function NewOrderPage() {
     );
   };
 
+  const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
       console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
       return;
