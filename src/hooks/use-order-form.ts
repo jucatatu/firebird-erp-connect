@@ -290,18 +290,20 @@ export const useOrderFormStore = create<OrderFormStore>()(
           saleTypeId: null,
         });
       },
-      editErpOrder: (draft: any) => {
-        const payload = draft.payload || {};
+      editErpOrder: (order: any) => {
+        // Agora suportamos tanto o draft do Supabase quanto o detalhe real do ERP
+        const isFromErp = 'orderNumber' in order;
+        const payload = isFromErp ? order : (order.payload || {});
         
         set({
           clientId: payload.clientId,
-          clientName: draft.customer_name_snapshot,
-          companyId: draft.company_id,
-          idempotencyKey: draft.idempotency_key || crypto.randomUUID(),
+          clientName: isFromErp ? (order.clientName || `Cliente ${payload.clientId}`) : order.customer_name_snapshot,
+          companyId: isFromErp ? payload.companyId : order.company_id,
+          idempotencyKey: isFromErp ? crypto.randomUUID() : (order.idempotency_key || crypto.randomUUID()),
           submissionStatus: "editing",
           isEditing: true,
-          erpOrderId: draft.erp_order_id,
-          erpOrderNumber: draft.erp_order_number,
+          erpOrderId: isFromErp ? order.orderId : order.erp_order_id,
+          erpOrderNumber: isFromErp ? order.orderNumber : order.erp_order_number,
           items: (payload.items || []).map((i: any) => ({
             productId: i.productId,
             description: i.description || `Produto ${i.productId}`,
@@ -314,7 +316,8 @@ export const useOrderFormStore = create<OrderFormStore>()(
           equipments: (payload.equipments || []).map((e: any) => ({
             equipmentTypeId: e.equipmentTypeId,
             description: e.description || `Equip. ${e.equipmentTypeId}`,
-            quantity: e.quantity
+            quantity: e.quantity,
+            assignedProductId: e.assignedProductId || null
           })),
           deliver: payload.deliver ?? true,
           deliveryAt: payload.deliveryAt,
