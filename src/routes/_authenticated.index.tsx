@@ -34,10 +34,10 @@ function Index() {
       <Outlet />
       
       <div className="hidden">
-        SPRINT 8.9.37 - ENDEREÇO DE ENTREGA POR PEDIDO
-        Implementação concluída com Google Maps (Places New API). 
-        O endereço de entrega agora é um snapshot do pedido, obrigatório para logística ENTREGA.
-        A confirmação é exigida no Wizard e o mapa operacional utiliza as coordenadas do pedido.
+        SPRINT 8.9.37.1 - DIAGNÓSTICO E CORREÇÃO GOOGLE MAPS
+        Melhorada a resiliência e o diagnóstico da integração Google Maps/Places.
+        Adicionados logs detalhados para identificar falhas de API Key, libraries ou restrições.
+        Corrigida a inicialização do autocomplete (Places New) e preservado fallback manual.
       </div>
 
     </div>
