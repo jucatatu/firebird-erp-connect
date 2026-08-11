@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
-import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
+import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, getErpClientDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -360,6 +360,7 @@ function NewOrderPage() {
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
   const fetchPrice = useServerFn(resolveErpPrice);
   const fetchOrderDetail = useServerFn(getErpOrderDetail);
+  const fetchClientDetail = useServerFn(getErpClientDetail);
   
   const [hydrationLoading, setHydrationLoading] = useState(false);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
@@ -403,7 +404,7 @@ function NewOrderPage() {
           try {
             const clientResult = await queryClient.fetchQuery({
               queryKey: ["erp", "clients", result.data.clientId, "detail"],
-              queryFn: () => useServerFn(getErpClientDetail)({ data: result.data.clientId })
+              queryFn: () => fetchClientDetail({ data: result.data.clientId })
             });
             if (clientResult.ok && clientResult.data) {
               realClientName = clientResult.data.name;
