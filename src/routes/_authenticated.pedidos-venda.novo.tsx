@@ -15,6 +15,7 @@ import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCr
 import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, getErpClientDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
+import { DeliveryAddressSection } from "@/components/order/delivery-address-section";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1080,7 +1081,10 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          deliveryAddress: deliveryAddress || undefined,
+          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+
         })),
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
@@ -1170,7 +1174,10 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          deliveryAddress: deliveryAddress || undefined,
+          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+
         })),
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
@@ -1738,7 +1745,9 @@ function NewOrderPage() {
       )}
 
       {step === "delivery" && clientId && (
-        <Card className="shadow-none border-none sm:border">
+        <div className="space-y-6">
+          <Card className="shadow-none border-none sm:border">
+
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -1801,10 +1810,25 @@ function NewOrderPage() {
 
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setStep("items")}>Voltar</Button>
-                <Button onClick={() => setStep("payment")}>Próximo</Button>
+                <Button 
+                  onClick={() => setStep("payment")}
+                  disabled={deliver && !deliveryAddressConfirmed}
+                >
+                  Próximo
+                </Button>
               </div>
             </CardContent>
           </Card>
+
+          {deliver && (
+            <Card className="shadow-none border-none sm:border">
+              <CardContent className="pt-6">
+                <DeliveryAddressSection clientAddress={clientDetailQ.data?.data?.address} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         )}
 
         {step === "payment" && clientId && (

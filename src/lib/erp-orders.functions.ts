@@ -138,6 +138,9 @@ export interface CreateOrderInput {
   returnAt?: string | null;
   freightValue?: number;
   notes?: string | null;
+  deliveryAddress?: any;
+  deliveryAddressConfirmed?: boolean;
+
   items: Array<{ 
     productId: number; 
     description?: string;
@@ -171,6 +174,9 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
 
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
+    deliveryAddress: input.deliveryAddress ?? null,
+    deliveryAddressConfirmed: input.deliveryAddressConfirmed ?? false,
+
     items: input.items.map(item => ({
       productId: item.productId,
       quantity: item.quantity,
