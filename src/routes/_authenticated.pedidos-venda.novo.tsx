@@ -987,7 +987,7 @@ function NewOrderPage() {
           <Button variant="outline" onClick={() => window.location.reload()}>
             <RefreshCcw className="h-4 w-4 mr-2" /> Tentar novamente
           </Button>
-          <Button onClick={() => navigate({ to: "/pedidos-venda" })}>
+          <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>
             Voltar para Pedidos
           </Button>
         </div>
@@ -1215,7 +1215,7 @@ function NewOrderPage() {
       <PageHeader 
         title={isEditing ? `Editando Pedido ${erpOrderNumber}` : "Novo Pedido"} 
         description={isEditing ? "Altere os dados necessários e salve as modificações no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
-        crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
+        crumbs={[{ label: "Pedidos", to: "/pedidos-venda", search: { status: "all" } }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
       {identityLocked && (
@@ -1240,7 +1240,7 @@ function NewOrderPage() {
               onClick={() => {
                 if (window.confirm(isEditing ? "Deseja cancelar a edição? As alterações não salvas serão perdidas." : "Deseja cancelar o pedido atual?")) {
                   reset();
-                  navigate({ to: "/pedidos-venda" });
+                  navigate({ to: "/pedidos-venda", search: { status: "all" } });
                 }
               }}
             >
