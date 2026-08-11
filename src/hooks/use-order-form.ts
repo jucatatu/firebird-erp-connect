@@ -93,7 +93,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       paymentMethodId: null,
       saleTypeId: null,
 
-      setClient: (id: number, name: string) => set({ clientId: id, clientName: name }),
+      setClient: (id: number, name: string) => set({ clientId: id, clientName: name, identityLocked: true }),
       setCompany: (id: number | null) => set({ companyId: id }),
       setIdempotencyKey: (key: string) => set({ idempotencyKey: key }),
       setSubmissionStatus: (status, erpData) => set({ 
