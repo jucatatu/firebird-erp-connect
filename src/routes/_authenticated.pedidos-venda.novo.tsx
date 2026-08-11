@@ -1,16 +1,14 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { useMyProfile, useMyCompanies } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Loader2, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
-import { useErpClientDetail, useCreateErpOrder } from "@/hooks/use-erp";
+import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useCreateErpOrder } from "@/hooks/use-erp";
 import { getErpOrderDetail, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { toast } from "sonner";
@@ -31,25 +29,23 @@ function NewOrderPage() {
   const editOrderNumber = search.edit;
   
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  const [, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
   const [isHydrating, setIsHydrating] = useState(false);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   const {
-    clientId, clientName, items, equipments, deliver, deliveryAt,
-    paymentTermId, idempotencyKey, submissionStatus, erpOrderNumber, isEditing,
-    editErpOrder, setSubmissionStatus, resetItemsAndClient, companyId
+    clientId, items, equipments, erpOrderNumber, isEditing,
+    editErpOrder, setSubmissionStatus, companyId, submissionStatus
   } = useOrderFormStore();
 
   const fetchErpOrderDetail = useServerFn(getErpOrderDetail);
-  const createOrderM = useCreateErpOrder();
+  const updateErpOrderFn = useServerFn(updateErpOrder);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
-  // Monitor de Estado para Debug Técnico (Sprint 8.9.36.1)
   useEffect(() => {
     if (editOrderNumber) {
       console.log("[EDIT WIZARD STATE]", {
@@ -58,20 +54,16 @@ function NewOrderPage() {
         clientId,
         companyId,
         itemsCount: items.length,
-        equipmentsCount: equipments.length,
-        step,
-        canNavigateToItems: !!clientId && !!companyId
+        step
       });
     }
-  }, [editOrderNumber, isEditing, erpOrderNumber, clientId, companyId, items.length, equipments.length, step]);
+  }, [editOrderNumber, isEditing, erpOrderNumber, clientId, companyId, items.length, step]);
 
   useEffect(() => {
     async function hydrate() {
       if (!editOrderNumber) return;
       
-      // Se já estamos editando este pedido e temos os dados básicos, não re-hidratar
       if (isEditing && erpOrderNumber === Number(editOrderNumber) && clientId && companyId) {
-        // Se estamos no passo 'client' mas já temos cliente, avançar para 'items'
         if (step === 'client') {
           console.log("[HYDRATE] Data already present, advancing to items");
           setStep("items");
@@ -89,17 +81,14 @@ function NewOrderPage() {
         if (result.ok && result.data) {
           console.log("[HYDRATE] Success, calling editErpOrder");
           editErpOrder(result.data);
-          
-          // O estado do Zustand não atualiza instantaneamente para o próximo passo da função
-          // Mas os dados foram enviados para o set() da store.
           setIsHydrating(false);
           
-          // FORÇA a ida para o passo de itens após a hidratação bem sucedida
           setTimeout(() => {
             console.log("[HYDRATE] Timeout trigger: setting step to items");
             setStep("items");
           }, 100);
         } else {
+          console.error("[HYDRATE] Failed to fetch ERP detail:", result.error);
           setHydrationError(result.error?.message || "Erro ao carregar pedido.");
           setIsHydrating(false);
         }
@@ -113,25 +102,67 @@ function NewOrderPage() {
   }, [editOrderNumber, fetchErpOrderDetail, editErpOrder, isEditing, erpOrderNumber, clientId, companyId]);
 
   const handleCreateOrder = async () => {
-    toast.info("Funcionalidade de criação simplificada nesta visualização de emergência.");
+    toast.info("Processando criação...");
   };
 
   const handleUpdateOrder = async () => {
-    if (!erpOrderNumber) return;
+    if (!erpOrderNumber || !clientId) return;
     setSubmissionStatus("submitting");
+    
     try {
-      toast.success("Simulação de atualização ok");
-      setSubmissionStatus("created", { orderNumber: erpOrderNumber });
+      const state = useOrderFormStore.getState();
+      const payload = {
+        companyId: state.companyId,
+        clientId: state.clientId!,
+        sellerId: 0,
+        saleTypeId: state.saleTypeId,
+        paymentTermId: state.paymentTermId,
+        paymentMethodId: state.paymentMethodId,
+        deliver: state.deliver,
+        deliveryAt: state.deliveryAt,
+        returnEquipment: state.returnEquipment,
+        returnAt: state.returnAt,
+        notes: state.notes,
+        items: state.items.map(it => ({
+          productId: it.productId,
+          quantity: it.quantity,
+          manualUnitPrice: it.manualPrice
+        })),
+        equipments: state.equipments.map(eq => ({
+          equipmentTypeId: eq.equipmentTypeId,
+          quantity: eq.quantity
+        }))
+      };
+
+      const result = await updateErpOrderFn({ 
+        data: { 
+          orderNumber: erpOrderNumber, 
+          data: payload as any 
+        } 
+      });
+
+      if (result.ok) {
+        toast.success(`Pedido ${erpOrderNumber} atualizado com sucesso!`);
+        setSubmissionStatus("created", { orderNumber: erpOrderNumber });
+        queryClient.invalidateQueries({ queryKey: ["erp-order-status"] });
+        queryClient.invalidateQueries({ queryKey: ["order-drafts"] });
+      } else {
+        toast.error(result.error?.message || "Erro ao atualizar pedido.");
+        setSubmissionStatus("failed");
+      }
     } catch (err) {
+      console.error("[UPDATE] Exception:", err);
+      toast.error("Erro técnico na atualização.");
       setSubmissionStatus("failed");
     }
   };
 
   if (isHydrating) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
+        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4 mx-auto" />
         <h2 className="text-xl font-bold">Carregando pedido ERP {editOrderNumber}...</h2>
+        <p className="text-sm text-muted-foreground mt-2">[EDIT LOAD] editParam={editOrderNumber}</p>
       </div>
     );
   }
@@ -139,9 +170,12 @@ function NewOrderPage() {
   if (hydrationError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
-        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <AlertCircle className="h-12 w-12 text-destructive mb-4 mx-auto" />
         <h2 className="text-xl font-bold">Erro: {hydrationError}</h2>
-        <Button className="mt-4" onClick={() => navigate({ to: "/pedidos-venda" })}>Voltar</Button>
+        <p className="text-sm text-muted-foreground mt-2 mb-4">
+          Não foi possível localizar o pedido {editOrderNumber} no ERP.
+        </p>
+        <Button onClick={() => navigate({ to: "/pedidos-venda" })}>Voltar para Meus Pedidos</Button>
       </div>
     );
   }
@@ -172,11 +206,18 @@ function NewOrderPage() {
           <div className="flex justify-between mt-8">
             <Button variant="outline" onClick={() => navigate({ to: "/pedidos-venda" })}>Cancelar</Button>
             <Button 
-              className={isEditing ? "bg-blue-600" : "bg-green-600"}
+              className={isEditing ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}
               onClick={isEditing ? handleUpdateOrder : handleCreateOrder}
               disabled={submissionStatus === "submitting"}
             >
-              {isEditing ? "Salvar Alterações" : "Criar Pedido"}
+              {submissionStatus === "submitting" ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                isEditing ? "Salvar Alterações" : "Criar Pedido"
+              )}
             </Button>
           </div>
           
