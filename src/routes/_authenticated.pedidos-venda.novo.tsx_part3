@@ -28,14 +28,14 @@ function NewOrderPage() {
       if (!editOrderNumber) return;
       
       // Se já estivermos com o pedido certo na store, não re-hidratamos
-      if (isEditing && erpOrderNumber === editOrderNumber) return;
+      if (isEditing && erpOrderNumber === Number(editOrderNumber)) return;
 
       setIsHydrating(true);
       setHydrationError(null);
       console.log(`[WIZARD] SPRINT 8.9.36 - Iniciando hidratação ERP ${editOrderNumber}`);
 
       try {
-        const result = await fetchErpOrderDetail({ data: editOrderNumber });
+        const result = await fetchErpOrderDetail({ data: Number(editOrderNumber) });
         
         if (result.ok && result.data) {
           const order = result.data;

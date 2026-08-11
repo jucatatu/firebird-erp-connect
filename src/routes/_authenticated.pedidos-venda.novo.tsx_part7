@@ -9,7 +9,7 @@
                     {submissionStatus === "submitting" ? (
                       <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> {isEditing ? "Salvando..." : "Criando..."}</>
                     ) : (
-                      isEditing ? "Salvar Alterações — disponível na próxima etapa" : "Finalizar Pedido"
+                      isEditing ? "Salvar Alterações" : "Finalizar Pedido"
                     )}
                   </Button>
                 )}
