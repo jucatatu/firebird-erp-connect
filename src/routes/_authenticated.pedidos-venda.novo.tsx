@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,6 +30,11 @@ import { useSwipeable } from "react-swipeable";
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
+  validateSearch: (search: Record<string, unknown>): { edit?: number } => {
+    return {
+      edit: search.edit ? Number(search.edit) : undefined,
+    };
+  },
   head: () => {
     // Acessando o store de forma estática para o head (SSR safe)
     const state = useOrderFormStore.getState();
@@ -451,11 +456,23 @@ function NewOrderPage() {
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
 
+  const { edit } = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
+
   useEffect(() => {
     // Ciclo de vida: O formulário deve começar limpo apenas quando iniciamos 
     // explicitamente um Novo Pedido (sem clientId ou vindo de sucesso/falha).
-    // O Zustand persist cuida da preservação entre passos do wizard.
+    // Sprint 8.9.34: SE o parâmetro "edit" estiver presente, NUNCA resetar a store.
+    if (edit) {
+      console.log("[WIZARD] Edit mode detected via URL, skipping store reset", edit);
+      // Se estamos no primeiro passo e já temos cliente (hidratação concluída), saltamos para revisão
+      if (step === "client" && clientId) {
+         setStep("review");
+      }
+      return;
+    }
+
     if (!isEditing && (submissionStatus === "created" || submissionStatus === "failed")) {
+      console.log("[WIZARD] Resetting store due to terminal status", submissionStatus);
       resetItemsAndClient();
     }
     
@@ -464,7 +481,7 @@ function NewOrderPage() {
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
       setCompany(myCompanies.data[0]);
     }
-  }, [myCompanies.data, companyId, setCompany, submissionStatus]);
+  }, [myCompanies.data, companyId, setCompany, submissionStatus, isEditing, edit, clientId, step]);
 
   useEffect(() => {
     if (!idempotencyKey) {
