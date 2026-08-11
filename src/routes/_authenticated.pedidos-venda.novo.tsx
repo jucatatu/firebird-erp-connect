@@ -483,11 +483,12 @@ function NewOrderPage() {
   };
 
   useEffect(() => {
-    if (step === "payment" && !localPaymentOptions.data && !localPaymentOptions.loading) {
-      console.log("[PAYMENT UI] entered payment step, triggering load");
-      loadPaymentOptionsDirectly();
-    }
-  }, [step]);
+    const loadData = async () => {
+      // Sprint 8.9.36.3: Não carregar defaults no modo edição para evitar sobrescrita do ERP
+      if (!clientId || !companyId || hydrationLoading || isEditing) return;
+      
+      console.log("[PAYMENT UI] clientId/companyId changed, loading defaults for CREATE mode");
+      setLocalPaymentOptions(prev => ({ ...prev, loading: true, error: null }));
 
   const clientDetailQ = useErpClientDetail(clientId);
   
@@ -868,6 +869,40 @@ function NewOrderPage() {
         })}
       </div>
     );
+  };
+
+  // Sprint 8.9.36.3: Gate de hidratação prioritário para modo edição
+  if (editParam && (hydrationLoading || (erpOrderNumber !== Number(editParam)))) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">
+          Carregando pedido ERP {editParam}...
+        </p>
+      </div>
+    );
+  }
+
+  if (editParam && hydrationError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="space-y-2">
+          <h3 className="text-lg font-bold">Erro ao carregar pedido</h3>
+          <p className="text-sm text-muted-foreground">{hydrationError}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCcw className="h-4 w-4 mr-2" /> Tentar novamente
+          </Button>
+          <Button onClick={() => navigate({ to: "/pedidos-venda" })}>
+            Voltar para Pedidos
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   };
 
   const CoverageSummary = () => {

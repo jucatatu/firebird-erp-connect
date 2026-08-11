@@ -296,45 +296,42 @@ export const useOrderFormStore = create<OrderFormStore>()(
           saleTypeId: null,
         });
       },
-      editErpOrder: (order: any) => {
-        // Agora suportamos tanto o draft do Supabase quanto o detalhe real do ERP
-        const isFromErp = 'orderNumber' in order;
-        const payload = isFromErp ? order : (order.payload || {});
-        
+      editErpOrder: (order: any, clientName: string) => {
+        // Sprint 8.9.36.3: Hidratação atômica e isolada
         set({
-          clientId: payload.clientId,
-          clientName: isFromErp ? (order.clientName || `Cliente ${payload.clientId}`) : order.customer_name_snapshot,
-          companyId: isFromErp ? payload.companyId : order.company_id,
-          idempotencyKey: isFromErp ? crypto.randomUUID() : (order.idempotency_key || crypto.randomUUID()),
-          submissionStatus: "editing",
+          clientId: order.clientId,
+          clientName: clientName,
+          companyId: order.companyId,
+          idempotencyKey: crypto.randomUUID(),
+          submissionStatus: "draft",
+          lastAttemptAt: null,
+          erpOrderId: order.orderId,
+          erpOrderNumber: order.orderNumber,
           isEditing: true,
           identityLocked: true,
-          erpOrderId: isFromErp ? order.orderId : order.erp_order_id,
-          erpOrderNumber: isFromErp ? order.orderNumber : order.erp_order_number,
-          items: (payload.items || []).map((i: any) => ({
+          items: (order.items || []).map((i: any) => ({
             productId: i.productId,
             description: i.description || `Produto ${i.productId}`,
             quantity: i.quantity,
             unitPrice: i.unitPrice || 0,
             appliedUnitPrice: i.manualUnitPrice || i.unitPrice || 0,
             manualPrice: i.manualUnitPrice !== null && i.manualUnitPrice !== undefined,
-            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity,
-            unit: i.unit || "UN"
+            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity
           })),
-          equipments: (payload.equipments || []).map((e: any) => ({
+          equipments: (order.equipments || []).map((e: any) => ({
             equipmentTypeId: e.equipmentTypeId,
             description: e.description || `Equip. ${e.equipmentTypeId}`,
             quantity: e.quantity,
             assignedProductId: e.assignedProductId || null
           })),
-          deliver: payload.deliver ?? true,
-          deliveryAt: payload.deliveryAt,
-          returnEquipment: payload.returnEquipment ?? false,
-          returnAt: payload.returnAt,
-          notes: payload.notes || "",
-          paymentTermId: payload.paymentTermId,
-          paymentMethodId: payload.paymentMethodId,
-          saleTypeId: payload.saleTypeId
+          deliver: order.deliver ?? true,
+          deliveryAt: order.deliveryAt,
+          returnEquipment: order.returnEquipment ?? false,
+          returnAt: order.returnAt,
+          notes: order.notes || "",
+          paymentTermId: order.paymentTermId,
+          paymentMethodId: order.paymentMethodId,
+          saleTypeId: order.saleTypeId
         });
       },
     }),
