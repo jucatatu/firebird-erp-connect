@@ -24,11 +24,11 @@ require.cache[clientPath] = {
   exports: {
     ping: async () => true,
     executeQuery: async (sql, params) => {
-      // Normalizamos a query para comparação
-      const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+      // console.log('[MOCK executeQuery] SQL:', JSON.stringify(sql));
+      // console.log('[MOCK executeQuery] Params:', params);
       
       // Simular busca por N_PEDIDO 8623
-      if (normalizedSql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
+      if (sql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
         return [{
           ID_ORDENS_VENDA: 5000,
           N_PEDIDO: 8623,
@@ -47,11 +47,11 @@ require.cache[clientPath] = {
         }];
       }
       // Simular busca de itens para o ID 5000
-      if (normalizedSql.includes('FROM ITENS_ORDENS_VENDA') && params[0] === 5000) {
+      if (sql.includes('FROM ITENS_ORDENS_VENDA') && params[0] === 5000) {
         return [{ ID_PRODUTO: 10, DESCRICAO: 'Produto 10', QTDE_PEDIDA: 2, PRECO_UNIT: 15.5 }];
       }
       // Simular busca de equipamentos para o ID 5000
-      if (normalizedSql.includes('FROM EQUIP_ORDENS_VENDA') && params[0] === 5000) {
+      if (sql.includes('FROM EQUIP_ORDENS_VENDA') && params[0] === 5000) {
         return [{ ID_TIPO_EQUIPAMENTO: 5, DESCRICAO: 'Equipamento 5', QTDE: 1 }];
       }
       return [];
@@ -59,8 +59,7 @@ require.cache[clientPath] = {
     withTransaction: async (fn) => {
       const tx = {
         query: async (sql, params) => {
-          const normalizedSql = sql.replace(/\s+/g, ' ').trim();
-          if (normalizedSql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
+          if (sql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
              return [{ ID_ORDENS_VENDA: 5000, N_PEDIDO: 8623, ID_STATUS: 27 }];
           }
           return [];

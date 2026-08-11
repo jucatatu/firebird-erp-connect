@@ -142,13 +142,11 @@ async function fetchOrderByNumber(txOrConn, orderNumber) {
   // Se for passado um txOrConn que não é o client firebird, assumimos que é uma transação ou conexão ativa
   // que implementa .query(). O firebird-client exportado NÃO implementa .query(), mas sim .executeQuery().
   if (txOrConn && typeof txOrConn.query === "function") {
-    // console.log('[DEBUG SQL]', sql, orderNumber);
     const rows = await txOrConn.query(sql, [orderNumber]);
     return rows && rows[0] ? rows[0] : null;
   }
   
   // Fallback para executeQuery canônico do pool
-  // console.log('[DEBUG SQL executeQuery]', sql, orderNumber);
   const rows = await firebird.executeQuery(sql, [orderNumber]);
   return rows && rows[0] ? rows[0] : null;
 }
