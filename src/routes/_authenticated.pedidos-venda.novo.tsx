@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
-import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
+import { getErpPaymentOptions, resolveErpPrice, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder, getErpOrderDetail } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -27,8 +27,6 @@ import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 import { companyLabel } from "@/components/order-identifier";
 import { formatDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
-
-
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   validateSearch: (search: Record<string, unknown>): { edit?: number } => {
     return {
@@ -337,27 +335,6 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
   );
 }
 
-function NewOrderPage() {
-  const navigate = useNavigate();
-  const search = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
-  const editOrderNumber = search.edit;
-  
-  const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
-  const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
-  const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
-  const [isHydrating, setIsHydrating] = useState(false);
-  const [hydrationError, setHydrationError] = useState<string | null>(null);
-
-  const {
-    clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
-    returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
-    setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
-    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
-    setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
-    repeatOrder, newOrderFromClient, editErpOrder
-  } = useOrderFormStore();
 
 
   
@@ -1115,37 +1092,6 @@ function NewOrderPage() {
                   className="flex flex-col items-center gap-1 cursor-pointer group"
                   onClick={navigateToStep}
                 >
-                  <Badge 
-                    variant={step === s.id ? "default" : "outline"} 
-                    className={`px-3 py-1.5 whitespace-nowrap text-[11px] sm:text-xs transition-all duration-200 
-                      ${step === s.id ? 'bg-orange-600 hover:bg-orange-700 text-white scale-105 shadow-md ring-2 ring-orange-200 border-orange-600' : 
-                        isBlocked ? 'opacity-40 grayscale cursor-not-allowed' : 'opacity-80 hover:bg-muted group-hover:scale-105'}`}
-                  >
-                    {i + 1}. {s.label}
-                  </Badge>
-                  {isCurrent && <div className="h-0.5 w-full bg-orange-600 rounded-full animate-in zoom-in-50 duration-300" />}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* DEBUG SPRINT 8.9.35 */}
-        {edit && (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded mb-4 animate-in slide-in-from-top duration-500">
-            <p className="font-bold text-sm">MODO EDIÇÃO</p>
-            <p className="text-xs font-mono">ERP: {edit}</p>
-          </div>
-        )}
-
-        {/* Nome do cliente/usuário: Linha separada ou compacto no mobile */}
-        {clientId && (
-          <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded-lg border border-muted/50 w-full overflow-hidden animate-in fade-in duration-300">
-            <span className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase whitespace-nowrap shrink-0">Pedido para:</span>
-            <p className="text-xs sm:text-sm font-bold truncate text-primary">{clientName}</p>
-          </div>
-        )}
-      </div>
 
       {step === "client" && (
         <Card className="shadow-none border-none sm:border">
@@ -1829,18 +1775,6 @@ function NewOrderPage() {
               <div className="flex justify-between pt-6 border-t">
                 <Button variant="outline" onClick={() => setStep("payment")} disabled={submissionStatus === "submitting"}>Voltar</Button>
                 {submissionStatus !== "created" && (
-                  <Button 
-                    size="lg" 
-                    className={`px-8 min-w-[160px] font-bold ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`} 
-                    onClick={isEditing ? handleUpdateOrder : handleCreateOrder} 
-                    disabled={submissionStatus === "submitting"}
-                  >
-                    {submissionStatus === "submitting" ? (
-                      <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> {isEditing ? "Salvando..." : "Criando..."}</>
-                    ) : (
-                      isEditing ? "Salvar Alterações" : "Finalizar Pedido"
-                    )}
-                  </Button>
                 )}
                 {submissionStatus === "created" && (
                   <div className="flex flex-col items-end gap-1">

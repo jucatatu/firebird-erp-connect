@@ -1,0 +1,68 @@
+function NewOrderPage() {
+  const navigate = useNavigate();
+  const search = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
+  const editOrderNumber = search.edit;
+  
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<User | null>(null);
+  const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
+  const {
+    clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
+    returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
+    setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
+    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
+    setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
+    repeatOrder, newOrderFromClient, editErpOrder
+  } = useOrderFormStore();
+
+  const fetchErpOrderDetail = useServerFn(getErpOrderDetail);
+
+  // SPRINT 8.9.36 — HIDRATAÇÃO ÚNICA DO WIZARD
+  useEffect(() => {
+    async function hydrate() {
+      if (!editOrderNumber) return;
+      
+      // Se já estivermos com o pedido certo na store, não re-hidratamos
+      if (isEditing && erpOrderNumber === editOrderNumber) return;
+
+      setIsHydrating(true);
+      setHydrationError(null);
+      console.log(`[WIZARD] SPRINT 8.9.36 - Iniciando hidratação ERP ${editOrderNumber}`);
+
+      try {
+        const result = await fetchErpOrderDetail({ data: editOrderNumber });
+        
+        if (result.ok && result.data) {
+          const order = result.data;
+          
+          // Validação de Status
+          const { canEditErpOrder } = await import("@/lib/erp-orders.functions");
+          if (!canEditErpOrder(order.statusId)) {
+            setHydrationError(`Pedido ${editOrderNumber} não pode ser editado no status ${order.statusDescription || order.statusId}.`);
+            setIsHydrating(false);
+            return;
+          }
+
+          // HIDRATAÇÃO ATÔMICA
+          console.log("[WIZARD] Executando editErpOrder atômico");
+          editErpOrder(order);
+          setIsHydrating(false);
+          toast.success(`Pedido ERP ${editOrderNumber} carregado com sucesso.`);
+        } else {
+          setHydrationError(result.error?.message || `Não foi possível carregar o pedido ERP ${editOrderNumber}.`);
+          setIsHydrating(false);
+        }
+      } catch (err: any) {
+        console.error("[WIZARD] Erro na hidratação:", err);
+        setHydrationError(`Erro fatal ao carregar pedido ${editOrderNumber}.`);
+        setIsHydrating(false);
+      }
+    }
+
+    hydrate();
+  }, [editOrderNumber, fetchErpOrderDetail, editErpOrder, isEditing, erpOrderNumber]);
