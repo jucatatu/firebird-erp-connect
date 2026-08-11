@@ -717,7 +717,7 @@ function NewOrderPage() {
       console.log("[EQUIPMENT LOGISTICS] Atualizando equipamentos normalizados");
       useOrderFormStore.setState({ equipments: normalizedEquips });
     }
-  }, [isEditing, erpOrderNumber, hydrationLoading, equipmentTypesQ.data, productsQ.data, recentOrders, equipments.length, choppItems.length]);
+  }, [isEditing, erpOrderNumber, hydrationLoading, equipmentTypesQ.data, productsQ.data, recentOrders.data, equipments.length, choppItems.length]);
 
   // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
   useEffect(() => {
