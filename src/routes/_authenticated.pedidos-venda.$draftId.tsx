@@ -143,18 +143,20 @@ function DraftDetailPage() {
   const detailFn = useServerFn(getErpOrderDetail);
 
   const handleEdit = async () => {
-    // SPRINT 8.9.35 — ISOLAR E CORRIGIR SOMENTE A NAVEGAÇÃO
-    console.log("[DETAIL] SPRINT 8.9.35 - Navigating to wizard", { erp_order_number: draft?.erp_order_number });
+    // SPRINT 8.9.36.1 — LOGS DE DIAGNÓSTICO
+    console.log("[EDIT FLOW] click orderNumber=", draft?.erp_order_number);
     
     if (!draft?.erp_order_number) {
       toast.error("Número do pedido ERP não encontrado.");
       return;
     }
     
-    // NAVEGAÇÃO DIRETA SEM HIDRATAÇÃO (conforme item 5 da instrução)
+    console.log("[EDIT FLOW] navigating to /pedidos-venda/novo?edit=" + draft.erp_order_number);
+    
+    // NAVEGAÇÃO DIRETA SEM HIDRATAÇÃO (será feita no wizard)
     navigate({ 
       to: "/pedidos-venda/novo",
-      search: { edit: Number(draft.erp_order_number) } as any
+      search: { edit: String(draft.erp_order_number) } as any
     });
   };
 
