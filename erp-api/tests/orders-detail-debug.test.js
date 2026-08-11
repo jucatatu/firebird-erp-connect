@@ -82,8 +82,8 @@ test("GET /api/v1/orders/:orderNumber - debug logic", async (t) => {
   console.log('[TEST DEBUG] Body:', JSON.stringify(res.body, null, 2));
 
   assert.strictEqual(res.status, 200, "Should return 200");
-  assert.strictEqual(res.body.data.N_PEDIDO, 8623);
-  assert.strictEqual(res.body.data.ID_ORDENS_VENDA, 5000);
+  assert.strictEqual(res.body.data.orderNumber, 8623);
+  assert.strictEqual(res.body.data.orderId, 5000);
 });
 
 test("GET /api/v1/orders/:orderNumber - 404 case", async (t) => {
