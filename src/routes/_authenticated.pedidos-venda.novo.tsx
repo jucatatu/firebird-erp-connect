@@ -1218,7 +1218,7 @@ function NewOrderPage() {
         )}
       </div>
 
-      {step === "client" && (
+      {(step === "client" && !identityLocked) && (
         <Card className="shadow-none border-none sm:border">
           <CardHeader className="pb-2"><CardTitle className="text-xl font-bold flex items-center gap-2"><UserIcon className="h-5 w-5 text-primary" /> Identificação</CardTitle></CardHeader>
           <CardContent className="space-y-6">
