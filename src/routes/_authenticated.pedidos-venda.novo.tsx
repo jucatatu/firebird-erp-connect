@@ -872,7 +872,47 @@ function NewOrderPage() {
     );
   };
 
-  // Sprint 8.9.36.3: Gate de hidratação prioritário para modo edição
+  // 1. TODOS OS HOOKS PRIMEIRO (Rules of Hooks compliance)
+  // Hooks que estavam abaixo dos returns condicionais da Sprint 8.9.36.3 foram movidos para cá.
+
+  const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
+  const currentStepIndex = stepsOrder.indexOf(step);
+
+  const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
+    if (targetStep === "client") return true;
+    if (targetStep === "items") return !!clientId;
+    if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    return false;
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const nextStep = stepsOrder[currentStepIndex + 1];
+      if (nextStep && canNavigateTo(nextStep)) {
+        setStep(nextStep);
+      } else if (nextStep) {
+        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
+        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
+      }
+    },
+    onSwipedRight: () => {
+      if (step === "items" && identityLocked) {
+        console.log("[WIZARD] Swipe para a direita bloqueado: identidade travada no Passo 2.");
+        return;
+      }
+      const prevStep = stepsOrder[currentStepIndex - 1];
+      if (prevStep) setStep(prevStep);
+    },
+    delta: 70,
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  });
+
+  // 2. RETURNS CONDICIONAIS (Gate de Hidratação Sprint 8.9.36.3/4)
+  
   if (editParam && (hydrationLoading || (erpOrderNumber !== Number(editParam)))) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -903,6 +943,9 @@ function NewOrderPage() {
       </div>
     );
   }
+
+  // 3. RENDER NORMAL (WIZARD)
+
 
   const CoverageSummary = () => {
     const allLitersValid = choppItems.every(it => {
@@ -1105,42 +1148,6 @@ function NewOrderPage() {
   };
 
 
-  const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
-  const currentStepIndex = stepsOrder.indexOf(step);
-
-  const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
-    if (targetStep === "client") return true;
-    if (targetStep === "items") return !!clientId;
-    if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
-    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
-    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
-    return false;
-  };
-
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => {
-      const nextStep = stepsOrder[currentStepIndex + 1];
-      if (nextStep && canNavigateTo(nextStep)) {
-        setStep(nextStep);
-      } else if (nextStep) {
-        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
-        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
-        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
-      }
-    },
-    onSwipedRight: () => {
-      // Sprint 8.9.36: Bloqueio de retorno ao cliente via swipe
-      if (step === "items" && identityLocked) {
-        console.log("[WIZARD] Swipe para a direita bloqueado: identidade travada no Passo 2.");
-        return;
-      }
-      const prevStep = stepsOrder[currentStepIndex - 1];
-      if (prevStep) setStep(prevStep);
-    },
-    delta: 70,
-    trackMouse: false,
-    preventScrollOnSwipe: true,
-  });
 
   return (
     <div {...swipeHandlers} className="flex flex-col min-h-screen bg-background pb-10">
