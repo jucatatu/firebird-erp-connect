@@ -451,10 +451,21 @@ function NewOrderPage() {
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
 
+  const { edit } = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
+
   useEffect(() => {
     // Ciclo de vida: O formulário deve começar limpo apenas quando iniciamos 
     // explicitamente um Novo Pedido (sem clientId ou vindo de sucesso/falha).
-    // O Zustand persist cuida da preservação entre passos do wizard.
+    // Sprint 8.9.34: SE o parâmetro "edit" estiver presente, NUNCA resetar a store.
+    if (edit) {
+      console.log("[WIZARD] Edit mode detected via URL, skipping store reset", edit);
+      // O wizard deve começar direto no passo Review ou manter o passo atual se hidratado
+      if (step === "client" && clientId) {
+         setStep("review");
+      }
+      return;
+    }
+
     if (!isEditing && (submissionStatus === "created" || submissionStatus === "failed")) {
       resetItemsAndClient();
     }
@@ -464,7 +475,7 @@ function NewOrderPage() {
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
       setCompany(myCompanies.data[0]);
     }
-  }, [myCompanies.data, companyId, setCompany, submissionStatus]);
+  }, [myCompanies.data, companyId, setCompany, submissionStatus, isEditing, edit]);
 
   useEffect(() => {
     if (!idempotencyKey) {

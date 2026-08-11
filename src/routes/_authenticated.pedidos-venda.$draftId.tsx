@@ -169,7 +169,13 @@ function DraftDetailPage() {
           ...erpData,
           clientName: erpData.clientName || draft.customer_name_snapshot
         });
-        navigate({ to: "/pedidos-venda/novo" });
+        
+        // Sprint 8.9.34: Navegar garantindo que o wizard detecte o modo edição
+        // Passamos o parâmetro edit para que o useEffect de reset seja ignorado
+        navigate({ 
+          to: "/pedidos-venda/novo",
+          search: { edit: Number(draft.erp_order_number) } as any
+        });
       } else {
         toast.error("Erro ao carregar dados do ERP", {
           description: detailRes.error?.message
