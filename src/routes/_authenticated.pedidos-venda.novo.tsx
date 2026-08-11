@@ -338,13 +338,15 @@ function NewOrderPage() {
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
+    deliveryAddress, deliveryAddressConfirmed,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
-    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
+    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
+
 
   // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
   const { edit: editParam } = Route.useSearch();
@@ -933,9 +935,10 @@ function NewOrderPage() {
     if (targetStep === "client") return true;
     if (targetStep === "items") return !!clientId;
     if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
-    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
-    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
     return false;
+
   };
 
   const swipeHandlers = useSwipeable({
@@ -945,7 +948,10 @@ function NewOrderPage() {
         setStep(nextStep);
       } else if (nextStep) {
         if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
-        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "payment" && deliver && (!deliveryAt || !deliveryAddressConfirmed)) {
+          if (!deliveryAt) toast.error("Selecione a data de entrega");
+          else toast.error("Confirme o endereço de entrega antes de continuar.");
+        }
         else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
       }
     },
@@ -1215,7 +1221,7 @@ function NewOrderPage() {
       <PageHeader 
         title={isEditing ? `Editando Pedido ${erpOrderNumber}` : "Novo Pedido"} 
         description={isEditing ? "Altere os dados necessários e salve as modificações no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
-        crumbs={[{ label: "Pedidos", to: "/pedidos-venda", search: { status: "all" } }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
+        crumbs={[{ label: "Pedidos", to: "/pedidos-venda", search: { status: "all" } as any }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
       {identityLocked && (
