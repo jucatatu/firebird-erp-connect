@@ -1161,6 +1161,7 @@ function NewOrderPage() {
               };
 
               const navigateToStep = () => {
+                if (s.id === "client" && identityLocked) return;
                 if (canNavigate()) {
                   setStep(s.id as any);
                 } else {
