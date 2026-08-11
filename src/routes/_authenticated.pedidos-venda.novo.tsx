@@ -361,7 +361,7 @@ function NewOrderPage() {
       toast.info(`Carregando pedido ERP ${orderNum}...`);
       
       try {
-        const result = await fetchOrderDetail({ data: { orderNumber: orderNum } });
+        const result = await fetchOrderDetail({ data: orderNum });
         if (result.ok && result.data) {
           editErpOrder(result.data);
           setStep("items");
@@ -836,7 +836,6 @@ function NewOrderPage() {
     );
   };
 
-  const handleCreateOrder = async () => {
   const handleUpdateOrder = async () => {
     if (!erpOrderNumber) return;
     try {
@@ -848,9 +847,9 @@ function NewOrderPage() {
         clientId: clientId!,
         items: items.map(it => ({
           productId: it.productId,
+          description: it.description,
           quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          manualUnitPrice: it.manualPrice ? it.appliedUnitPrice : null
+          ...(it.manualPrice ? { manualUnitPrice: it.appliedUnitPrice } : {}),
         })),
         equipments: equipments.map(eq => ({
           equipmentTypeId: eq.equipmentTypeId,
@@ -868,7 +867,7 @@ function NewOrderPage() {
         freightValue: 0
       };
 
-      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, payload } });
+      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, data: payload } });
       
       if (result.ok) {
         toast.success(`Pedido ${erpOrderNumber} atualizado com sucesso!`);
@@ -884,6 +883,8 @@ function NewOrderPage() {
       toast.error("Erro interno ao processar atualização");
     }
   };
+
+  const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
       console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
       return;
