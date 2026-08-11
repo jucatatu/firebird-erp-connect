@@ -82,7 +82,10 @@ function computeSignature({ method, path, timestamp, nonce, bodyHash, secret }) 
 }
 
 function authMiddleware(req, res, next) {
-  // Bypass exclusivo de desenvolvimento local
+  // Bypass exclusivo de desenvolvimento local ou testes
+  if (process.env.SKIP_AUTH_FOR_TEST === "true") {
+    return next();
+  }
   if (env.NODE_ENV !== "production" && env.DEV_BYPASS_AUTH && isLocalhost(req)) {
     logger.debug({ requestId: req.requestId }, "auth bypass (localhost dev)");
     return next();

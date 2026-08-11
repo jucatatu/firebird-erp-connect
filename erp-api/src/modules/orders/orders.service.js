@@ -342,9 +342,32 @@ async function getOrderDetail(orderNumber) {
   const equipments = await repository.fetchEquipmentsByOrderId(orderId);
 
   return {
-    ...order,
-    items,
-    equipments
+    orderId: Number(order.ID_ORDENS_VENDA),
+    orderNumber: Number(order.N_PEDIDO),
+    companyId: Number(order.ID_EMPRESA),
+    clientId: Number(order.ID_CLIENTE),
+    sellerId: Number(order.ID_VENDEDOR),
+    statusId: Number(order.ID_STATUS),
+    statusDescription: order.STATUS_DESCRICAO ? String(order.STATUS_DESCRICAO).trim() : null,
+    saleTypeId: Number(order.ID_TIPO_VENDA),
+    paymentTermId: Number(order.ID_PRAZO),
+    paymentMethodId: Number(order.ID_FORMA_PAGAMENTO),
+    deliver: order.ENTREGAR === 1,
+    deliveryAt: order.DATA_PREV_ENTREGA,
+    returnEquipment: order.BUSCAR_EQUIP === 1,
+    returnAt: order.DATA_PREV_RETORNO,
+    observations: order.OBS ? String(order.OBS).trim() : null,
+    items: (items || []).map(i => ({
+      productId: Number(i.ID_PRODUTO),
+      description: i.DESCRICAO ? String(i.DESCRICAO).trim() : null,
+      quantity: Number(i.QTDE_PEDIDA),
+      unitPrice: Number(i.PRECO_UNIT)
+    })),
+    equipments: (equipments || []).map(e => ({
+      equipmentTypeId: Number(e.ID_TIPO_EQUIPAMENTO),
+      description: e.DESCRICAO ? String(e.DESCRICAO).trim() : null,
+      quantity: Number(e.QTDE)
+    }))
   };
 }
 
