@@ -362,6 +362,7 @@ function NewOrderPage() {
   const fetchOrderDetail = useServerFn(getErpOrderDetail);
   
   const [hydrationLoading, setHydrationLoading] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   useEffect(() => {
     const hydrate = async () => {
@@ -389,26 +390,43 @@ function NewOrderPage() {
       setHydrationLoading(true);
       console.log("[EDIT FLOW] loading ERP order:", orderNumFromUrl);
       toast.info(`Carregando pedido ERP ${orderNumFromUrl}...`);
+      setHydrationError(null);
       
       try {
         const result = await fetchOrderDetail({ data: orderNumFromUrl });
         console.log("[EDIT FLOW] ERP response status:", result.ok ? "success" : "error");
         
         if (result.ok && result.data) {
+          // Sprint 8.9.36.3: Resolver nome do cliente real
+          console.log("[EDIT FLOW] Resolving client name for ID:", result.data.clientId);
+          let realClientName = `Cliente ${result.data.clientId}`;
+          try {
+            const clientResult = await queryClient.fetchQuery({
+              queryKey: ["erp", "clients", result.data.clientId, "detail"],
+              queryFn: () => useServerFn(getErpClientDetail)({ data: result.data.clientId })
+            });
+            if (clientResult.ok && clientResult.data) {
+              realClientName = clientResult.data.name;
+            }
+          } catch (clientErr) {
+            console.warn("[EDIT FLOW] Could not resolve real client name:", clientErr);
+          }
+
           console.log("[EDIT FLOW] hydrating store with atomic data...");
-          // Garantimos que a store receba todos os flags de edição
-          editErpOrder(result.data);
+          editErpOrder(result.data, realClientName);
           
-          // Forçamos o step local imediatamente após a store ser atualizada
-          console.log("[EDIT FLOW] final state transition: step=items, identityLocked=true");
+          console.log("[EDIT FLOW] final state transition: step=items");
           setStepState("items");
           toast.success(`Pedido ${orderNumFromUrl} carregado para edição.`);
         } else {
-          console.log("[EDIT FLOW] FAILED to load order:", result.error?.message);
-          toast.error(result.error?.message || "Erro ao carregar pedido.");
+          const errMsg = result.error?.message || "Pedido não encontrado no ERP.";
+          console.log("[EDIT FLOW] FAILED to load order:", errMsg);
+          setHydrationError(errMsg);
+          toast.error(errMsg);
         }
       } catch (err) {
         console.error("[EDIT FLOW] critical failure during hydration:", err);
+        setHydrationError("Erro na comunicação com o servidor.");
         toast.error("Erro na comunicação com o servidor.");
       } finally {
         setHydrationLoading(false);
@@ -861,7 +879,39 @@ function NewOrderPage() {
     
     if (choppItems.length === 0) return null;
 
+  // Sprint 8.9.36.3: Gate de hidratação prioritário para modo edição
+  if (editParam && (hydrationLoading || (erpOrderNumber !== Number(editParam)))) {
     return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">
+          Carregando pedido ERP {editParam}...
+        </p>
+      </div>
+    );
+  }
+
+  if (editParam && hydrationError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <div className="space-y-2">
+          <h3 className="text-lg font-bold">Erro ao carregar pedido</h3>
+          <p className="text-sm text-muted-foreground">{hydrationError}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCcw className="h-4 w-4 mr-2" /> Tentar novamente
+          </Button>
+          <Button onClick={() => navigate({ to: "/pedidos-venda" })}>
+            Voltar para Pedidos
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
       <div className="space-y-1 mt-2">
          <div className="flex items-center gap-2 text-[10px]">
             {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
