@@ -39,7 +39,7 @@ function NewOrderPage() {
   const {
     clientId, clientName, items, equipments, deliver, deliveryAt,
     paymentTermId, idempotencyKey, submissionStatus, erpOrderNumber, isEditing,
-    editErpOrder, setSubmissionStatus, resetItemsAndClient
+    editErpOrder, setSubmissionStatus, resetItemsAndClient, companyId
   } = useOrderFormStore();
 
   const fetchErpOrderDetail = useServerFn(getErpOrderDetail);
@@ -49,31 +49,68 @@ function NewOrderPage() {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
+  // Monitor de Estado para Debug Técnico (Sprint 8.9.36.1)
+  useEffect(() => {
+    if (editOrderNumber) {
+      console.log("[EDIT WIZARD STATE]", {
+        isEditing,
+        erpOrderNumber,
+        clientId,
+        companyId,
+        itemsCount: items.length,
+        equipmentsCount: equipments.length,
+        step,
+        canNavigateToItems: !!clientId && !!companyId
+      });
+    }
+  }, [editOrderNumber, isEditing, erpOrderNumber, clientId, companyId, items.length, equipments.length, step]);
+
   useEffect(() => {
     async function hydrate() {
       if (!editOrderNumber) return;
-      if (isEditing && erpOrderNumber === Number(editOrderNumber)) return;
+      
+      // Se já estamos editando este pedido e temos os dados básicos, não re-hidratar
+      if (isEditing && erpOrderNumber === Number(editOrderNumber) && clientId && companyId) {
+        // Se estamos no passo 'client' mas já temos cliente, avançar para 'items'
+        if (step === 'client') {
+          console.log("[HYDRATE] Data already present, advancing to items");
+          setStep("items");
+        }
+        return;
+      }
 
       setIsHydrating(true);
       setHydrationError(null);
 
       try {
+        console.log("[HYDRATE] Fetching ERP detail for", editOrderNumber);
         const result = await fetchErpOrderDetail({ data: Number(editOrderNumber) });
+        
         if (result.ok && result.data) {
+          console.log("[HYDRATE] Success, calling editErpOrder");
           editErpOrder(result.data);
+          
+          // O estado do Zustand não atualiza instantaneamente para o próximo passo da função
+          // Mas os dados foram enviados para o set() da store.
           setIsHydrating(false);
-          setStep("review");
+          
+          // FORÇA a ida para o passo de itens após a hidratação bem sucedida
+          setTimeout(() => {
+            console.log("[HYDRATE] Timeout trigger: setting step to items");
+            setStep("items");
+          }, 100);
         } else {
           setHydrationError(result.error?.message || "Erro ao carregar pedido.");
           setIsHydrating(false);
         }
       } catch (err) {
+        console.error("[HYDRATE] Exception:", err);
         setHydrationError("Erro fatal na hidratação.");
         setIsHydrating(false);
       }
     }
     hydrate();
-  }, [editOrderNumber, fetchErpOrderDetail, editErpOrder, isEditing, erpOrderNumber]);
+  }, [editOrderNumber, fetchErpOrderDetail, editErpOrder, isEditing, erpOrderNumber, clientId, companyId]);
 
   const handleCreateOrder = async () => {
     toast.info("Funcionalidade de criação simplificada nesta visualização de emergência.");
