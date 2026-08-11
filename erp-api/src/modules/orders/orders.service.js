@@ -376,7 +376,7 @@ async function updateOrder({ orderNumber, payload, correlationId }) {
     logger.info({ correlationId, orderNumber }, "orders.update: início");
 
     // 1. Revalidar Status atual no ERP
-    const current = await repository.fetchOrderByNumber(tx, orderNumber);
+    const current = await repository.fetchOrderByNumber(orderNumber, tx);
     if (!current) {
       throw new AppError({
         message: "Pedido não encontrado para atualização.",
