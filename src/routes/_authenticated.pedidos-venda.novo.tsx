@@ -903,8 +903,6 @@ function NewOrderPage() {
     );
   }
 
-  };
-
   const CoverageSummary = () => {
     const allLitersValid = choppItems.every(it => {
       const cov = getProductCoverage(it.productId);
