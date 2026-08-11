@@ -1105,9 +1105,9 @@ function NewOrderPage() {
       />
       <div className="container max-w-5xl py-4 sm:py-6 px-4">
       <PageHeader 
-        title="Novo Pedido" 
-        description="Siga os passos para cadastrar um novo pedido no ERP."
-        crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: "Novo" }]}
+        title={isEditing ? `Editando Pedido ${erpOrderNumber}` : "Novo Pedido"} 
+        description={isEditing ? "Altere os dados necessários e salve as modificações no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
+        crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
       <div className="mb-6 flex flex-col gap-4">
