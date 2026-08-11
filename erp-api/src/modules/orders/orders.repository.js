@@ -1,18 +1,10 @@
 "use strict";
 
 const firebird = require("../../shared/database/firebird-client");
+const { logger } = require("../../config/logger");
 
 /**
  * Camada de acesso a dados para criação de pedidos.
- *
- * Todas as operações rodam dentro de UMA MESMA transação (`tx`) — o caller
- * (service) é responsável por abrir/commitar/roll-backar. Nenhum COMMIT
- * intermediário é feito aqui.
- *
- * Chamadas de stored procedures usam a forma:
- *   SELECT <out_cols> FROM <PROC>(?, ?, ...)
- * — que é a maneira suportada pelo node-firebird para executar procedures
- * selecionáveis e capturar parâmetros OUT.
  */
 
 const SP_CAD_ORDEM_VENDA_COMPLETO_SQL = `
@@ -129,46 +121,18 @@ async function findStatusByNumbers(orderNumbers) {
   return firebird.executeQuery(sql, orderNumbers);
 }
 
-async function fetchOrderByNumber(txOrConn, orderNumber) {
-  // 1. Log Seguro de Entrada
-  logger.info({ orderNumber }, "[ORDER DETAIL DEBUG] Início da busca");
-
-  // 2. SQL Mínima para Garantir Existência
-  const sqlMin = "SELECT ID_ORDENS_VENDA, N_PEDIDO, ID_CLIENTE, ID_EMPRESA, ID_STATUS FROM ORDENS_VENDA WHERE N_PEDIDO = ?";
-  
-  let resultMin;
-  if (txOrConn && typeof txOrConn.query === "function") {
-    resultMin = await txOrConn.query(sqlMin, [orderNumber]);
-  } else {
-    resultMin = await firebird.executeQuery(sqlMin, [orderNumber]);
-  }
-
-  // Debug do formato do retorno
-  logger.info({
-    orderNumber,
-    type: typeof resultMin,
-    isArray: Array.isArray(resultMin),
-    count: Array.isArray(resultMin) ? resultMin.length : (resultMin ? 1 : 0),
-    keys: resultMin && !Array.isArray(resultMin) ? Object.keys(resultMin) : []
-  }, "[ORDER DETAIL DEBUG] Formato retorno executeQuery");
-
-  const rowsMin = Array.isArray(resultMin) ? resultMin : (resultMin ? [resultMin] : []);
-  if (rowsMin.length === 0) {
-    logger.warn({ orderNumber }, "[ORDER DETAIL DEBUG] Pedido não encontrado na SELECT mínima");
-    return null;
-  }
-
-  // 3. SQL Detalhada com LEFT JOINs para evitar 404 por dados opcionais
+/**
+ * Busca detalhe do pedido pelo número (N_PEDIDO).
+ * Padronizado: (orderNumber, txOrConn = null)
+ */
+async function fetchOrderByNumber(orderNumber, txOrConn = null) {
   const sql = `
-    SELECT 
-      ov.*, 
-      s.DESCRICAO AS STATUS_DESCRICAO,
-      cl.NM_CLIENTE AS CLIENTE_NOME,
-      v.NM_VENDEDOR AS VENDEDOR_NOME
+    SELECT
+        ov.*,
+        s.DESCRICAO AS STATUS_DESCRICAO
     FROM ORDENS_VENDA ov
-    LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
-    LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
-    LEFT JOIN VENDEDORES v ON ov.ID_VENDEDOR = v.ID_VENDEDOR
+    LEFT JOIN STATUS s
+        ON s.ID_STATUS = ov.ID_STATUS
     WHERE ov.N_PEDIDO = ?
   `;
   
@@ -178,25 +142,45 @@ async function fetchOrderByNumber(txOrConn, orderNumber) {
   } else {
     rows = await firebird.executeQuery(sql, [orderNumber]);
   }
-  
+
   const result = Array.isArray(rows) ? rows[0] : rows;
-
-  if (!result) {
-    logger.error({ orderNumber }, "[ORDER DETAIL DEBUG] Pedido sumiu na SELECT detalhada! Checar JOINs");
-    // Se a mínima existia mas a completa falhou, retornamos o básico da mínima pelo menos
-    return rowsMin[0];
-  }
-
-  return result;
+  return result || null;
 }
 
+/**
+ * Busca itens do pedido com descrição do produto.
+ */
 async function fetchItemsByOrderId(orderId) {
-  const sql = `SELECT * FROM ITENS_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`;
+  const sql = `
+    SELECT
+        iov.ID_PRODUTO,
+        pr.DESCRICAO,
+        iov.QTDE_PEDIDA,
+        iov.PRECO_UNIT
+    FROM ITENS_ORDENS_VENDA iov
+    LEFT JOIN PRODUTOS pr
+        ON iov.ID_PRODUTO = pr.ID_PRODUTOS
+    WHERE iov.ID_ORDENS_VENDA = ?
+      AND (iov.DELETED IS NULL OR iov.DELETED = 0)
+  `;
   return firebird.executeQuery(sql, [orderId]);
 }
 
+/**
+ * Busca equipamentos do pedido com descrição do tipo.
+ */
 async function fetchEquipmentsByOrderId(orderId) {
-  const sql = `SELECT * FROM EQUIP_ORDENS_VENDA WHERE ID_ORDENS_VENDA = ?`;
+  const sql = `
+    SELECT
+        eov.ID_TIPO_EQUIPAMENTO,
+        te.DESCRICAO,
+        eov.QTDE
+    FROM EQUIP_ORDENS_VENDA eov
+    LEFT JOIN TIPO_EQUIPAMENTO te
+        ON eov.ID_TIPO_EQUIPAMENTO = te.ID_TIPO_EQUIPAMENTO
+    WHERE eov.ID_ORDENS_VENDA = ?
+      AND (eov.DELETED IS NULL OR eov.DELETED = 0)
+  `;
   return firebird.executeQuery(sql, [orderId]);
 }
 
