@@ -39,7 +39,7 @@ function NewOrderPage() {
   const {
     clientId, clientName, items, equipments, deliver, deliveryAt,
     paymentTermId, idempotencyKey, submissionStatus, erpOrderNumber, isEditing,
-    editErpOrder, setSubmissionStatus, resetItemsAndClient
+    editErpOrder, setSubmissionStatus, resetItemsAndClient, companyId
   } = useOrderFormStore();
 
   const fetchErpOrderDetail = useServerFn(getErpOrderDetail);
