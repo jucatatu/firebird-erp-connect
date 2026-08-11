@@ -628,10 +628,12 @@ function NewOrderPage() {
     
     equipments.forEach(eq => {
       // Sprint 8.9.11: Cobertura estrita por assignedProductId
+      // Sprint 8.9.36.5: Garantir que capacityLiters esteja presente para o cálculo
       if (eq.assignedProductId === productId) {
         if (eq.capacityLiters) {
           provided += eq.capacityLiters * eq.quantity;
         } else {
+          // Fallback seguro de parsing se o enriquecimento ainda não ocorreu
           const litersMatch = eq.description.match(/(\d+)\s*l/i);
           if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
         }
