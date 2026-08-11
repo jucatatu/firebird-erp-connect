@@ -1,0 +1,48 @@
+  const clientDetailQ = useErpClientDetail(clientId);
+  const myProfile = useMyProfile(user);
+  const myCompanies = useMyCompanies(user);
+  const submissionMeta = { orderId: erpOrderId, orderNumber: erpOrderNumber };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
+  const handleCreateOrder = async () => {
+    if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      return;
+    }
+    setSubmissionStatus("submitting");
+    try {
+      const payload = {
+        companyId: Number(companyId),
+        clientId,
+        items: items.map(i => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined
+        })),
+        equipments: equipments.map(e => ({
+          equipmentTypeId: e.equipmentTypeId,
+          quantity: e.quantity
+        })),
+        deliver,
+        deliveryAt: deliveryAt || new Date().toISOString(),
+        notes
+      };
+      const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey });
+      if (result.ok) {
+        setSubmissionStatus("created", { orderNumber: result.data.orderNumber });
+        toast.success("Pedido criado!");
+      } else {
+        setSubmissionStatus("failed");
+        toast.error(result.error?.message || "Erro ao criar");
+      }
+    } catch (err) {
+      setSubmissionStatus("failed");
+      toast.error("Erro fatal");
+    }
+  };
+
+  const handleUpdateOrder = async () => {
+     // ... logic for update
+  };
