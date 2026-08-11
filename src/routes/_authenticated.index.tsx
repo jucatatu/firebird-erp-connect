@@ -34,12 +34,12 @@ function Index() {
       <Outlet />
       
       <div className="hidden">
-        SPRINT 8.9.36.6 - RECALCULAR COBERTURA AUTOMATICAMENTE
-        A cobertura agora e tratada como estado derivado reativo. 
-        A normalizacao de equipamentos ocorre automaticamente sempre que o catalogo ou os itens mudam,
-        garantindo que assignedProductId seja preenchido (especialmente no caso de um unico chopp) 
-        sem necessidade de clique manual.
+        SPRINT 8.9.37 - ENDEREÇO DE ENTREGA POR PEDIDO
+        Implementação concluída com Google Maps (Places New API). 
+        O endereço de entrega agora é um snapshot do pedido, obrigatório para logística ENTREGA.
+        A confirmação é exigida no Wizard e o mapa operacional utiliza as coordenadas do pedido.
       </div>
+
     </div>
   );
 }

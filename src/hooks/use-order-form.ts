@@ -22,6 +22,22 @@ export interface OrderEquipment {
   assignedProductId?: number | null; // Produto de chopp ao qual este barril está associado
 }
 
+export interface DeliveryAddress {
+  formattedAddress: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  placeId: string | null;
+  complement: string;
+  reference: string;
+}
+
 export interface OrderFormStore {
   clientId: number | null;
   clientName: string | null;
@@ -37,12 +53,15 @@ export interface OrderFormStore {
   equipments: OrderEquipment[];
   deliver: boolean;
   deliveryAt: string | null;
+  deliveryAddress: DeliveryAddress | null;
+  deliveryAddressConfirmed: boolean;
   returnEquipment: boolean;
   returnAt: string | null;
   notes: string;
   paymentTermId: number | null;
   paymentMethodId: number | null;
   saleTypeId: number | null;
+
   
   // Actions
   setClient: (id: number, name: string) => void;
@@ -55,12 +74,15 @@ export interface OrderFormStore {
   updateItemPrice: (productId: number, manualUnitPrice: number | null) => void;
   addEquipment: (eq: OrderEquipment) => void;
   removeEquipment: (typeId: number, assignedProductId?: number | null) => void;
-  setDelivery: (deliver: boolean, date: string | null) => void;
-  setReturn: (ret: boolean, date: string | null) => void;
-  setNotes: (notes: string) => void;
-  setPayment: (termId: number | null, methodId: number | null) => void;
-  setSaleType: (typeId: number | null) => void;
-  reset: () => void;
+      setDelivery: (deliver: boolean, date: string | null) => void;
+      setDeliveryAddress: (address: DeliveryAddress | null) => void;
+      setDeliveryAddressConfirmed: (confirmed: boolean) => void;
+      setReturn: (ret: boolean, date: string | null) => void;
+      setNotes: (notes: string) => void;
+      setPayment: (termId: number | null, methodId: number | null) => void;
+      setSaleType: (typeId: number | null) => void;
+      reset: () => void;
+
   resetItemsAndClient: () => void;
   
   // Repetir/Novo (Sprint 8.9.22)
@@ -86,12 +108,15 @@ export const useOrderFormStore = create<OrderFormStore>()(
       equipments: [],
       deliver: true, // true = Entrega, false = Retirada
       deliveryAt: null,
+      deliveryAddress: null,
+      deliveryAddressConfirmed: false,
       returnEquipment: false,
       returnAt: null,
       notes: "",
       paymentTermId: null,
       paymentMethodId: null,
       saleTypeId: null,
+
 
       setClient: (id: number, name: string) => set({ clientId: id, clientName: name, identityLocked: true }),
       setCompany: (id: number | null) => set({ companyId: id }),
@@ -177,7 +202,10 @@ export const useOrderFormStore = create<OrderFormStore>()(
         }
         return newState;
       }),
+      setDeliveryAddress: (address) => set({ deliveryAddress: address, deliveryAddressConfirmed: false }),
+      setDeliveryAddressConfirmed: (confirmed) => set({ deliveryAddressConfirmed: confirmed }),
       setReturn: (ret: boolean, date: string | null) => set((state) => {
+
         const newState: Partial<OrderFormStore> = { returnEquipment: ret, returnAt: date };
         if (ret && !date && state.deliveryAt) {
           newState.returnAt = addDaysToDateOnly(state.deliveryAt.split('T')[0], 7);
@@ -202,12 +230,15 @@ export const useOrderFormStore = create<OrderFormStore>()(
         equipments: [],
         deliver: true,
         deliveryAt: null,
+        deliveryAddress: null,
+        deliveryAddressConfirmed: false,
         returnEquipment: false,
         returnAt: null,
         notes: "",
         paymentTermId: null,
         paymentMethodId: null,
         saleTypeId: null,
+
       }),
       resetItemsAndClient: () => set({
         clientId: null,
@@ -226,8 +257,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
         identityLocked: false,
         notes: "",
         deliveryAt: null,
+        deliveryAddress: null,
+        deliveryAddressConfirmed: false,
         returnAt: null,
       }),
+
       repeatOrder: (payload: any, customerName: string) => {
         // Reset base mas preserva empresa e cliente
         const companyId = payload.companyId;
@@ -264,8 +298,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
           })),
           deliver: payload.deliver ?? true,
           deliveryAt: null, // Data deve ser preenchida pelo vendedor
+          deliveryAddress: payload.deliveryAddress || null,
+          deliveryAddressConfirmed: false, // Repetir exige nova confirmação
           returnEquipment: payload.returnEquipment ?? false,
           returnAt: null,
+
           notes: payload.notes || "",
           paymentTermId: payload.paymentTermId || null,
           paymentMethodId: payload.paymentMethodId || null,
@@ -288,8 +325,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
           equipments: [],
           deliver: true,
           deliveryAt: null,
+          deliveryAddress: null,
+          deliveryAddressConfirmed: false,
           returnEquipment: false,
           returnAt: null,
+
           notes: "",
           paymentTermId: null,
           paymentMethodId: null,
@@ -326,8 +366,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
           })),
           deliver: order.deliver ?? true,
           deliveryAt: order.deliveryAt,
+          deliveryAddress: order.deliveryAddress || null,
+          deliveryAddressConfirmed: !!order.deliveryAddressConfirmed,
           returnEquipment: order.returnEquipment ?? false,
           returnAt: order.returnAt,
+
           notes: order.notes || "",
           paymentTermId: order.paymentTermId,
           paymentMethodId: order.paymentMethodId,

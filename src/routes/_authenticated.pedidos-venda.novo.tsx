@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -15,6 +15,7 @@ import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCr
 import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, getErpClientDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
 import { toast } from "sonner";
+import { DeliveryAddressSection } from "@/components/order/delivery-address-section";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,8 +34,10 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       edit: search.edit ? String(search.edit) : undefined,
+      status: search.status ? String(search.status) : undefined, // Adicionado para compatibilidade com Link de pedidos
     };
   },
+
   head: () => ({
     meta: [
       { title: "Novo Pedido — ERP" },
@@ -338,13 +341,15 @@ function NewOrderPage() {
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
+    deliveryAddress, deliveryAddressConfirmed,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
-    setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
+    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
+
 
   // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
   const { edit: editParam } = Route.useSearch();
@@ -906,19 +911,10 @@ function NewOrderPage() {
                   <span className="text-[10px] text-green-600 font-bold">Coberto</span>
                 )}
               </div>
-              
-              {/* Sprint 8.9.11: Mostrar barris alocados especificamente a este produto */}
-              <div className="mt-2 space-y-1">
-                {equipments.filter(e => e.assignedProductId === it.productId).map(eq => (
-                  <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}`} className="flex justify-between text-[10px] text-muted-foreground border-t border-muted/20 pt-1">
-                    <span>{eq.description}</span>
-                    <span>{eq.quantity}x</span>
-                  </div>
-                ))}
-              </div>
             </div>
           );
         })}
+
       </div>
     );
   };
@@ -933,9 +929,10 @@ function NewOrderPage() {
     if (targetStep === "client") return true;
     if (targetStep === "items") return !!clientId;
     if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
-    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
-    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
     return false;
+
   };
 
   const swipeHandlers = useSwipeable({
@@ -945,7 +942,10 @@ function NewOrderPage() {
         setStep(nextStep);
       } else if (nextStep) {
         if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
-        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "payment" && deliver && (!deliveryAt || !deliveryAddressConfirmed)) {
+          if (!deliveryAt) toast.error("Selecione a data de entrega");
+          else toast.error("Confirme o endereço de entrega antes de continuar.");
+        }
         else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
       }
     },
@@ -987,7 +987,7 @@ function NewOrderPage() {
           <Button variant="outline" onClick={() => window.location.reload()}>
             <RefreshCcw className="h-4 w-4 mr-2" /> Tentar novamente
           </Button>
-          <Button onClick={() => navigate({ to: "/pedidos-venda" })}>
+          <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>
             Voltar para Pedidos
           </Button>
         </div>
@@ -1072,7 +1072,10 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          deliveryAddress: deliveryAddress || undefined,
+          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+
         })),
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
@@ -1162,7 +1165,10 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          deliveryAddress: deliveryAddress || undefined,
+          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+
         })),
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
@@ -1215,7 +1221,7 @@ function NewOrderPage() {
       <PageHeader 
         title={isEditing ? `Editando Pedido ${erpOrderNumber}` : "Novo Pedido"} 
         description={isEditing ? "Altere os dados necessários e salve as modificações no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
-        crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
+        crumbs={[{ label: "Pedidos", to: "/pedidos-venda", search: { status: "all" } as any }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
       {identityLocked && (
@@ -1240,7 +1246,7 @@ function NewOrderPage() {
               onClick={() => {
                 if (window.confirm(isEditing ? "Deseja cancelar a edição? As alterações não salvas serão perdidas." : "Deseja cancelar o pedido atual?")) {
                   reset();
-                  navigate({ to: "/pedidos-venda" });
+                  navigate({ to: "/pedidos-venda", search: { status: "all" } });
                 }
               }}
             >
@@ -1730,7 +1736,9 @@ function NewOrderPage() {
       )}
 
       {step === "delivery" && clientId && (
-        <Card className="shadow-none border-none sm:border">
+        <div className="space-y-6">
+          <Card className="shadow-none border-none sm:border">
+
             <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -1793,10 +1801,25 @@ function NewOrderPage() {
 
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => setStep("items")}>Voltar</Button>
-                <Button onClick={() => setStep("payment")}>Próximo</Button>
+                <Button 
+                  onClick={() => setStep("payment")}
+                  disabled={deliver && !deliveryAddressConfirmed}
+                >
+                  Próximo
+                </Button>
               </div>
             </CardContent>
           </Card>
+
+          {deliver && (
+            <Card className="shadow-none border-none sm:border">
+              <CardContent className="pt-6">
+                <DeliveryAddressSection clientAddress={clientDetailQ.data?.data?.address} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         )}
 
         {step === "payment" && clientId && (

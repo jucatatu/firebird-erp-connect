@@ -210,8 +210,11 @@ function RecolhasPage() {
 /** Reconstrói um NormalizedMapOrder a partir do snapshot local quando o
  *  ERP não retorna a linha para a data (ex.: recolha ficou em outra data). */
 function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
-  const snap = (s.snapshot ?? {}) as Record<string, unknown>;
-  const address = typeof snap.address === "string" ? snap.address : "";
+  const snap = (s.snapshot ?? {}) as Record<string, any>;
+  const deliveryAddress = snap.deliveryAddress || snap.payload?.deliveryAddress;
+  
+  const address = deliveryAddress?.formattedAddress || (typeof snap.address === "string" ? snap.address : "");
+  
   return {
     key: `state-${s.id}`,
     erpOrderId: Number(s.erp_order_id),
@@ -221,12 +224,22 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
     phone: typeof snap.phone === "string" ? snap.phone : null,
     address: {
       formatted: address,
-      street: address,
-      number: "",
-      complement: "",
-      district: "",
-      city: "",
-      state: "",
+      street: deliveryAddress?.street || address,
+      number: deliveryAddress?.number || "",
+      complement: deliveryAddress?.complement || "",
+      district: deliveryAddress?.neighborhood || "",
+      city: deliveryAddress?.city || "",
+      state: deliveryAddress?.state || "",
+    },
+    location: {
+      latitude: deliveryAddress?.latitude || null,
+      longitude: deliveryAddress?.longitude || null,
+      locationType: deliveryAddress?.latitude ? "rooftop" : "",
+      precision: deliveryAddress?.latitude ? "exact" : "",
+      placeId: deliveryAddress?.placeId || "",
+      matchMismatch: false,
+      source: deliveryAddress?.latitude ? "cache" : "unresolved",
+      cacheKey: deliveryAddress?.placeId || "",
     },
     observations: null,
     erpStatus: null,
@@ -236,16 +249,8 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
     deliveryTime: null,
     items: [],
     equipments: [],
-    location: {
-      latitude: null,
-      longitude: null,
-      locationType: "",
-      precision: "",
-      placeId: "",
-      matchMismatch: false,
-      source: "unresolved",
-      cacheKey: "",
-    },
+
+
     malformed: false,
     raw: {},
   };
