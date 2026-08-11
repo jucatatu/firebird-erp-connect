@@ -464,7 +464,7 @@ function NewOrderPage() {
     // Sprint 8.9.34: SE o parâmetro "edit" estiver presente, NUNCA resetar a store.
     if (edit) {
       console.log("[WIZARD] Edit mode detected via URL, skipping store reset", edit);
-      // O wizard deve começar direto no passo Review ou manter o passo atual se hidratado
+      // Se estamos no primeiro passo e já temos cliente (hidratação concluída), saltamos para revisão
       if (step === "client" && clientId) {
          setStep("review");
       }
@@ -472,6 +472,7 @@ function NewOrderPage() {
     }
 
     if (!isEditing && (submissionStatus === "created" || submissionStatus === "failed")) {
+      console.log("[WIZARD] Resetting store due to terminal status", submissionStatus);
       resetItemsAndClient();
     }
     
@@ -480,7 +481,7 @@ function NewOrderPage() {
     if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
       setCompany(myCompanies.data[0]);
     }
-  }, [myCompanies.data, companyId, setCompany, submissionStatus, isEditing, edit]);
+  }, [myCompanies.data, companyId, setCompany, submissionStatus, isEditing, edit, clientId, step]);
 
   useEffect(() => {
     if (!idempotencyKey) {
