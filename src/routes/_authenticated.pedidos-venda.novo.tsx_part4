@@ -1,0 +1,757 @@
+
+
+  
+  // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
+  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const fetchPrice = useServerFn(resolveErpPrice);
+  const [localPaymentOptions, setLocalPaymentOptions] = useState<{
+    loading: boolean;
+    error: string | null;
+    data: PaymentOptionsPayload | null;
+  }>({ loading: false, error: null, data: null });
+
+  const loadPaymentOptionsDirectly = async () => {
+    console.log("[PAYMENT UI] calling getErpPaymentOptions directly");
+    setLocalPaymentOptions(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const result = await fetchPaymentOptions();
+      console.log("[PAYMENT UI] result received", {
+        type: typeof result,
+        keys: Object.keys(result || {}),
+        ok: result?.ok,
+        status: result?.status,
+        hasData: !!result?.data
+      });
+
+      if (result.ok && result.data) {
+        // Validação de contrato (Item 7 da instrução)
+        const isValid = Array.isArray(result.data.paymentTerms) && 
+                      Array.isArray(result.data.paymentMethods) && 
+                      Array.isArray(result.data.saleTypes);
+        
+        if (!isValid) {
+          console.error("[PAYMENT UI] Erro de contrato: Dados malformados", result.data);
+          setLocalPaymentOptions({ loading: false, error: "Erro de contrato no ERP API (formato inválido)", data: null });
+          return;
+        }
+
+        setLocalPaymentOptions({ loading: false, error: null, data: result.data });
+      } else {
+        console.error("[PAYMENT UI] error", result.error);
+        setLocalPaymentOptions({ 
+          loading: false, 
+          error: result.error?.message || "Não foi possível carregar as opções de pagamento.", 
+          data: null 
+        });
+      }
+    } catch (err: any) {
+      console.error("[PAYMENT UI] exception", err);
+      setLocalPaymentOptions({ loading: false, error: "Falha na comunicação com o servidor.", data: null });
+    }
+  };
+
+  useEffect(() => {
+    if (step === "payment" && !localPaymentOptions.data && !localPaymentOptions.loading) {
+      console.log("[PAYMENT UI] entered payment step, triggering load");
+      loadPaymentOptionsDirectly();
+    }
+  }, [step]);
+
+  const clientDetailQ = useErpClientDetail(clientId);
+  
+  // Usamos os campos erpOrderId e erpOrderNumber diretamente da store
+  const submissionMeta = { orderId: erpOrderId, orderNumber: erpOrderNumber };
+
+  // Efeito para carregar padrões do cliente usando localPaymentOptions
+  useEffect(() => {
+    if (clientDetailQ.data?.ok && clientDetailQ.data.data && localPaymentOptions.data) {
+      const detail = clientDetailQ.data.data;
+      const options = localPaymentOptions.data;
+
+      const termId = detail.defaultPaymentTermId;
+      const methodId = detail.defaultPaymentMethodId;
+      const saleTypeId = detail.defaultSaleTypeId;
+
+      const termExists = termId ? options.paymentTerms.some((t: any) => t.id === termId) : false;
+      const methodExists = methodId ? options.paymentMethods.some((m: any) => m.id === methodId) : false;
+      const saleTypeExists = saleTypeId ? options.saleTypes.some((s: any) => s.id === saleTypeId) : false;
+
+      // Se o cliente tem padrão mas não está na lista (inativo/deletado no ERP), não selecionamos
+      setPayment(
+        termExists ? (termId as number) : null,
+        methodExists ? (methodId as number) : null
+      );
+      
+      if (saleTypeExists) {
+        setSaleType(saleTypeId as number);
+      } else {
+        // Fallback homologado: se não tem padrão ou padrão é inválido, manter 1 se existir
+        const saleType1Exists = options.saleTypes.some((s: any) => s.id === 1);
+        if (saleType1Exists) setSaleType(1);
+      }
+      
+      if (termId && !termExists) {
+        toast.warning("Condição de pagamento padrão do cliente não disponível ou inativa no ERP.");
+      }
+      if (methodId && !methodExists) {
+        toast.warning("Forma de pagamento padrão do cliente não disponível ou inativa no ERP.");
+      }
+    }
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType]);
+
+  const myProfile = useMyProfile(user);
+  const myCompanies = useMyCompanies(user);
+
+  const { edit } = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
+
+  useEffect(() => {
+    // Ciclo de vida: O formulário deve começar limpo apenas quando iniciamos 
+    // explicitamente um Novo Pedido (sem clientId ou vindo de sucesso/falha).
+    // Sprint 8.9.34: SE o parâmetro "edit" estiver presente, NUNCA resetar a store.
+    if (edit) {
+      console.log("[WIZARD] Edit mode detected via URL, skipping store reset", edit);
+      // Se estamos no primeiro passo e já temos cliente (hidratação concluída), saltamos para revisão
+      if (step === "client" && clientId) {
+         setStep("review");
+      }
+      return;
+    }
+
+    if (!isEditing && (submissionStatus === "created" || submissionStatus === "failed")) {
+      console.log("[WIZARD] Resetting store due to terminal status", submissionStatus);
+      resetItemsAndClient();
+    }
+    
+    // Se o usuário está na rota /novo e não tem empresa definida, 
+    // e o sistema tem apenas uma empresa, pré-selecionamos.
+    if (myCompanies.data && myCompanies.data.length === 1 && !companyId) {
+      setCompany(myCompanies.data[0]);
+    }
+  }, [myCompanies.data, companyId, setCompany, submissionStatus, isEditing, edit, clientId, step]);
+
+  useEffect(() => {
+    if (!idempotencyKey) {
+      setIdempotencyKey(crypto.randomUUID());
+    }
+  }, [idempotencyKey, setIdempotencyKey]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
+  const [clientSearch, setClientSearch] = useState("");
+  const recentOrders = useRecentOrderDrafts(user?.id, companyId);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(clientSearch);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [clientSearch]);
+
+  const clientsQ = useErpClients(
+    debouncedSearch.length >= 3 
+      ? { q: debouncedSearch, companyId: companyId as 1 | 3 } 
+      : null
+  );
+
+  const [productSearch, setProductSearch] = useState("");
+  const productsQ = useErpProducts({
+    q: "",
+    companyId: companyId as 1 | 3,
+    limit: 200,
+  });
+
+  const equipmentTypesQ = useErpEquipmentTypes({
+    q: "",
+    companyId: companyId as 1 | 3,
+    active: true,
+  });
+
+  const createOrderM = useCreateErpOrder();
+
+  const [showAddEquip, setShowAddEquip] = useState(false);
+
+  const choppItems = items.filter(it => {
+    const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
+    // Sprint 8.9.8: Regra logística oficial
+    return p?.logistics_type === 'draft';
+  });
+
+  const getRequiredVias = () => choppItems.length;
+
+  const getAvailableVias = () => {
+    let total = 0;
+    equipments.forEach(eq => {
+      // Prioridade 1: Usar campo tapLines (taps_count da migration)
+      if (eq.tapLines) {
+        total += eq.tapLines * eq.quantity;
+      } else {
+        // Fallback: Parsing de nome
+        const desc = eq.description.toLowerCase();
+        const viasMatch = desc.match(/(\d+)\s*vias/i);
+        if (viasMatch) total += Number(viasMatch[1]) * eq.quantity;
+        else if (desc.includes("via")) total += 1 * eq.quantity;
+      }
+    });
+    return total;
+  };
+
+  const getProductCoverage = (productId: number) => {
+    const it = items.find(i => i.productId === productId);
+    if (!it) return { required: 0, provided: 0 };
+    
+    let provided = 0;
+    
+    equipments.forEach(eq => {
+      // Sprint 8.9.11: Cobertura estrita por assignedProductId
+      if (eq.assignedProductId === productId) {
+        if (eq.capacityLiters) {
+          provided += eq.capacityLiters * eq.quantity;
+        } else {
+          const litersMatch = eq.description.match(/(\d+)\s*l/i);
+          if (litersMatch) provided += Number(litersMatch[1]) * eq.quantity;
+        }
+      }
+    });
+
+    return { required: it.quantity, provided };
+  };
+
+  const [suggestionDirty, setSuggestionDirty] = useState(false);
+  useEffect(() => {
+    if (choppItems.length > 0) {
+      // Sprint 8.9.8: Chopeira agora é opcional, validamos apenas litros (barris)
+      const litersValid = choppItems.every(it => {
+        const cov = getProductCoverage(it.productId);
+        return cov.provided >= cov.required;
+      });
+      if (!litersValid) setSuggestionDirty(true);
+      else setSuggestionDirty(false);
+    } else {
+      setSuggestionDirty(false);
+    }
+  }, [items, equipments, choppItems]);
+
+  // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
+  useEffect(() => {
+    const hasReturnables = equipments.length > 0; // Se a sugestão ou manual adicionou algo, provavelmente é retornável
+    if (hasReturnables && !returnEquipment && step === "items") {
+      console.log("[LOGISTICS] auto-enabling returnEquipment due to items in cart");
+      setReturn(true, returnAt);
+    }
+  }, [equipments.length, step]);
+
+  const suggestEquipments = () => {
+    const newEquips: any[] = [];
+    const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
+    
+    // 1. Otimizar Vias (CHOPEIRAS)
+    const requiredVias = getRequiredVias();
+    if (requiredVias > 0) {
+      const chopeiras = allEquipTypes.filter((et: any) => 
+        et.equipment_role === 'dispenser' || et.description?.toLowerCase().includes("chopeira")
+      );
+
+      // Algoritmo: Encontrar combinação que use MENOS equipamentos
+      // Como o número de vias é pequeno (geralmente < 5), podemos fazer uma busca simples
+      // ou apenas priorizar a chopeira que mais se aproxima das vias necessárias sem excesso desnecessário
+      
+      const sortedChopeiras = [...chopeiras].sort((a, b) => {
+         const vA = a.tap_count || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         const vB = b.tap_count || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
+         return vB - vA; // Maior primeiro
+      });
+
+      // Busca por equipamento único que cubra tudo
+      const exactMatch = sortedChopeiras.find(ch => (ch.tap_count || 1) === requiredVias);
+      const nextBest = [...sortedChopeiras].reverse().find(ch => (ch.tap_count || 1) >= requiredVias);
+
+      if (exactMatch) {
+        newEquips.push({ 
+          equipmentTypeId: exactMatch.id, 
+          description: exactMatch.description, 
+          quantity: 1,
+          role: "TAP",
+          tapLines: exactMatch.tap_count || 1
+        });
+      } else if (nextBest) {
+        newEquips.push({ 
+          equipmentTypeId: nextBest.id, 
+          description: nextBest.description, 
+          quantity: 1,
+          role: "TAP",
+          tapLines: nextBest.tap_count || 1
+        });
+      } else {
+        // Fallback: Combinar equipamentos se não houver um que cubra tudo sozinho
+        let remaining = requiredVias;
+        for (const ch of sortedChopeiras) {
+          const vias = ch.tap_count || 1;
+          const qty = Math.floor(remaining / vias);
+          if (qty > 0) {
+            newEquips.push({ 
+              equipmentTypeId: ch.id, 
+              description: ch.description, 
+              quantity: qty,
+              role: "TAP",
+              tapLines: vias
+            });
+            remaining -= qty * vias;
+          }
+        }
+        if (remaining > 0 && sortedChopeiras.length > 0) {
+          const smallest = [...sortedChopeiras].reverse()[0];
+          const existing = newEquips.find(e => e.equipmentTypeId === smallest.id);
+          if (existing) existing.quantity += 1;
+          else newEquips.push({
+            equipmentTypeId: smallest.id,
+            description: smallest.description,
+            quantity: 1,
+            role: "TAP",
+            tapLines: smallest.tap_count || 1
+          });
+        }
+      }
+    }
+
+    // 2. Otimizar Barris (KEG) - CÁLCULO POR PRODUTO INDIVIDUAL
+    choppItems.forEach(it => {
+      let remainingLiters = it.quantity;
+      const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
+      const style = p?.description?.split(" ")[0]?.toUpperCase() || "CHOPE";
+      
+      const barris = allEquipTypes.filter((et: any) => 
+        et.equipment_role === 'KEG' || et.description?.toLowerCase().includes("barril")
+      );
+
+      const sortedBarris = [...barris].sort((a, b) => {
+         const lA = a.capacity_liters || Number(a.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         const lB = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+         return lB - lA;
+      });
+
+      for (const b of sortedBarris) {
+        const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+        if (capacity <= 0 || remainingLiters <= 0) continue;
+        const qty = Math.floor(remainingLiters / capacity);
+        if (qty > 0) {
+          newEquips.push({ 
+            equipmentTypeId: b.id, 
+            description: `${b.description} (${style})`, 
+            quantity: qty,
+            role: "KEG",
+            capacityLiters: capacity,
+            assignedProductId: it.productId
+          });
+          remainingLiters -= qty * capacity;
+        }
+      }
+
+      // Se sobrar, pegar o menor barril que cubra o resto do produto
+      if (remainingLiters > 0 && sortedBarris.length > 0) {
+        const smallestToCover = [...sortedBarris].reverse().find(b => {
+          const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
+          return capacity >= remainingLiters;
+        });
+        if (smallestToCover) {
+           const capacity = smallestToCover.capacity_liters || Number(smallestToCover.description.match(/(\d+)\s*l/i)?.[1] || 0);
+           newEquips.push({ 
+             equipmentTypeId: smallestToCover.id, 
+             description: `${smallestToCover.description} (${style})`, 
+             quantity: 1,
+             role: "KEG",
+             capacityLiters: capacity,
+             assignedProductId: it.productId
+           });
+        }
+      }
+    });
+
+    useOrderFormStore.setState({ equipments: newEquips });
+    setSuggestionDirty(false);
+    toast.success("Sugestão otimizada de equipamentos aplicada");
+  };
+
+  const updateEquipmentQty = (id: number, qty: number, assignedProductId?: number | null) => {
+    if (qty <= 0) removeEquipment(id, assignedProductId);
+    else {
+      const eqs = [...equipments];
+      const idx = eqs.findIndex(e => e.equipmentTypeId === id && e.assignedProductId === assignedProductId);
+      if (idx >= 0) {
+        eqs[idx].quantity = qty;
+        useOrderFormStore.setState({ equipments: eqs });
+      }
+    }
+  };
+
+  const isCoverageValid = () => {
+    if (choppItems.length === 0) return true;
+    // Sprint 8.9.11: Cobertura estrita por produto
+    for (const it of choppItems) {
+      const cov = getProductCoverage(it.productId);
+      if (cov.provided < cov.required) return false;
+    }
+    return true;
+  };
+
+  const EquipmentCoverageIndicators = () => {
+    if (choppItems.length === 0) return null;
+    if (equipments.length === 0) return null;
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 animate-in fade-in duration-300">
+        <div className="p-3 border rounded-lg bg-muted/10">
+          <p className="text-xs font-bold text-muted-foreground uppercase mb-2 flex items-center gap-2">
+            Chopeira (Opcional)
+            {getAvailableVias() >= getRequiredVias() ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Badge variant="outline" className="h-3 text-[9px] px-1 font-normal">Não adicionada</Badge>}
+          </p>
+          <div className="flex justify-between items-center">
+            <span className="text-sm">Vias sugeridas: {getRequiredVias()}</span>
+            <Badge variant="secondary" className="bg-muted/30 text-muted-foreground border-none">
+              {getAvailableVias()} disponíveis
+            </Badge>
+          </div>
+        </div>
+        {choppItems.map(it => {
+          const cov = getProductCoverage(it.productId);
+          const diff = cov.required - cov.provided;
+          return (
+            <div key={it.productId} className="p-3 border rounded-lg bg-muted/10">
+              <p className="text-xs font-bold text-muted-foreground uppercase mb-1 truncate flex items-center gap-2">
+                {it.description}
+                {diff <= 0 ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : null}
+              </p>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-mono">{cov.provided} / {cov.required} L</span>
+                {diff > 0 ? (
+                  <Badge variant="destructive" className="text-[10px]">Faltam {diff}L</Badge>
+                ) : diff < 0 ? (
+                  <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">+{Math.abs(diff)}L excesso</Badge>
+                ) : (
+                  <span className="text-[10px] text-green-600 font-bold">Coberto</span>
+                )}
+              </div>
+              
+              {/* Sprint 8.9.11: Mostrar barris alocados especificamente a este produto */}
+              <div className="mt-2 space-y-1">
+                {equipments.filter(e => e.assignedProductId === it.productId).map(eq => (
+                  <div key={`${eq.equipmentTypeId}-${eq.assignedProductId}`} className="flex justify-between text-[10px] text-muted-foreground border-t border-muted/20 pt-1">
+                    <span>{eq.description}</span>
+                    <span>{eq.quantity}x</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const CoverageSummary = () => {
+    const allLitersValid = choppItems.every(it => {
+      const cov = getProductCoverage(it.productId);
+      return cov.provided >= cov.required;
+    });
+    const viasValid = getAvailableVias() >= getRequiredVias();
+    
+    if (choppItems.length === 0) return null;
+
+    return (
+      <div className="space-y-1 mt-2">
+         <div className="flex items-center gap-2 text-[10px]">
+            {allLitersValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <Loader2 className="h-3 w-3 text-destructive animate-spin"/>}
+            <span className={allLitersValid ? "text-green-600 font-medium" : "text-destructive font-medium"}>Barris {allLitersValid ? 'cobertos' : 'insuficientes'}</span>
+         </div>
+         <div className="flex items-center gap-2 text-[10px]">
+            {viasValid ? <CheckCircle2 className="h-3 w-3 text-green-600"/> : <div className="h-3 w-3 rounded-full border border-muted-foreground/30" />}
+            <span className="text-muted-foreground font-medium">Chopeira {viasValid ? 'adicionada' : 'opcional'}</span>
+         </div>
+      </div>
+    );
+  };
+
+  const handleCreateOrder = async () => {
+    if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
+      return;
+    }
+    
+    if (!myProfile.data?.erp_seller_id) {
+      toast.error("Vendedor não mapeado no servidor.");
+      return;
+    }
+    
+    if (!companyId) {
+      toast.error("Empresa não selecionada.");
+      setStep("client");
+      return;
+    }
+
+    if (!paymentTermId || !paymentMethodId || !saleTypeId) {
+      toast.error("Selecione a condição, forma de pagamento e tipo de venda.");
+      setStep("payment");
+      return;
+    }
+
+    console.log("[ORDER UI] submit-start", { idempotencyKey });
+    setSubmissionStatus("submitting");
+    const currentKey = idempotencyKey || crypto.randomUUID();
+    if (!idempotencyKey) setIdempotencyKey(currentKey);
+
+    try {
+      const payload: CreateOrderInput = {
+        companyId: companyId as number,
+        clientId: clientId,
+        client_snapshot: {
+          id: clientId,
+          name: clientName || "(sem nome)",
+          fantasyName: clientDetailQ.data?.data?.tradingName || null
+        },
+        sellerId: myProfile.data.erp_seller_id,
+        saleTypeId: saleTypeId,
+        paymentTermId: paymentTermId,
+        paymentMethodId: paymentMethodId,
+        deliver,
+        deliveryAt: deliveryAt || new Date().toISOString(),
+        returnEquipment,
+        returnAt: returnEquipment ? returnAt : null,
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          description: i.description,
+          quantity: i.quantity, 
+          unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
+        equipments: equipments.map(e => ({ 
+          equipmentTypeId: e.equipmentTypeId, 
+          description: e.description,
+          quantity: e.quantity 
+        })),
+        notes: notes || null
+      };
+
+      console.log("[ORDER SERVER] create-start", { ...payload, sellerId: "PROTECTED" });
+      
+      const result = await createOrderM.mutateAsync({ data: payload, idempotencyKey: currentKey });
+      
+      console.log("[ORDER SERVER] erp-response", { 
+        ok: result.ok, 
+        status: result.status,
+        orderNumber: result.data?.orderNumber
+      });
+
+      if (result.ok && result.data && result.data.orderNumber) {
+        console.log("[ORDER UI] result success", result.data);
+        
+        // Salva metadados da submissão para navegação segura
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
+
+        if (result.error?.code === "ORDER_CREATED_MIRROR_FAILED") {
+          console.error("[ORDER SERVER] mirror-failed", result.error);
+          toast.warning(`Pedido ${result.data.orderNumber} criado no ERP, mas falha ao registrar no aplicativo.`);
+        } else {
+          console.log("[ORDER SERVER] mirror-success");
+          toast.success(`Pedido ${result.data.orderNumber} criado com sucesso!`);
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
+        
+        setTimeout(async () => {
+          await navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          resetItemsAndClient();
+        }, 2000);
+      } else {
+        console.error("[ORDER UI] result error", result.error);
+        const errorMsg = result.error?.message || "Erro desconhecido ao criar pedido.";
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+        toast.error(`Falha ao criar pedido: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      console.error("[ORDER UI] exception", err);
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+      toast.error(err.message || "Erro ao criar pedido.");
+    }
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!erpOrderNumber || !clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
+      return;
+    }
+    
+    if (!myProfile.data?.erp_seller_id) {
+      toast.error("Vendedor não mapeado no servidor.");
+      return;
+    }
+    
+    setSubmissionStatus("submitting");
+
+    try {
+      const payload: CreateOrderInput = {
+        companyId: companyId as number,
+        clientId: clientId,
+        client_snapshot: {
+          id: clientId,
+          name: clientName || "(sem nome)",
+          fantasyName: clientDetailQ.data?.data?.tradingName || null
+        },
+        sellerId: myProfile.data.erp_seller_id,
+        saleTypeId: saleTypeId!,
+        paymentTermId: paymentTermId!,
+        paymentMethodId: paymentMethodId!,
+        deliver,
+        deliveryAt: deliveryAt || new Date().toISOString(),
+        returnEquipment,
+        returnAt: returnEquipment ? returnAt : null,
+        items: items.map(i => ({ 
+          productId: i.productId, 
+          description: i.description,
+          quantity: i.quantity, 
+          unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
+        equipments: equipments.map(e => ({ 
+          equipmentTypeId: e.equipmentTypeId, 
+          description: e.description,
+          quantity: e.quantity 
+        })),
+        notes: notes || null
+      };
+
+      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, data: payload } });
+      
+      if (result.ok && result.data) {
+        setSubmissionStatus("created", { 
+          orderId: result.data.orderId, 
+          orderNumber: result.data.orderNumber 
+        });
+        
+        toast.success(`Pedido ${result.data.orderNumber} atualizado com sucesso!`);
+        queryClient.invalidateQueries({ queryKey: ["order_drafts"] });
+        
+        setTimeout(async () => {
+          await navigate({ to: "/pedidos-venda", search: { status: "all" } as any });
+          resetItemsAndClient();
+        }, 2000);
+      } else {
+        const errorMsg = result.error?.message || "Erro desconhecido ao atualizar pedido.";
+        setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+        toast.error(`Falha ao atualizar pedido: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      setSubmissionStatus("failed", { orderId: undefined, orderNumber: undefined });
+      toast.error(err.message || "Erro ao atualizar pedido.");
+    }
+  };
+
+
+  const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
+  const currentStepIndex = stepsOrder.indexOf(step);
+
+  const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
+    if (targetStep === "client") return true;
+    if (targetStep === "items") return !!clientId;
+    if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true);
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? !!deliveryAt : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    return false;
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const nextStep = stepsOrder[currentStepIndex + 1];
+      if (nextStep && canNavigateTo(nextStep)) {
+        setStep(nextStep);
+      } else if (nextStep) {
+        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
+        else if (nextStep === "payment" && deliver && !deliveryAt) toast.error("Selecione a data de entrega");
+        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
+      }
+    },
+    onSwipedRight: () => {
+      const prevStep = stepsOrder[currentStepIndex - 1];
+      if (prevStep) setStep(prevStep);
+    },
+    delta: 70,
+    trackMouse: false,
+    preventScrollOnSwipe: true,
+  });
+
+  return (
+    <div {...swipeHandlers} className="flex flex-col min-h-screen bg-background pb-10">
+
+      <ManualEquipmentSheet 
+        open={showAddEquip} 
+        onOpenChange={setShowAddEquip}
+        equipmentTypes={(equipmentTypesQ.data as any)?.data?.equipmentTypes || []}
+        choppItems={choppItems}
+        addEquipment={addEquipment}
+        getProductCoverage={getProductCoverage}
+      />
+      <div className="container max-w-5xl py-4 sm:py-6 px-4">
+      <PageHeader 
+        title={isEditing ? `Editar Pedido ${erpOrderNumber || ""}` : "Novo Pedido"} 
+        description={isEditing ? "Alterando pedido existente no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
+        crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: "Novo" }]}
+        actions={isEditing && erpOrderNumber ? (
+          <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+            ERP {erpOrderNumber}
+          </Badge>
+        ) : undefined}
+      />
+
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Stepper responsivo: Faixa rolável no mobile */}
+        <div className="flex w-full overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
+          <div className="flex gap-2 min-w-max">
+            {[
+              { id: "client", label: "Cliente" },
+              { id: "items", label: "Itens + Equipamentos" },
+              { id: "delivery", label: "Entrega" },
+              { id: "payment", label: "Pagamento" },
+              { id: "review", label: "Revisão" }
+            ].map((s, i) => {
+              const stepIds = ["client", "items", "delivery", "payment", "review"];
+              const currentIndex = stepIds.indexOf(step);
+              const targetIndex = stepIds.indexOf(s.id);
+              const isPast = targetIndex < currentIndex;
+              const isCurrent = step === s.id;
+              
+              const canNavigate = () => {
+                if (isPast) return true;
+                if (isCurrent) return true;
+                
+                // Regras de Navegação Sprint 8.9.23
+                if (s.id === "items") return !!companyId && !!clientId;
+                if (s.id === "delivery") return !!companyId && !!clientId && items.length > 0 && isCoverageValid();
+                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt;
+                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+                
+                return false;
+              };
+
+              const navigateToStep = () => {
+                if (canNavigate()) {
+                  setStep(s.id as any);
+                } else {
+                  if (!companyId || !clientId) toast.error("Selecione a empresa e o cliente primeiro.");
+                  else if (items.length === 0) toast.error("Adicione pelo menos um produto.");
+                  else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega.");
+                  else if (!deliveryAt) toast.error("Defina os dados de entrega antes de avançar.");
+                  else toast.error("Complete as etapas anteriores para acessar esta fase.");
+                }
+              };
+
+              const isBlocked = !canNavigate() && !isCurrent;
+
+              return (
+                <div 
+                  key={s.id}
+                  className="flex flex-col items-center gap-1 cursor-pointer group"
+                  onClick={navigateToStep}
+                >
