@@ -24,9 +24,11 @@ require.cache[clientPath] = {
   exports: {
     ping: async () => true,
     executeQuery: async (sql, params) => {
-      // console.log('[MOCK executeQuery] SQL:', sql, 'Params:', params);
+      // Normalizamos a query para comparação
+      const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+      
       // Simular busca por N_PEDIDO 8623
-      if (/WHERE ov.N_PEDIDO = \?/i.test(sql) && params[0] === 8623) {
+      if (normalizedSql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
         return [{
           ID_ORDENS_VENDA: 5000,
           N_PEDIDO: 8623,
@@ -45,11 +47,11 @@ require.cache[clientPath] = {
         }];
       }
       // Simular busca de itens para o ID 5000
-      if (/FROM ITENS_ORDENS_VENDA/i.test(sql) && params[0] === 5000) {
+      if (normalizedSql.includes('FROM ITENS_ORDENS_VENDA') && params[0] === 5000) {
         return [{ ID_PRODUTO: 10, DESCRICAO: 'Produto 10', QTDE_PEDIDA: 2, PRECO_UNIT: 15.5 }];
       }
       // Simular busca de equipamentos para o ID 5000
-      if (/FROM EQUIP_ORDENS_VENDA/i.test(sql) && params[0] === 5000) {
+      if (normalizedSql.includes('FROM EQUIP_ORDENS_VENDA') && params[0] === 5000) {
         return [{ ID_TIPO_EQUIPAMENTO: 5, DESCRICAO: 'Equipamento 5', QTDE: 1 }];
       }
       return [];
@@ -57,7 +59,8 @@ require.cache[clientPath] = {
     withTransaction: async (fn) => {
       const tx = {
         query: async (sql, params) => {
-          if (/WHERE ov.N_PEDIDO = \?/i.test(sql) && params[0] === 8623) {
+          const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+          if (normalizedSql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
              return [{ ID_ORDENS_VENDA: 5000, N_PEDIDO: 8623, ID_STATUS: 27 }];
           }
           return [];
@@ -77,9 +80,6 @@ test("GET /api/v1/orders/:orderNumber - debug logic", async (t) => {
   
   const res = await request(app)
     .get(path);
-
-  // console.log('[TEST DEBUG] Status:', res.status);
-  // console.log('[TEST DEBUG] Body:', JSON.stringify(res.body, null, 2));
 
   assert.strictEqual(res.status, 200, "Should return 200");
   assert.strictEqual(res.body.data.orderNumber, 8623);
