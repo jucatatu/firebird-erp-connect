@@ -1,18 +1,18 @@
-import axios from 'axios';
-import { createHmac } from 'crypto';
+const http = require('http');
+const crypto = require('crypto');
 
 const API_KEY = "DEV-TEST-KEY";
 const API_SECRET = "DEV-TEST-SECRET";
-const BASE_URL = "http://localhost:3052/api/v1";
+const HOST = "localhost";
+const PORT = 3052;
 
 function sign(method, path, body = {}) {
   const timestamp = Math.floor(Date.now() / 1000);
   const bodyString = Object.keys(body).length > 0 ? JSON.stringify(body) : '';
-  const bodyHash = createHmac('sha256', API_SECRET).update(bodyString).digest('hex');
+  const bodyHash = crypto.createHmac('sha256', API_SECRET).update(bodyString).digest('hex');
   
-  // A assinatura deve incluir a query string se existir, mas aqui o path é limpo
   const stringToSign = `${method.toUpperCase()}\n${path}\n${timestamp}\n${bodyHash}`;
-  const signature = createHmac('sha256', API_SECRET).update(stringToSign).digest('hex');
+  const signature = crypto.createHmac('sha256', API_SECRET).update(stringToSign).digest('hex');
   
   return {
     'x-api-key': API_KEY,
@@ -22,25 +22,38 @@ function sign(method, path, body = {}) {
   };
 }
 
-async function testGetOrder(orderNumber) {
-  const path = `/orders/${orderNumber}`;
+function testGetOrder(orderNumber) {
+  const path = `/api/v1/orders/${orderNumber}`;
   const headers = sign('GET', path);
   
   console.log(`Testing GET ${path}...`);
-  try {
-    const response = await axios.get(`${BASE_URL}${path}`, { headers });
-    console.log('SUCCESS:', response.status);
-    console.log('DATA:', JSON.stringify(response.data, null, 2));
-  } catch (err) {
-    console.error('ERROR:', err.response?.status || err.message);
-    if (err.response?.data) {
-      console.error('DETAILS:', JSON.stringify(err.response.data, null, 2));
-    }
-  }
+  
+  const options = {
+    hostname: HOST,
+    port: PORT,
+    path: path,
+    method: 'GET',
+    headers: headers
+  };
+
+  const req = http.request(options, (res) => {
+    let data = '';
+    res.on('data', (chunk) => data += chunk);
+    res.on('end', () => {
+      console.log('SUCCESS:', res.statusCode);
+      try {
+        console.log('DATA:', JSON.stringify(JSON.parse(data), null, 2));
+      } catch (e) {
+        console.log('RAW DATA:', data);
+      }
+    });
+  });
+
+  req.on('error', (e) => {
+    console.error('ERROR:', e.message);
+  });
+
+  req.end();
 }
 
-async function run() {
-  await testGetOrder(8623);
-}
-
-run();
+testGetOrder(8623);
