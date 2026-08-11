@@ -836,55 +836,6 @@ function NewOrderPage() {
     );
   };
 
-  const handleUpdateOrder = async () => {
-    if (!erpOrderNumber) return;
-    try {
-      setSubmissionStatus("submitting");
-      toast.info(`Salvando alterações no pedido ${erpOrderNumber}...`);
-      
-      const payload: CreateOrderInput = {
-        companyId: companyId!,
-        clientId: clientId!,
-        items: items.map(it => ({
-          productId: it.productId,
-          description: it.description,
-          quantity: it.quantity,
-          ...(it.manualPrice ? { manualUnitPrice: it.appliedUnitPrice } : {}),
-        })),
-        equipments: equipments.map(eq => ({
-          equipmentTypeId: eq.equipmentTypeId,
-          quantity: eq.quantity,
-          assignedProductId: eq.assignedProductId
-        })),
-        deliver,
-        deliveryAt: deliveryAt!,
-        returnEquipment,
-        returnAt,
-        notes,
-        paymentTermId: paymentTermId!,
-        paymentMethodId: paymentMethodId!,
-        saleTypeId: saleTypeId!,
-        freightValue: 0
-      };
-
-      const result = await updateErpOrder({ data: { orderNumber: erpOrderNumber, data: payload } });
-      
-      if (result.ok) {
-        toast.success(`Pedido ${erpOrderNumber} atualizado com sucesso!`);
-        setSubmissionStatus("created", { orderNumber: erpOrderNumber });
-        queryClient.invalidateQueries({ queryKey: ["erp-orders"] });
-        navigate({ to: "/pedidos-venda" });
-      } else {
-        setSubmissionStatus("failed");
-        toast.error(result.error?.message || "Erro ao atualizar pedido");
-      }
-    } catch (err) {
-      setSubmissionStatus("failed");
-      toast.error("Erro interno ao processar atualização");
-    }
-  };
-
-  const handleCreateOrder = async () => {
     if (!clientId || items.length === 0 || submissionStatus === "submitting" || submissionStatus === "created") {
       console.log("[ORDER UI] submit blocked", { clientId, itemsCount: items.length, submissionStatus });
       return;
