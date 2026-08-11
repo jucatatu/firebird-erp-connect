@@ -36,44 +36,343 @@ function Index() {
     <div className="min-h-screen bg-background">
       <Outlet />
       
-      <div className="hidden">Execute esta instrucao no projeto: SPRINT 8.9.36.3 — ISOLAR TOTALMENTE A SESSÃO DE EDIÇÃO DO RASCUNHO PERSISTIDO
+      <div className="hidden">Execute esta instrucao no projeto: SPRINT 8.9.36.4 — CORRIGIR ORDEM DOS HOOKS APÓS GATE DE HIDRATAÇÃO
 
-Causa do cliente PUCCINI aparecer:
-Store Zustand persistida (persist middleware) renderizava frame imediato com dados do CREATE anterior antes do useEffect de hidratação.
+NÃO ALTERAR NODE.
+NÃO ALTERAR API.
+NÃO ALTERAR O FLUXO CREATE.
+NÃO ALTERAR AS REGRAS DE SESSÃO/IDENTIDADE.
+NÃO REMOVER O GATE DE HIDRATAÇÃO.
 
-Zustand persist envolvido: SIM
-order-form-storage identificado: SIM
-UI antiga renderizava durante hidratação: SIM
+O backend agora está comprovadamente funcionando.
 
-Agora existe gate de loading: PASS
+Teste real:
 
-ERP testado:
-N_PEDIDO = 8627
+GET /api/v1/orders/8627
+→ HTTP 200
 
-Cliente retornado pelo ERP:
-clientId = 23 (ROMEU 2)
-clientName = ROMEU 2 (Resolvido via getErpClientDetail)
+GET /api/v1/clients/1464
+→ HTTP 200
 
-Durante loading PUCCINI apareceu: NÃO (Bloqueado por gate condicional)
+Portanto o problema atual é exclusivamente frontend.
 
-Após hidratação:
-isEditing = true
-identityLocked = true
-erpOrderNumber = 8627
-step = items
-clientId = 23
-clientName = ROMEU 2
-companyId = 1 (Graal)
+==================================================
+ERRO REAL
+==================================================
 
-Abriu em Itens + Equipamentos: PASS
-Itens reais carregados: PASS
-Equipamentos reais carregados: PASS
-Pagamento preservado do pedido: PASS (useEffect de defaults bloqueado em isEditing)
+Na rota:
 
-CREATE permaneceu intacto: PASS
+/pedidos-venda/novo?edit=8627
+
+após terminar o loading ocorre:
+
+Error: Rendered more hooks than during the previous render.
+
+Stack:
+
+Object.useRef
+Tt
+_authenticated.pedidos-venda.novo...
+
+A tela fica em branco.
+
+Isso indica violação da Rules of Hooks.
+
+Muito provavelmente o Gate de Hidratação introduzido na Sprint 8.9.36.3
+está retornando o componente ANTES que todos os hooks sejam executados.
+
+Exemplo de padrão ERRADO:
+
+const store = useOrderFormStore(...)
+
+if (editHydrationStatus === "loading") {
+  return <Loading />
+}
+
+const swipeHandlers = useSwipeable(...)
+const ref = useRef(...)
+const query = useQuery(...)
+
+No primeiro render os hooks abaixo do return NÃO executam.
+
+Quando loading termina, eles passam a executar.
+
+React então detecta quantidade diferente de hooks entre renders e dispara:
+
+Rendered more hooks than during the previous render.
+
+==================================================
+1. REGRA OBRIGATÓRIA
+==================================================
+
+TODOS os hooks do componente devem ser executados SEMPRE,
+na mesma ordem, em TODOS os renders.
+
+Portanto:
+
+- useState
+- useEffect
+- useMemo
+- useCallback
+- useRef
+- useSwipeable
+- hooks Zustand
+- hooks React Query
+- qualquer hook customizado
+
+devem estar declarados ANTES de qualquer return condicional.
+
+==================================================
+2. AUDITAR O COMPONENTE COMPLETO
+==================================================
+
+Arquivo principal:
+
+src/routes/_authenticated.pedidos-venda.novo.tsx
+
+Pesquisar TODO o componente por:
+
+return
+
+e verificar se existe qualquer retorno antecipado ANTES de:
+
+useRef
+useSwipeable
+useEffect
+useMemo
+useCallback
+useQuery
+useMutation
+hooks customizados
+
+Especial atenção ao Gate implementado na Sprint 8.9.36.3:
+
+hydrationLoading
+editHydrationStatus
+isHydratingEdit
+loading edit
+
+Não corrigir apenas o primeiro hook encontrado.
+
+Auditar TODOS.
+
+==================================================
+3. ESTRUTURA CORRETA
+==================================================
+
+A estrutura deve ficar conceitualmente assim:
+
+function NewOrderPage() {
+
+  // 1. TODOS OS HOOKS PRIMEIRO
+
+  const ...
+  const ...
+  const ref = useRef(...)
+  const swipeHandlers = useSwipeable(...)
+  const ...
+  
+  useEffect(...)
+  useEffect(...)
+
+  // nenhum hook depois daqui
+
+  // 2. SOMENTE DEPOIS OS RETURNS CONDICIONAIS
+
+  if (editHydrationStatus === "loading") {
+    return <EditLoading />
+  }
+
+  if (editHydrationStatus === "error") {
+    return <EditError />
+  }
+
+  // 3. RENDER NORMAL
+
+  return <Wizard ... />
+}
+
+==================================================
+4. ALTERNATIVA PREFERÍVEL
+==================================================
+
+Se o componente estiver muito grande, separar o Gate do Wizard.
+
+Exemplo:
+
+function NewOrderRoute() {
+  // hooks necessários para hidratação
+
+  if (loading) {
+    return <EditLoading />
+  }
+
+  if (error) {
+    return <EditError />
+  }
+
+  return <OrderWizard />
+}
+
+function OrderWizard() {
+  // hooks exclusivos do wizard
+  const ref = useRef(...)
+  const swipe = useSwipeable(...)
+  ...
+}
+
+Essa arquitetura também é válida porque cada componente mantém
+sua própria ordem fixa de hooks.
+
+Escolher a solução com menor risco de regressão.
+
+==================================================
+5. NÃO REMOVER O GATE
+==================================================
+
+O Gate da Sprint 8.9.36.3 resolveu um problema real:
+
+um rascunho CREATE da PUCCINI aparecia durante a abertura da edição do ROMEU 2.
+
+Portanto NÃO voltar ao comportamento anterior.
+
+Durante:
+
+?edit=8627
+
+deve continuar aparecendo somente:
+
+"Carregando pedido ERP 8627..."
+
+até a hidratação terminar.
+
+O que precisa mudar é apenas a organização dos hooks.
+
+==================================================
+6. PRESERVAR O ISOLAMENTO
+==================================================
+
+Após corrigir os hooks:
+
+abrir ERP 8627.
+
+Durante loading:
+
+- não mostrar PUCCINI;
+- não mostrar dados persistidos antigos;
+- mostrar somente loading.
+
+Depois da hidratação:
+
+- cliente: ROMEU 2;
+- empresa: GRAAL;
+- identityLocked = true;
+- isEditing = true;
+- erpOrderNumber = 8627;
+- step = items.
+
+Primeira tela real:
+
+ITENS + EQUIPAMENTOS.
+
+==================================================
+7. TESTE OBRIGATÓRIO CREATE
+==================================================
+
+Depois da correção testar também Novo Pedido.
+
+Resultado esperado:
+
+Novo Pedido
+→ Empresa
+→ Cliente
+→ cliente selecionado
+→ identidade bloqueada
+→ Itens + Equipamentos
+
+Sem:
+
+Rendered more hooks than during the previous render.
+
+==================================================
+8. TESTE OBRIGATÓRIO EDIT
+==================================================
+
+Executar manualmente:
+
+Pedidos
+→ ERP 8627
+→ Editar pedido
+
+Esperado:
+
+GET /orders/8627 → 200
+GET /clients/1464 → 200
+loading aparece
+loading termina
+nenhuma tela branca
+nenhum Runtime Error
+abre Itens + Equipamentos
+
+Confirmar ainda:
+
+cliente = ROMEU 2
+empresa = Graal
+itens existentes carregados
+equipamentos carregados
+
+==================================================
+9. NÃO ALTERAR O BACKEND
+==================================================
+
+O backend já comprovou:
+
+GET /api/v1/orders/8627 → 200
+GET /api/v1/clients/1464 → 200
+
+Portanto:
 
 NODE ALTERADO: NÃO
-      </div>
+
+Não tocar em:
+
+orders.repository.js
+orders.service.js
+orders.controller.js
+
+nesta sprint.
+
+==================================================
+RELATÓRIO FINAL
+==================================================
+
+SPRINT 8.9.36.4
+
+Causa exata do erro de Hooks:
+________________________________
+
+Return condicional antes de hooks encontrado: SIM/NÃO
+
+Hook(s) que estavam condicionais:
+________________________________
+
+Gate de hidratação preservado: PASS/FAIL
+
+CREATE:
+Sem erro de hooks: PASS/FAIL
+Fluxo anterior preservado: PASS/FAIL
+
+EDIT ERP 8627:
+GET pedido 200: PASS/FAIL
+GET cliente 200: PASS/FAIL
+Loading exibido: PASS/FAIL
+Tela branca eliminada: PASS/FAIL
+Romeu 2 carregado: PASS/FAIL
+Abriu em Itens + Equipamentos: PASS/FAIL
+Itens carregados: PASS/FAIL
+Equipamentos carregados: PASS/FAIL
+
+NODE ALTERADO: NÃO</div>
     </div>
   );
 }
