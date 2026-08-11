@@ -1104,7 +1104,11 @@ function NewOrderPage() {
               { id: "delivery", label: "Entrega" },
               { id: "payment", label: "Pagamento" },
               { id: "review", label: "Revisão" }
-            ].map((s, i) => {
+            ].filter(s => {
+              // Sprint 8.9.36: No mobile, oculta a aba Cliente se a identidade estiver bloqueada
+              if (s.id === "client" && identityLocked) return false;
+              return true;
+            }).map((s, i) => {
               const stepIds = ["client", "items", "delivery", "payment", "review"];
               const currentIndex = stepIds.indexOf(step);
               const targetIndex = stepIds.indexOf(s.id);
