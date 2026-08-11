@@ -232,19 +232,15 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
       state: deliveryAddress?.state || "",
     },
     location: deliveryAddress?.latitude && deliveryAddress?.longitude ? {
-      lat: deliveryAddress.latitude,
-      lng: deliveryAddress.longitude
-    } : null,
-
-    observations: null,
-    erpStatus: null,
-    deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
-    returnDate: null,
-    period: typeof snap.period === "string" ? snap.period : null,
-    deliveryTime: null,
-    items: [],
-    equipments: [],
-    location: {
+      latitude: deliveryAddress.latitude,
+      longitude: deliveryAddress.longitude,
+      locationType: "rooftop",
+      precision: "exact",
+      placeId: deliveryAddress.placeId || "",
+      matchMismatch: false,
+      source: "snapshot",
+      cacheKey: deliveryAddress.placeId || "",
+    } : {
       latitude: null,
       longitude: null,
       locationType: "",
@@ -254,6 +250,15 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
       source: "unresolved",
       cacheKey: "",
     },
+    observations: null,
+    erpStatus: null,
+    deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
+    returnDate: null,
+    period: typeof snap.period === "string" ? snap.period : null,
+    deliveryTime: null,
+    items: [],
+    equipments: [],
+
     malformed: false,
     raw: {},
   };
