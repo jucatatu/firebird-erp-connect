@@ -78,6 +78,9 @@ test("GET /api/v1/orders/:orderNumber - debug logic", async (t) => {
   const orderNumber = 8623;
   const path = `/api/v1/orders/${orderNumber}`;
   
+  console.log('[TEST DEBUG] Running test for order 8623...');
+
+  
   const headers = sign({
     method: 'GET',
     path,
