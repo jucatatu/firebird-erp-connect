@@ -14,60 +14,36 @@ const assert = require("node:assert/strict");
 const request = require("supertest");
 const path = require("path");
 
-const clientPath = path.resolve(__dirname, "../src/shared/database/firebird-client.js");
+const repository = require("../src/modules/orders/orders.repository");
+const firebird = require("../src/shared/database/firebird-client");
 
-// Mock do Firebird Client
-require.cache[clientPath] = {
-  id: clientPath,
-  filename: clientPath,
-  loaded: true,
-  exports: {
-    ping: async () => true,
-    executeQuery: async (sql, params) => {
-      // console.log('[MOCK executeQuery] SQL:', JSON.stringify(sql));
-      // console.log('[MOCK executeQuery] Params:', params);
-      
-      // Simular busca por N_PEDIDO 8623
-      if (sql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
-        return [{
-          ID_ORDENS_VENDA: 5000,
-          N_PEDIDO: 8623,
-          ID_EMPRESA: 1,
-          ID_CLIENTE: 100,
-          ID_VENDEDOR: 2,
-          ID_STATUS: 27,
-          STATUS_DESCRICAO: 'PENDENTE',
-          ID_TIPO_VENDA: 1,
-          ID_PRAZO: 1,
-          ID_FORMA_PAGAMENTO: 1,
-          ENTREGAR: 1,
-          DATA_PREV_ENTREGA: '2026-08-20',
-          BUSCAR_EQUIP: 0,
-          OBS: 'Teste de observação'
-        }];
-      }
-      // Simular busca de itens para o ID 5000
-      if (sql.includes('FROM ITENS_ORDENS_VENDA') && params[0] === 5000) {
-        return [{ ID_PRODUTO: 10, DESCRICAO: 'Produto 10', QTDE_PEDIDA: 2, PRECO_UNIT: 15.5 }];
-      }
-      // Simular busca de equipamentos para o ID 5000
-      if (sql.includes('FROM EQUIP_ORDENS_VENDA') && params[0] === 5000) {
-        return [{ ID_TIPO_EQUIPAMENTO: 5, DESCRICAO: 'Equipamento 5', QTDE: 1 }];
-      }
-      return [];
-    },
-    withTransaction: async (fn) => {
-      const tx = {
-        query: async (sql, params) => {
-          if (sql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
-             return [{ ID_ORDENS_VENDA: 5000, N_PEDIDO: 8623, ID_STATUS: 27 }];
-          }
-          return [];
-        }
-      };
-      return fn(tx);
-    }
-  },
+// Injetar mock diretamente no objeto firebird-client importado (singleton)
+firebird.executeQuery = async (sql, params) => {
+  if (sql.includes('WHERE ov.N_PEDIDO = ?') && params[0] === 8623) {
+    return [{
+      ID_ORDENS_VENDA: 5000,
+      N_PEDIDO: 8623,
+      ID_EMPRESA: 1,
+      ID_CLIENTE: 100,
+      ID_VENDEDOR: 2,
+      ID_STATUS: 27,
+      STATUS_DESCRICAO: 'PENDENTE',
+      ID_TIPO_VENDA: 1,
+      ID_PRAZO: 1,
+      ID_FORMA_PAGAMENTO: 1,
+      ENTREGAR: 1,
+      DATA_PREV_ENTREGA: '2026-08-20',
+      BUSCAR_EQUIP: 0,
+      OBS: 'Teste de observação'
+    }];
+  }
+  if (sql.includes('FROM ITENS_ORDENS_VENDA') && params[0] === 5000) {
+    return [{ ID_PRODUTO: 10, DESCRICAO: 'Produto 10', QTDE_PEDIDA: 2, PRECO_UNIT: 15.5 }];
+  }
+  if (sql.includes('FROM EQUIP_ORDENS_VENDA') && params[0] === 5000) {
+    return [{ ID_TIPO_EQUIPAMENTO: 5, DESCRICAO: 'Equipamento 5', QTDE: 1 }];
+  }
+  return [];
 };
 
 const { createApp } = require("../src/app");
