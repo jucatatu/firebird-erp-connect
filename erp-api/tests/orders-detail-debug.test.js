@@ -6,6 +6,10 @@ const assert = require("node:assert/strict");
 const request = require("supertest");
 const path = require("path");
 
+// Desativar auth para testes de lógica
+process.env.SKIP_AUTH_FOR_TEST = "true";
+
+
 const clientPath = path.resolve(__dirname, "../src/shared/database/firebird-client.js");
 
 const state = {
