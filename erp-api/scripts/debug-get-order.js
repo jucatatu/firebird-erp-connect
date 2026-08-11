@@ -1,9 +1,9 @@
 const http = require('http');
 const crypto = require('crypto');
 
-const API_KEY = "DEV-TEST-KEY";
-const API_SECRET = "DEV-TEST-SECRET";
-const HOST = "localhost";
+const API_KEY = 'DEV-TEST-KEY';
+const API_SECRET = 'DEV-TEST-SECRET';
+const HOST = 'localhost';
 const PORT = 3052;
 
 function sign(method, path, body = {}) {
@@ -11,7 +11,10 @@ function sign(method, path, body = {}) {
   const bodyString = Object.keys(body).length > 0 ? JSON.stringify(body) : '';
   const bodyHash = crypto.createHmac('sha256', API_SECRET).update(bodyString).digest('hex');
   
-  const stringToSign = `${method.toUpperCase()}\n${path}\n${timestamp}\n${bodyHash}`;
+  const stringToSign = `${method.toUpperCase()}
+${path}
+${timestamp}
+${bodyHash}`;
   const signature = crypto.createHmac('sha256', API_SECRET).update(stringToSign).digest('hex');
   
   return {
@@ -40,7 +43,7 @@ function testGetOrder(orderNumber) {
     let data = '';
     res.on('data', (chunk) => data += chunk);
     res.on('end', () => {
-      console.log('SUCCESS:', res.statusCode);
+      console.log('STATUS:', res.statusCode);
       try {
         console.log('DATA:', JSON.stringify(JSON.parse(data), null, 2));
       } catch (e) {
