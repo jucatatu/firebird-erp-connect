@@ -259,7 +259,6 @@ function DraftDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          {/* Cliente / dados */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex flex-col gap-1">
@@ -270,87 +269,29 @@ function DraftDetailPage() {
                   </div>
                 )}
               </div>
-              {!canEdit && (
-                <span className="text-xs text-muted-foreground italic">Somente leitura — {erpStatusDescription || "STATUS BLOQUEADO"}</span>
-              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="d-title">Título</Label>
-                  <Input
-                    id="d-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={!canEdit}
-                  />
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Título</span>
+                  <p className="text-sm font-semibold">{title || "—"}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="d-customer">Cliente</Label>
-                  <Input
-                    id="d-customer"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    disabled={!canEdit}
-                  />
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Cliente</span>
+                  <p className="text-sm font-semibold">{customerName || "—"}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Select
-                    value={company}
-                    onValueChange={(v) => setCompany(v as "auto" | "1" | "3")}
-                    disabled={!canEdit}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">Automática</SelectItem>
-                      <SelectItem value="1">Graal (1)</SelectItem>
-                      <SelectItem value="3">Grott (3)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Empresa</span>
+                  <p className="text-sm font-semibold">{companyLabel(draft.company_id)}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Resolução atual</Label>
-                  <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                    {companyLabel(draft.company_id)}
-                  </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">ID ERP</span>
+                  <p className="text-sm font-semibold">{draft.erp_order_number || "—"}</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="d-notes">Observações</Label>
-                <Textarea
-                  id="d-notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!canEdit}
-                  rows={4}
-                />
-              </div>
-              {canEdit && (
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={saveChanges} disabled={update.isPending}>
-                    {update.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Salvar alterações
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Próximas etapas (placeholder informativo) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Itens, entrega e pagamento</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-                Estas seções serão liberadas nas próximas fases do sistema.
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase">Observações</span>
+                <p className="text-sm whitespace-pre-wrap">{notes || "Sem observações."}</p>
               </div>
             </CardContent>
           </Card>

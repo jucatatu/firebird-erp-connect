@@ -310,8 +310,9 @@ export const useOrderFormStore = create<OrderFormStore>()(
             quantity: i.quantity,
             unitPrice: i.unitPrice || 0,
             appliedUnitPrice: i.manualUnitPrice || i.unitPrice || 0,
-            manualPrice: !!i.manualUnitPrice,
-            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity
+            manualPrice: i.manualUnitPrice !== null && i.manualUnitPrice !== undefined,
+            total: (i.manualUnitPrice || i.unitPrice || 0) * i.quantity,
+            unit: i.unit || "UN"
           })),
           equipments: (payload.equipments || []).map((e: any) => ({
             equipmentTypeId: e.equipmentTypeId,
