@@ -1025,10 +1025,16 @@ function NewOrderPage() {
       />
       <div className="container max-w-5xl py-4 sm:py-6 px-4">
       <PageHeader 
-        title="Novo Pedido" 
-        description="Siga os passos para cadastrar um novo pedido no ERP."
+        title={isEditing ? `Editar Pedido ${erpOrderNumber || ""}` : "Novo Pedido"} 
+        description={isEditing ? "Alterando pedido existente no ERP." : "Siga os passos para cadastrar um novo pedido no ERP."}
         crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: "Novo" }]}
-      />
+      >
+        {isEditing && erpOrderNumber && (
+          <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+            ERP {erpOrderNumber}
+          </Badge>
+        )}
+      </PageHeader>
 
       <div className="mb-6 flex flex-col gap-4">
         {/* Stepper responsivo: Faixa rolável no mobile */}
