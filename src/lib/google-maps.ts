@@ -15,7 +15,7 @@ export async function loadGoogleMapsLibraries() {
 
   // Sprint 8.9.37: Usando a API de carregamento dinâmico
   // O Loader carrega o script globalmente
-  await loader.load();
+  await loader.loadPromise();
   
   // Acessando via window.google conforme API do loader
   const { Map, InfoWindow } = await (window as any).google.maps.importLibrary("maps");
