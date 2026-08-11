@@ -658,9 +658,69 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
+  // Sprint 8.9.36.5: Normalização de metadados de equipamentos no MODO EDIÇÃO
+  useEffect(() => {
+    if (!isEditing || !erpOrderNumber || hydrationLoading) return;
+    
+    const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
+    const allProducts = (productsQ.data as any)?.data?.products || [];
+    
+    // Só procedemos se o catálogo estiver carregado
+    if (allEquipTypes.length === 0 || allProducts.length === 0) return;
+
+    const needsNormalization = equipments.some(eq => !eq.role || eq.capacityLiters === undefined || (choppItems.length === 1 && !eq.assignedProductId && eq.role === 'KEG'));
+    
+    if (!needsNormalization) return;
+
+    console.log("[EQUIPMENT LOGISTICS] Normalizando metadados para pedido ERP:", erpOrderNumber);
+    
+    // Tenta localizar o snapshot correspondente para recuperar assignedProductId
+    const draftSnapshot = recentOrders?.find(d => d.erp_order_number === erpOrderNumber);
+    const snapshotEquips = draftSnapshot?.payload?.equipments || [];
+
+    const normalizedEquips = equipments.map(eq => {
+      const catalogInfo = allEquipTypes.find((et: any) => et.id === eq.equipmentTypeId);
+      if (!catalogInfo) return eq;
+
+      const role = catalogInfo.equipment_role || (catalogInfo.description?.toLowerCase().includes("barril") ? "KEG" : "TAP");
+      const capacity = catalogInfo.capacity_liters || Number(catalogInfo.description?.match(/(\d+)\s*l/i)?.[1] || 0);
+      const tapLines = catalogInfo.tap_count || Number(catalogInfo.description?.match(/(\d+)\s*vias/i)?.[1] || 1);
+
+      // Recuperação do assignedProductId
+      let assignedProductId = eq.assignedProductId;
+      
+      if (!assignedProductId) {
+        // 1. Snapshot do Supabase
+        const snap = snapshotEquips.find((se: any) => se.equipmentTypeId === eq.equipmentTypeId);
+        if (snap?.assignedProductId) {
+          assignedProductId = snap.assignedProductId;
+        } 
+        // 2. Fallback: Produto único
+        else if (role === "KEG" && choppItems.length === 1) {
+          assignedProductId = choppItems[0].productId;
+        }
+      }
+
+      return {
+        ...eq,
+        role: role as any,
+        capacityLiters: capacity,
+        tapLines: role === "TAP" ? tapLines : undefined,
+        assignedProductId
+      };
+    });
+
+    // Só atualiza se houver mudança real para evitar loops
+    const hasChanged = JSON.stringify(normalizedEquips) !== JSON.stringify(equipments);
+    if (hasChanged) {
+      console.log("[EQUIPMENT LOGISTICS] Atualizando equipamentos normalizados");
+      useOrderFormStore.setState({ equipments: normalizedEquips });
+    }
+  }, [isEditing, erpOrderNumber, hydrationLoading, equipmentTypesQ.data, productsQ.data, recentOrders, equipments.length, choppItems.length]);
+
   // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
   useEffect(() => {
-    const hasReturnables = equipments.length > 0; // Se a sugestão ou manual adicionou algo, provavelmente é retornável
+    const hasReturnables = equipments.length > 0;
     if (hasReturnables && !returnEquipment && step === "items") {
       console.log("[LOGISTICS] auto-enabling returnEquipment due to items in cart");
       setReturn(true, returnAt);
