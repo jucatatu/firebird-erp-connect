@@ -334,13 +334,22 @@ function NewOrderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
-  const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+
+  // Sprint 8.9.36: Guard de navegação para impedir retorno ao cliente se a identidade estiver bloqueada
+  const setStep = (newStep: typeof step) => {
+    if (identityLocked && newStep === "client") {
+      console.log("[WIZARD] Bloqueando navegação para 'client' porque a identidade está travada.");
+      return;
+    }
+    setStepState(newStep);
+  };
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
-    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing,
+    idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
@@ -357,8 +366,15 @@ function NewOrderPage() {
 
   useEffect(() => {
     const hydrate = async () => {
-      if (!editParam || isEditing || hydrationLoading) return;
+      // Se não há parâmetro ou já está editando/hidratando, não faz nada
+      if (!editParam || hydrationLoading) return;
       
+      // Se já está na store com o mesmo número, apenas garante o step
+      if (isEditing && erpOrderNumber === Number(editParam)) {
+        if (step === "client") setStep("items");
+        return;
+      }
+
       const orderNum = Number(editParam);
       if (isNaN(orderNum)) return;
 
@@ -369,10 +385,15 @@ function NewOrderPage() {
         const result = await fetchOrderDetail({ data: orderNum });
         if (result.ok && result.data) {
           editErpOrder(result.data);
+          // O setStep aqui usa a função com guard, mas como editErpOrder 
+          // já seta identityLocked=true no Zustand, precisamos garantir que 
+          // a transição aconteça. O setStepState contornaria o guard se necessário,
+          // mas o guard é para bloquear o 'client'.
           setStep("items");
           toast.success(`Pedido ${orderNum} carregado para edição.`);
         } else {
           toast.error(result.error?.message || "Erro ao carregar pedido.");
+          navigate({ to: "/pedidos-venda" });
         }
       } catch (err) {
         toast.error("Erro na comunicação com o servidor.");
@@ -381,7 +402,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, fetchOrderDetail, editErpOrder]);
+  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]);
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
