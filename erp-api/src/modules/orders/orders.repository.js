@@ -138,8 +138,16 @@ async function fetchOrderByNumber(txOrConn, orderNumber) {
     LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
     WHERE ov.N_PEDIDO = ?
   `;
-  const executor = txOrConn || firebird;
-  const rows = await executor.query(sql, [orderNumber]);
+  
+  // Se for passado um txOrConn que não é o client firebird, assumimos que é uma transação ou conexão ativa
+  // que implementa .query(). O firebird-client exportado NÃO implementa .query(), mas sim .executeQuery().
+  if (txOrConn && typeof txOrConn.query === "function") {
+    const rows = await txOrConn.query(sql, [orderNumber]);
+    return rows && rows[0] ? rows[0] : null;
+  }
+  
+  // Fallback para executeQuery canônico do pool
+  const rows = await firebird.executeQuery(sql, [orderNumber]);
   return rows && rows[0] ? rows[0] : null;
 }
 
