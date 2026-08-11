@@ -51,7 +51,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   }, [clientAddress, deliveryAddress, setDeliveryAddress, setDeliveryAddressConfirmed]);
 
   const loadMaps = async () => {
-    if (isMapsLoaded) return;
+    if (isMapsLoaded || isLoadingMaps) return;
     setIsLoadingMaps(true);
     setMapsError(null);
     try {
@@ -59,7 +59,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       setMapsLibs(libs);
       setIsMapsLoaded(true);
     } catch (err: any) {
-      console.error("Erro ao carregar Google Maps:", err);
+      // O erro detalhado já foi logado pelo helper
       setMapsError("Não foi possível carregar o Google Maps. Use o preenchimento manual.");
       toast.error("Erro ao carregar Google Maps");
     } finally {
@@ -70,19 +70,42 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   // Setup Autocomplete
   useEffect(() => {
     if (isSearching && isMapsLoaded && mapsLibs && autocompleteRef.current) {
-      // Sprint 8.9.37: Usando o Web Component nativo gmp-place-autocomplete
+      console.log("[GOOGLE MAPS] Inicializando autocomplete...");
+      
+      // Sprint 8.9.37.1: Garantir que o elemento existe antes de tentar usar
+      // A Places API New usa o web component <gmp-place-autocomplete>
       const autocomplete = document.createElement("gmp-place-autocomplete");
+      
+      // Configurações básicas
       (autocomplete as any).fields = "address_components,formatted_address,geometry,name,place_id";
-      (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
+      
+      // Priorizar Brasil, mas sem restrição rígida de cidade (apenas bias)
+      if (deliveryAddress?.latitude && deliveryAddress?.longitude) {
+        (autocomplete as any).locationBias = { 
+          radius: 10000, 
+          center: { lat: deliveryAddress.latitude, lng: deliveryAddress.longitude } 
+        };
+      } else {
+        // Bias padrão para Jaraguá do Sul se não houver coords
+        (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
+      }
 
+      // Adicionar label para acessibilidade/UX conforme pedido
+      autocomplete.setAttribute("placeholder", "Digite um endereço, local ou estabelecimento");
 
-      // Clear previous
+      // Limpar e anexar
       autocompleteRef.current.innerHTML = "";
       autocompleteRef.current.appendChild(autocomplete);
 
-      autocomplete.addEventListener("gmp-placeselect", async (event: any) => {
+      const handlePlaceSelect = async (event: any) => {
+        console.log("[GOOGLE MAPS] Local selecionado:", event.place);
         const place = event.place;
-        if (!place.geometry || !place.geometry.location) return;
+        
+        // Se for uma string (apenas texto digitado sem selecionar sugestão), ignorar ou tratar
+        if (!place || typeof place === 'string' || !place.geometry) {
+          console.warn("[GOOGLE MAPS] Seleção inválida ou incompleta");
+          return;
+        }
 
         const components = place.address_components || [];
         const getComp = (type: string) => components.find((c: any) => c.types.includes(type))?.long_name || "";
@@ -96,17 +119,25 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           state: getComp("administrative_area_level_1"),
           postalCode: getComp("postal_code"),
           country: getComp("country"),
-          latitude: place.geometry.location.lat(),
-          longitude: place.geometry.location.lng(),
+          latitude: typeof place.geometry.location.lat === 'function' ? place.geometry.location.lat() : place.geometry.location.lat,
+          longitude: typeof place.geometry.location.lng === 'function' ? place.geometry.location.lng() : place.geometry.location.lng,
           placeId: place.place_id,
           complement: deliveryAddress?.complement || "",
           reference: deliveryAddress?.reference || ""
         };
 
+        console.log("[GOOGLE MAPS] Endereço estruturado:", newAddress);
+
         setDeliveryAddress(newAddress);
         setDeliveryAddressConfirmed(false);
         setIsSearching(false);
-      });
+      };
+
+      autocomplete.addEventListener("gmp-placeselect", handlePlaceSelect);
+
+      return () => {
+        autocomplete.removeEventListener("gmp-placeselect", handlePlaceSelect);
+      };
     }
   }, [isSearching, isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed]);
 
@@ -263,9 +294,9 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           
           <div className="space-y-3">
             {isLoadingMaps ? (
-              <div className="flex items-center justify-center py-6 gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-xs text-muted-foreground">Carregando Google Maps...</span>
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium text-muted-foreground">Carregando busca de endereços...</span>
               </div>
             ) : mapsError ? (
               <div className="p-3 border rounded-lg bg-destructive/5 border-destructive/20 space-y-2">

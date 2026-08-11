@@ -3,23 +3,57 @@ import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 export async function loadGoogleMapsLibraries() {
+  console.log("[GOOGLE MAPS] loader iniciado");
+  
   if (!GOOGLE_MAPS_API_KEY) {
+    console.error("[GOOGLE MAPS] VITE_GOOGLE_MAPS_API_KEY ausente");
     throw new Error("VITE_GOOGLE_MAPS_API_KEY não configurada.");
   }
 
-  // Sprint 8.9.37: Usando a API funcional moderna
-  // Nota: De acordo com a tipagem do js-api-loader, a chave é passada em key, não apiKey
-  setOptions({
-    key: GOOGLE_MAPS_API_KEY,
-    v: "weekly",
-    libraries: ["places", "marker"]
-  });
+  console.log("[GOOGLE MAPS] API key presente: SIM");
 
-  const { Map, InfoWindow } = await importLibrary("maps");
-  const { AdvancedMarkerElement, PinElement } = await importLibrary("marker");
-  const { Place } = await importLibrary("places");
+  try {
+    // Sprint 8.9.37.1: Diagnóstico e Contrato Moderno
+    setOptions({
+      key: GOOGLE_MAPS_API_KEY,
+      v: "weekly",
+      // O PlaceAutocompleteElement (Web Component) requer a biblioteca 'places'
+      // A biblioteca 'marker' é usada para o AdvancedMarkerElement
+    });
 
-  return { Map, InfoWindow, AdvancedMarkerElement, PinElement, Place };
+    console.log("[GOOGLE MAPS] Carregando bibliotecas...");
+
+    // Carregamento paralelo das bibliotecas necessárias
+    const [mapsLib, markerLib, placesLib] = await Promise.all([
+      importLibrary("maps"),
+      importLibrary("marker"),
+      importLibrary("places")
+    ]);
+
+    console.log("[GOOGLE MAPS] Maps library carregada:", !!mapsLib);
+    console.log("[GOOGLE MAPS] Marker library carregada:", !!markerLib);
+    console.log("[GOOGLE MAPS] Places library carregada:", !!placesLib);
+
+    // Na API moderna, importLibrary("places") retorna o namespace que contém PlaceAutocompleteElement
+    const isAutocompleteAvailable = !!(placesLib as any).PlaceAutocompleteElement || !!(window as any).google?.maps?.places?.PlaceAutocompleteElement;
+    console.log("[GOOGLE MAPS] PlaceAutocompleteElement disponível:", isAutocompleteAvailable);
+
+    return { 
+      Map: mapsLib.Map, 
+      InfoWindow: mapsLib.InfoWindow, 
+      AdvancedMarkerElement: markerLib.AdvancedMarkerElement, 
+      PinElement: markerLib.PinElement, 
+      Place: placesLib.Place,
+      placesLib // Retornar a lib inteira para checagem de componentes
+    };
+  } catch (err: any) {
+    console.error("[GOOGLE MAPS] erro:", {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    throw err;
+  }
 }
 
 
