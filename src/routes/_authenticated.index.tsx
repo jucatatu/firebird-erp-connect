@@ -34,10 +34,11 @@ function Index() {
       <Outlet />
       
       <div className="hidden">
-        SPRINT 8.9.36.5 - CORRIGIR COBERTURA DE EQUIPAMENTOS NO MODO EDIÇÃO
-        O problema era a falta de metadados logísticos (capacityLiters, role, assignedProductId) nos equipamentos carregados do ERP.
-        A solução foi implementar a normalização automática dos equipamentos ao carregar o modo edição, utilizando o catálogo equipmentTypes e snapshots do Supabase como fonte auxiliar.
-        A cobertura agora é recalculada imediatamente e libera a navegação.
+        SPRINT 8.9.36.6 - RECALCULAR COBERTURA AUTOMATICAMENTE
+        A cobertura agora e tratada como estado derivado reativo. 
+        A normalizacao de equipamentos ocorre automaticamente sempre que o catalogo ou os itens mudam,
+        garantindo que assignedProductId seja preenchido (especialmente no caso de um unico chopp) 
+        sem necessidade de clique manual.
       </div>
     </div>
   );
