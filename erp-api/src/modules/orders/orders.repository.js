@@ -130,25 +130,64 @@ async function findStatusByNumbers(orderNumbers) {
 }
 
 async function fetchOrderByNumber(txOrConn, orderNumber) {
+  // 1. Log Seguro de Entrada
+  logger.info({ orderNumber }, "[ORDER DETAIL DEBUG] Início da busca");
+
+  // 2. SQL Mínima para Garantir Existência
+  const sqlMin = "SELECT ID_ORDENS_VENDA, N_PEDIDO, ID_CLIENTE, ID_EMPRESA, ID_STATUS FROM ORDENS_VENDA WHERE N_PEDIDO = ?";
+  
+  let resultMin;
+  if (txOrConn && typeof txOrConn.query === "function") {
+    resultMin = await txOrConn.query(sqlMin, [orderNumber]);
+  } else {
+    resultMin = await firebird.executeQuery(sqlMin, [orderNumber]);
+  }
+
+  // Debug do formato do retorno
+  logger.info({
+    orderNumber,
+    type: typeof resultMin,
+    isArray: Array.isArray(resultMin),
+    count: Array.isArray(resultMin) ? resultMin.length : (resultMin ? 1 : 0),
+    keys: resultMin && !Array.isArray(resultMin) ? Object.keys(resultMin) : []
+  }, "[ORDER DETAIL DEBUG] Formato retorno executeQuery");
+
+  const rowsMin = Array.isArray(resultMin) ? resultMin : (resultMin ? [resultMin] : []);
+  if (rowsMin.length === 0) {
+    logger.warn({ orderNumber }, "[ORDER DETAIL DEBUG] Pedido não encontrado na SELECT mínima");
+    return null;
+  }
+
+  // 3. SQL Detalhada com LEFT JOINs para evitar 404 por dados opcionais
   const sql = `
     SELECT 
       ov.*, 
-      s.DESCRICAO AS STATUS_DESCRICAO
+      s.DESCRICAO AS STATUS_DESCRICAO,
+      cl.NM_CLIENTE AS CLIENTE_NOME,
+      v.NM_VENDEDOR AS VENDEDOR_NOME
     FROM ORDENS_VENDA ov
     LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
+    LEFT JOIN CLIENTES cl ON ov.ID_CLIENTE = cl.ID_CLIENTE
+    LEFT JOIN VENDEDORES v ON ov.ID_VENDEDOR = v.ID_VENDEDOR
     WHERE ov.N_PEDIDO = ?
   `;
   
-  // Se for passado um txOrConn que não é o client firebird, assumimos que é uma transação ou conexão ativa
-  // que implementa .query(). O firebird-client exportado NÃO implementa .query(), mas sim .executeQuery().
+  let rows;
   if (txOrConn && typeof txOrConn.query === "function") {
-    const rows = await txOrConn.query(sql, [orderNumber]);
-    return rows && rows[0] ? rows[0] : null;
+    rows = await txOrConn.query(sql, [orderNumber]);
+  } else {
+    rows = await firebird.executeQuery(sql, [orderNumber]);
   }
   
-  // Fallback para executeQuery canônico do pool
-  const rows = await firebird.executeQuery(sql, [orderNumber]);
-  return rows && rows[0] ? rows[0] : null;
+  const result = Array.isArray(rows) ? rows[0] : rows;
+
+  if (!result) {
+    logger.error({ orderNumber }, "[ORDER DETAIL DEBUG] Pedido sumiu na SELECT detalhada! Checar JOINs");
+    // Se a mínima existia mas a completa falhou, retornamos o básico da mínima pelo menos
+    return rowsMin[0];
+  }
+
+  return result;
 }
 
 async function fetchItemsByOrderId(orderId) {

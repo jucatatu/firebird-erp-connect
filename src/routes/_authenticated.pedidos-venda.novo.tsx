@@ -175,7 +175,7 @@ function NewOrderPage() {
         <p className="text-sm text-muted-foreground mt-2 mb-4">
           Não foi possível localizar o pedido {editOrderNumber} no ERP.
         </p>
-        <Button onClick={() => navigate({ to: "/pedidos-venda" })}>Voltar para Meus Pedidos</Button>
+        <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>Voltar para Meus Pedidos</Button>
       </div>
     );
   }
@@ -204,7 +204,7 @@ function NewOrderPage() {
           </div>
 
           <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={() => navigate({ to: "/pedidos-venda" })}>Cancelar</Button>
+            <Button variant="outline" onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>Cancelar</Button>
             <Button 
               className={isEditing ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"}
               onClick={isEditing ? handleUpdateOrder : handleCreateOrder}
@@ -225,7 +225,7 @@ function NewOrderPage() {
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
               <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
               <p className="font-bold text-green-800">Sucesso!</p>
-              <Button className="mt-2" onClick={() => navigate({ to: "/pedidos-venda" })}>Ver Meus Pedidos</Button>
+              <Button className="mt-2" onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>Ver Meus Pedidos</Button>
             </div>
           )}
         </CardContent>
