@@ -1124,6 +1124,14 @@ function NewOrderPage() {
           </div>
         </div>
         
+        {/* DEBUG SPRINT 8.9.35 */}
+        {edit && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 rounded mb-4 animate-in slide-in-from-top duration-500">
+            <p className="font-bold text-sm">MODO EDIÇÃO</p>
+            <p className="text-xs font-mono">ERP: {edit}</p>
+          </div>
+        )}
+
         {/* Nome do cliente/usuário: Linha separada ou compacto no mobile */}
         {clientId && (
           <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded-lg border border-muted/50 w-full overflow-hidden animate-in fade-in duration-300">
