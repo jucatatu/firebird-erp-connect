@@ -343,10 +343,43 @@ function NewOrderPage() {
   } = useOrderFormStore();
 
   
-  // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
   const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
   const fetchPrice = useServerFn(resolveErpPrice);
+  const fetchOrderDetail = useServerFn(getErpOrderDetail);
+  
+  const [hydrationLoading, setHydrationLoading] = useState(false);
+  const { edit: editParam } = Route.useSearch();
+
+  useEffect(() => {
+    const hydrate = async () => {
+      if (!editParam || isEditing || hydrationLoading) return;
+      
+      const orderNum = Number(editParam);
+      if (isNaN(orderNum)) return;
+
+      setHydrationLoading(true);
+      toast.info(`Carregando pedido ERP ${orderNum}...`);
+      
+      try {
+        const result = await fetchOrderDetail({ data: { orderNumber: orderNum } });
+        if (result.ok && result.data) {
+          editErpOrder(result.data);
+          setStep("items");
+          toast.success(`Pedido ${orderNum} carregado para edição.`);
+        } else {
+          toast.error(result.error?.message || "Erro ao carregar pedido.");
+        }
+      } catch (err) {
+        toast.error("Erro na comunicação com o servidor.");
+      } finally {
+        setHydrationLoading(false);
+      }
+    };
+    hydrate();
+  }, [editParam, isEditing, fetchOrderDetail, editErpOrder]);
+
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
+
     loading: boolean;
     error: string | null;
     data: PaymentOptionsPayload | null;
