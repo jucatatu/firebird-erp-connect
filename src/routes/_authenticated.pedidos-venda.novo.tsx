@@ -1063,6 +1063,11 @@ function NewOrderPage() {
       }
     },
     onSwipedRight: () => {
+      // Sprint 8.9.36: Bloqueio de retorno ao cliente via swipe
+      if (step === "items" && identityLocked) {
+        console.log("[WIZARD] Swipe para a direita bloqueado: identidade travada no Passo 2.");
+        return;
+      }
       const prevStep = stepsOrder[currentStepIndex - 1];
       if (prevStep) setStep(prevStep);
     },
