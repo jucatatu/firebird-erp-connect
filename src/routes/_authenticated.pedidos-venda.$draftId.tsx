@@ -143,12 +143,14 @@ function DraftDetailPage() {
   const detailFn = useServerFn(getErpOrderDetail);
 
   const handleEdit = async () => {
+    console.log("[DETAIL] handleEdit clicked", { erp_order_number: draft?.erp_order_number });
     if (!draft?.erp_order_number) return;
     
     setIsRefreshing(true);
     try {
       // 1. Revalidar status antes de qualquer coisa
       const statusRes = await getStatusFn({ data: [Number(draft.erp_order_number)] });
+      console.log("[DETAIL] status check", statusRes);
       if (statusRes.ok && statusRes.data && statusRes.data.length > 0) {
         const liveStatusId = statusRes.data[0].statusId;
         if (!canEditErpOrder(liveStatusId)) {
@@ -161,17 +163,19 @@ function DraftDetailPage() {
       }
 
       // 2. Carregar detalhe completo oficial do ERP
+      console.log("[DETAIL] fetching detail for", draft.erp_order_number);
       const detailRes = await detailFn({ data: Number(draft.erp_order_number) });
+      console.log("[DETAIL] detail response", detailRes);
+
       if (detailRes.ok && detailRes.data) {
-        // Garantir que carregamos os nomes corretos do snapshot se não vierem do ERP
         const erpData = detailRes.data;
+        console.log("[DETAIL] hydrating store with", erpData);
         editErpOrder({
           ...erpData,
           clientName: erpData.clientName || draft.customer_name_snapshot
         });
         
-        // Sprint 8.9.34: Navegar garantindo que o wizard detecte o modo edição
-        // Passamos o parâmetro edit para que o useEffect de reset seja ignorado
+        console.log("[DETAIL] navigating to wizard with edit param");
         navigate({ 
           to: "/pedidos-venda/novo",
           search: { edit: Number(draft.erp_order_number) } as any
@@ -182,6 +186,7 @@ function DraftDetailPage() {
         });
       }
     } catch (err) {
+      console.error("[DETAIL] handleEdit error", err);
       toast.error("Falha na comunicação com o ERP");
     } finally {
       setIsRefreshing(false);
