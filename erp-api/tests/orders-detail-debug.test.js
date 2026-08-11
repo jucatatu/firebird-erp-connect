@@ -1,13 +1,20 @@
 "use strict";
 
+// Desativar auth para testes de lógica ANTES de qualquer require que use env
+process.env.SKIP_AUTH_FOR_TEST = "true";
+process.env.API_KEY = "test-key-16-chars-min";
+process.env.HMAC_SECRET = "test-secret-32-chars-minimum-length";
+process.env.FIREBIRD_HOST = "localhost";
+process.env.FIREBIRD_DATABASE = "test.fdb";
+process.env.FIREBIRD_USER = "SYSDBA";
+process.env.FIREBIRD_PASSWORD = "masterkey";
+
 require("./helpers/env");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
 const path = require("path");
 
-// Desativar auth para testes de lógica
-process.env.SKIP_AUTH_FOR_TEST = "true";
 
 
 const clientPath = path.resolve(__dirname, "../src/shared/database/firebird-client.js");
