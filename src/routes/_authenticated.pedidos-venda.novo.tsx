@@ -1846,17 +1846,6 @@ function NewOrderPage() {
   );
 }
 
-    if (result.ok) {
-      toast.success("Pedido atualizado com sucesso");
-      setSubmissionStatus("created", { orderId: result.data?.orderId, orderNumber: result.data?.orderNumber });
-      queryClient.invalidateQueries({ queryKey: ["order-drafts"] });
-    } else {
-      toast.error("Erro ao atualizar pedido", { description: result.error?.message });
-      setSubmissionStatus("failed");
-    }
-  }
-}
-
 
 function ManualEquipmentSheet({ 
   open, 
