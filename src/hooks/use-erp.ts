@@ -27,7 +27,10 @@ import {
   type ErpEquipmentType,
   type PaymentOptionsPayload,
   type ErpClient,
+  type ErpOrderDetail,
+  getErpOrderDetail,
 } from "@/lib/erp-orders.functions";
+
 
 /** Ping público /api/v1/health da API Node. */
 export function useErpHealth() {
@@ -214,3 +217,18 @@ export function useErpClientDetail(clientId: number | null) {
     staleTime: 60_000,
   });
 }
+
+/** GET /api/v1/orders/:orderNumber — detalhe completo do pedido para edição. */
+export function useErpOrderDetail(orderNumber: number | null) {
+  const fn = useServerFn(getErpOrderDetail);
+  return useQuery({
+    queryKey: ["erp", "orders", orderNumber, "detail"],
+    queryFn: () => {
+      if (!orderNumber) throw new Error("orderNumber ausente");
+      return fn({ data: orderNumber });
+    },
+    enabled: Boolean(orderNumber),
+    staleTime: 0, // Edição exige dados frescos
+  });
+}
+

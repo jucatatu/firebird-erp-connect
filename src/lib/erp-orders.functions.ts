@@ -471,4 +471,74 @@ export const getErpOrdersStatus = createServerFn({ method: "GET" })
     }) as Promise<ErpResponse<ErpOrderStatus[]>>;
   });
 
+export interface ErpOrderDetail extends Omit<CreateOrderInput, 'items'> {
+  orderId: number;
+  orderNumber: number;
+  statusId: number;
+  statusDescription: string | null;
+  items: Array<{
+    productId: number;
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    manualUnitPrice: number | null;
+  }>;
+  equipments: Array<{
+    equipmentTypeId: number;
+    description: string;
+    quantity: number;
+  }>;
+}
+
+export const getErpOrderDetail = createServerFn({ method: "GET" })
+  .inputValidator((orderNumber: number) => z.number().parse(orderNumber))
+  .handler(async ({ data: orderNumber }) => {
+    const { callErp } = await import("./erp.server");
+    const result = await callErp({
+      method: "GET",
+      path: `/api/v1/orders/${orderNumber}`
+    }) as ErpResponse<any>;
+
+    if (!result.ok || !result.data) return result;
+
+    const raw = result.data;
+    // Mapeamento exato do contrato Node (orders.repository.js / orders.mapper.js) para CreateOrderInput
+    // O backend retorna campos em camelCase pois é orquestrado pelo service/mapper
+    const mapped: ErpOrderDetail = {
+      orderId: Number(raw.ID_ORDENS_VENDA || raw.orderId),
+      orderNumber: Number(raw.N_PEDIDO || raw.orderNumber),
+      statusId: Number(raw.ID_STATUS || raw.statusId),
+      statusDescription: raw.STATUS_DESCRICAO || raw.statusDescription,
+      companyId: Number(raw.ID_EMPRESA || raw.companyId),
+      clientId: Number(raw.ID_CLIENTE || raw.clientId),
+      sellerId: Number(raw.ID_VENDEDOR || raw.sellerId),
+      saleTypeId: Number(raw.ID_TIPO_VENDA || raw.saleTypeId),
+      paymentTermId: Number(raw.ID_PRAZO_PAGTO || raw.paymentTermId),
+      paymentMethodId: Number(raw.ID_FORMA_PAGTO || raw.paymentMethodId),
+      deliver: raw.ENTREGAR === 1 || raw.deliver === true,
+      deliveryAt: raw.DATA_ENTREGA || raw.deliveryAt,
+      returnEquipment: raw.RECOLHER_EQUIPAMENTO === 1 || raw.returnEquipment === true,
+      returnAt: raw.DATA_RECOLHIMENTO || raw.returnAt,
+      notes: raw.OBSERVACAO || raw.notes,
+      freightValue: Number(raw.VALOR_FRETE || raw.freightValue || 0),
+      items: (raw.items || []).map((i: any) => ({
+        productId: Number(i.ID_PRODUTO || i.productId),
+        description: i.DESCRICAO || i.description,
+        quantity: Number(i.QUANTIDADE || i.quantity),
+        unit: i.UNIDADE || i.unit,
+        unitPrice: Number(i.PRECO_TABELA || i.unitPrice), // Preço "original" de tabela na época ou atual
+        manualUnitPrice: i.PRECO_UNITARIO !== i.PRECO_TABELA ? Number(i.PRECO_UNITARIO || i.manualUnitPrice) : null
+      })),
+      equipments: (raw.equipments || []).map((e: any) => ({
+        equipmentTypeId: Number(e.ID_TIPO_EQUIPAMENTO || e.equipmentTypeId),
+        description: e.DESCRICAO || e.description,
+        quantity: Number(e.QUANTIDADE || e.quantity)
+      }))
+    };
+
+    return { ...result, data: mapped };
+  });
+
+
 
