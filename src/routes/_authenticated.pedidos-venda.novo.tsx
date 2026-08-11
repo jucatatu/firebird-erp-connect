@@ -33,8 +33,10 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       edit: search.edit ? String(search.edit) : undefined,
+      status: search.status ? String(search.status) : undefined, // Adicionado para compatibilidade com Link de pedidos
     };
   },
+
   head: () => ({
     meta: [
       { title: "Novo Pedido — ERP" },
