@@ -30,6 +30,11 @@ import { useSwipeable } from "react-swipeable";
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
+  validateSearch: (search: Record<string, unknown>): { edit?: number } => {
+    return {
+      edit: search.edit ? Number(search.edit) : undefined,
+    };
+  },
   head: () => {
     // Acessando o store de forma estática para o head (SSR safe)
     const state = useOrderFormStore.getState();
