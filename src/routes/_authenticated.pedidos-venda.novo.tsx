@@ -1094,6 +1094,38 @@ function NewOrderPage() {
         crumbs={[{ label: "Pedidos", to: "/pedidos-venda" }, { label: isEditing ? `Editar ${erpOrderNumber}` : "Novo" }]}
       />
 
+      {identityLocked && (
+        <div className="mt-4 mb-2 p-3 bg-muted/40 border border-muted-foreground/20 rounded-lg flex flex-col gap-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                {isEditing ? `Pedido ERP ${erpOrderNumber}` : "Identidade Bloqueada"}
+              </p>
+              <h3 className="text-sm font-semibold text-foreground leading-tight">
+                {clientName}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Empresa: {companyId === 3 ? "GROTT" : "GRAAL"}
+              </p>
+            </div>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs border-destructive/20 hover:bg-destructive/10 hover:text-destructive text-destructive"
+              onClick={() => {
+                if (window.confirm(isEditing ? "Deseja cancelar a edição? As alterações não salvas serão perdidas." : "Deseja cancelar o pedido atual?")) {
+                  reset();
+                  navigate({ to: "/pedidos-venda" });
+                }
+              }}
+            >
+              {isEditing ? "Cancelar Edição" : "Cancelar Pedido"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col gap-4">
         {/* Stepper responsivo: Faixa rolável no mobile */}
         <div className="flex w-full overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
