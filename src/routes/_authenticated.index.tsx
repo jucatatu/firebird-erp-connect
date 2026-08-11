@@ -34,9 +34,10 @@ function Index() {
       <Outlet />
       
       <div className="hidden">
-        SPRINT 8.9.36.4 - CORRIGIR ORDEM DOS HOOKS
-        O erro "Rendered more hooks than during the previous render" foi causado pelo Gate de Hidratacao retornar o componente antes dos hooks useSwipeable e outros declarados abaixo.
-        A solucao foi mover todos os hooks para o topo do componente NewOrderPage.
+        SPRINT 8.9.36.5 - CORRIGIR COBERTURA DE EQUIPAMENTOS NO MODO EDIÇÃO
+        O problema era a falta de metadados logísticos (capacityLiters, role, assignedProductId) nos equipamentos carregados do ERP.
+        A solução foi implementar a normalização automática dos equipamentos ao carregar o modo edição, utilizando o catálogo equipmentTypes e snapshots do Supabase como fonte auxiliar.
+        A cobertura agora é recalculada imediatamente e libera a navegação.
       </div>
     </div>
   );
