@@ -483,12 +483,12 @@ function NewOrderPage() {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      // Sprint 8.9.36.3: Não carregar defaults no modo edição para evitar sobrescrita do ERP
-      if (!clientId || !companyId || hydrationLoading || isEditing) return;
-      
-      console.log("[PAYMENT UI] clientId/companyId changed, loading defaults for CREATE mode");
-      setLocalPaymentOptions(prev => ({ ...prev, loading: true, error: null }));
+    // Sprint 8.9.36.3: Não carregar defaults no modo edição para evitar sobrescrita do ERP
+    if (!clientId || !companyId || hydrationLoading || isEditing) return;
+
+    console.log("[PAYMENT UI] clientId/companyId changed, loading defaults for CREATE mode");
+    void loadPaymentOptionsDirectly();
+  }, [clientId, companyId, hydrationLoading, isEditing]);
 
   const clientDetailQ = useErpClientDetail(clientId);
   
