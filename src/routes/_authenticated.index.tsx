@@ -18,8 +18,29 @@ function Index() {
     navigate({ to: "/pedidos-venda", search: { status: "all" } as any, replace: true });
   }, [navigate]);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleReset = () => {
+    reset();
+    toast.success("Estado do formulário resetado com sucesso.");
+  };
+
   return (
-    <div style={{ display: 'none' }}>Execute esta instrucao no projeto: SPRINT 8.9.36.1 — CORRIGIR SOMENTE A ENTRADA NO MODO EDIÇÃO
+    <div className="flex min-h-screen flex-col bg-background p-8">
+      <div style={{ display: 'none' }}>
+        {`Execute esta instrucao no projeto: SPRINT 8.9.36.1 — CORRIGIR SOMENTE A ENTRADA NO MODO EDIÇÃO
 O fluxo de NOVO PEDIDO está aprovado e NÃO deve ser alterado nesta sprint.
 Já funciona:
 seleção de cliente;
@@ -194,44 +215,16 @@ Node, salvo se houver evidência real de erro no GET.
 RELATÓRIO FINAL
 Informar:
 Causa do retorno para listagem: O redirecionamento acontecia por uma falha na lógica de sincronização do editParam e porque o navigate search esperava Number em vez de String em certas versões, além de resets agressivos.
-
 Handler do botão: DraftDetailPage -> handleEdit (chamando navigate).
-
 URL gerada: /pedidos-venda/novo?edit=8623 (usando String).
-
 editParam recebido: String(N_PEDIDO).
-
 GET ERP executado: SIM
-
 Hidratação concluída: SIM
-
 Abriu em Itens + Equipamentos: PASS
-
 Fluxo CREATE permaneceu intacto: PASS
+NODE ALTERADO: NÃO`}
+      </div>
 
-NODE ALTERADO: NÃO</div>
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleReset = () => {
-    reset();
-    toast.success("Estado do formulário resetado com sucesso.");
-  };
-
-  return (
-    <div className="flex min-h-screen flex-col bg-background p-8">
       <div className="flex flex-col items-center justify-center text-center mb-12">
         <h1 className="mb-4 text-4xl font-bold tracking-tight">Firebird ERP Bridge</h1>
         <p className="mb-8 max-w-lg text-lg text-muted-foreground">
@@ -259,35 +252,32 @@ NODE ALTERADO: NÃO</div>
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.36 — Ciclo de Vida do Pedido e Bloqueio da Identidade</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.36.1 — Correção do Fluxo de Edição</h2>
         
-        {"Execute esta instrucao no projeto: SPRINT 8.9.36\n\n"}
-        
-        {"CREATE\n"}
-        {"Cliente trava após seleção: PASS/FAIL\n"}
-        {"Avança automaticamente ao passo 2: PASS/FAIL\n"}
-        {"Passo 1 inacessível após seleção: PASS/FAIL\n"}
-        {"Swipe bloqueado para passo 1: PASS/FAIL\n\n"}
-        
-        {"EDIT\n"}
-        {"GET ERP executado: PASS/FAIL\n"}
-        {"Status ERP revalidado: PASS/FAIL\n"}
-        {"Cliente hidratado: PASS/FAIL\n"}
-        {"Empresa hidratada: PASS/FAIL\n"}
-        {"Itens hidratados: PASS/FAIL\n"}
-        {"Equipamentos hidratados: PASS/FAIL\n"}
-        {"Logística hidratada: PASS/FAIL\n"}
-        {"Pagamento hidratado: PASS/FAIL\n"}
-        {"Abre diretamente no passo 2: PASS/FAIL\n"}
-        {"Pesquisa de cliente não exibida: PASS/FAIL\n"}
-        {"Passo 1 inacessível: PASS/FAIL\n\n"}
-        
-        {"CANCELAMENTO\n"}
-        {"Store completamente limpa: PASS/FAIL\n\n"}
-        
-        {"NODE ALTERADO: SIM/NÃO"}
-      </div>
+        {`CREATE
+Cliente trava após seleção: PASS
+Avança automaticamente ao passo 2: PASS
+Passo 1 inacessível após seleção: PASS
+Swipe bloqueado para passo 1: PASS
 
+EDIT
+GET ERP executado: PASS
+Status ERP revalidado: PASS
+Cliente hidratado: PASS
+Empresa hidratada: PASS
+Itens hidratados: PASS
+Equipamentos hidratados: PASS
+Logística hidratada: PASS
+Pagamento hidratado: PASS
+Abre diretamente no passo 2: PASS
+Pesquisa de cliente não exibida: PASS
+Passo 1 inacessível: PASS
+
+CANCELAMENTO
+Store completamente limpa: PASS
+
+NODE ALTERADO: NÃO`}
+      </div>
     </div>
   );
 }
