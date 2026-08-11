@@ -210,8 +210,11 @@ function RecolhasPage() {
 /** Reconstrói um NormalizedMapOrder a partir do snapshot local quando o
  *  ERP não retorna a linha para a data (ex.: recolha ficou em outra data). */
 function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
-  const snap = (s.snapshot ?? {}) as Record<string, unknown>;
-  const address = typeof snap.address === "string" ? snap.address : "";
+  const snap = (s.snapshot ?? {}) as Record<string, any>;
+  const deliveryAddress = snap.deliveryAddress || snap.payload?.deliveryAddress;
+  
+  const address = deliveryAddress?.formattedAddress || (typeof snap.address === "string" ? snap.address : "");
+  
   return {
     key: `state-${s.id}`,
     erpOrderId: Number(s.erp_order_id),
@@ -221,13 +224,18 @@ function fallbackFromSnapshot(s: OperationState): NormalizedMapOrder {
     phone: typeof snap.phone === "string" ? snap.phone : null,
     address: {
       formatted: address,
-      street: address,
-      number: "",
-      complement: "",
-      district: "",
-      city: "",
-      state: "",
+      street: deliveryAddress?.street || address,
+      number: deliveryAddress?.number || "",
+      complement: deliveryAddress?.complement || "",
+      district: deliveryAddress?.neighborhood || "",
+      city: deliveryAddress?.city || "",
+      state: deliveryAddress?.state || "",
     },
+    location: deliveryAddress?.latitude && deliveryAddress?.longitude ? {
+      lat: deliveryAddress.latitude,
+      lng: deliveryAddress.longitude
+    } : null,
+
     observations: null,
     erpStatus: null,
     deliveryDate: typeof snap.deliveryDate === "string" ? snap.deliveryDate : null,
