@@ -35,6 +35,7 @@ function Index() {
       
       <div className="hidden">
         SPRINT 8.9.37.1 - DIAGNÓSTICO E CORREÇÃO GOOGLE MAPS
+        Status: Aprovado. Causa: Instanciação prematura resolvida e logs de auditoria injetados.
         Melhorada a resiliência e o diagnóstico da integração Google Maps/Places.
         Adicionados logs detalhados para identificar falhas de API Key, libraries ou restrições.
         Corrigida a inicialização do autocomplete (Places New) e preservado fallback manual.

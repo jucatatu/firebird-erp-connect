@@ -294,9 +294,9 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           
           <div className="space-y-3">
             {isLoadingMaps ? (
-              <div className="flex items-center justify-center py-6 gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-xs text-muted-foreground">Carregando Google Maps...</span>
+              <div className="flex flex-col items-center justify-center py-10 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium text-muted-foreground">Carregando busca de endereços...</span>
               </div>
             ) : mapsError ? (
               <div className="p-3 border rounded-lg bg-destructive/5 border-destructive/20 space-y-2">
