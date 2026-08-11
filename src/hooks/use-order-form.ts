@@ -32,6 +32,7 @@ export interface OrderFormStore {
   erpOrderId: number | null;
   erpOrderNumber: number | null;
   isEditing: boolean;
+  identityLocked: boolean; // Sprint 8.9.36: Bloqueio de identidade
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
