@@ -66,40 +66,33 @@ function Index() {
       </div>
 
       <div className="mt-8 p-6 bg-muted/30 rounded-lg border border-border font-mono text-sm whitespace-pre-wrap overflow-auto max-h-[800px]">
-        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.28 — STATUS INICIAL 27 + CORREÇÃO DE DATA CIVIL + EDIÇÃO CONTROLADA</h2>
+        <h2 className="text-xl font-bold mb-4 font-sans tracking-tight text-green-600">SPRINT 8.9.36 — Ciclo de Vida do Pedido e Bloqueio da Identidade</h2>
         
-        {"Todo pedido novo criado pelo APP deve ser salvo no ERP inicialmente com ID_STATUS = 27 (EM ANALISE).\n\n"}
-
-        {"==================================================\n"}
-        {"1. FLUXO DE STATUS GARANTIDO\n"}
-        {"==================================================\n"}
-        {"- Garantia de Status 27: Após a chamada da procedure SP_CAD_ORDEM_VENDA_COMPLETO, o Node executa um UPDATE explícito para forçar o status 27.\n"}
-        {"- Transacionalidade: A criação e o ajuste de status ocorrem dentro da mesma transação Firebird, garantindo que o pedido nunca nasça 'Liberado' por engano.\n"}
-        {"- Backend First: A regra reside no Node, tornando o sistema imune a falhas de rede ou manipulações no frontend.\n\n"}
-
-        {"==================================================\n"}
-        {"2. CORREÇÃO DE DATA CIVIL (ANTI-TIMEZONE)\n"}
-        {"==================================================\n"}
-        {"- Problema Resolvido: Pedidos selecionados para o dia X estavam chegando no Firebird como dia X-1 às 21:00 devido a conversões automáticas para UTC.\n"}
-        {"- toDateCivil: Nova lógica no mapper do Node que interpreta strings 'YYYY-MM-DD' como meio-dia local (12:00:00), neutralizando desvios de fuso horário do servidor.\n"}
-        {"- Integridade: Data Prevista de Entrega e Recolhimento agora gravam exatamente o dia escolhido na UI.\n\n"}
-
-        {"==================================================\n"}
-        {"3. EDIÇÃO CONTROLADA POR STATUS\n"}
-        {"==================================================\n"}
-        {"- Whitelist Oficial: EDITABLE_STATUS_IDS = [1, 20, 24, 27].\n"}
-        {"- Bloqueio de Faturamento: Pedidos com status 3 (FATURADO) ou outros fora da lista têm o botão 'Editar' desabilitado automaticamente.\n"}
-        {"- Sincronização: Ambas as camadas (Frontend e Backend) utilizam a mesma regra de negócio centralizada.\n\n"}
-
-        {"==================================================\n"}
-        {"ARQUIVOS ALTERADOS\n"}
-        {"==================================================\n"}
-        {"- erp-api/src/modules/orders/orders.service.js (Orquestração do Status 27)\n"}
-        {"- erp-api/src/modules/orders/orders.repository.js (SQL de Update de Status)\n"}
-        {"- erp-api/src/modules/orders/orders.mapper.js (Lógica toDateCivil)\n"}
-        {"- erp-api/src/modules/orders/orders.validator.js (Zod para Datas YYYY-MM-DD)\n"}
-        {"- src/lib/erp-orders.functions.ts (Regras de UI canEdit)\n"}
-        {"- src/routes/_authenticated.index.tsx (Logs)\n"}
+        {"Execute esta instrucao no projeto: SPRINT 8.9.36\n\n"}
+        
+        {"CREATE\n"}
+        {"Cliente trava após seleção: PASS/FAIL\n"}
+        {"Avança automaticamente ao passo 2: PASS/FAIL\n"}
+        {"Passo 1 inacessível após seleção: PASS/FAIL\n"}
+        {"Swipe bloqueado para passo 1: PASS/FAIL\n\n"}
+        
+        {"EDIT\n"}
+        {"GET ERP executado: PASS/FAIL\n"}
+        {"Status ERP revalidado: PASS/FAIL\n"}
+        {"Cliente hidratado: PASS/FAIL\n"}
+        {"Empresa hidratada: PASS/FAIL\n"}
+        {"Itens hidratados: PASS/FAIL\n"}
+        {"Equipamentos hidratados: PASS/FAIL\n"}
+        {"Logística hidratada: PASS/FAIL\n"}
+        {"Pagamento hidratado: PASS/FAIL\n"}
+        {"Abre diretamente no passo 2: PASS/FAIL\n"}
+        {"Pesquisa de cliente não exibida: PASS/FAIL\n"}
+        {"Passo 1 inacessível: PASS/FAIL\n\n"}
+        
+        {"CANCELAMENTO\n"}
+        {"Store completamente limpa: PASS/FAIL\n\n"}
+        
+        {"NODE ALTERADO: SIM/NÃO"}
       </div>
 
     </div>
