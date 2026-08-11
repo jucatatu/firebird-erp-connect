@@ -675,8 +675,9 @@ function NewOrderPage() {
     console.log("[EQUIPMENT LOGISTICS] Normalizando metadados para pedido ERP:", erpOrderNumber);
     
     // Tenta localizar o snapshot correspondente para recuperar assignedProductId
-    const draftSnapshot = recentOrders?.find(d => d.erp_order_number === erpOrderNumber);
-    const snapshotEquips = draftSnapshot?.payload?.equipments || [];
+    const drafts = recentOrders.data || [];
+    const draftSnapshot = drafts.find((d: any) => d.erp_order_number === erpOrderNumber);
+    const snapshotEquips = (draftSnapshot as any)?.payload?.equipments || [];
 
     const normalizedEquips = equipments.map(eq => {
       const catalogInfo = allEquipTypes.find((et: any) => et.id === eq.equipmentTypeId);
