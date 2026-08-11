@@ -170,16 +170,19 @@ function DraftDetailPage() {
       if (detailRes.ok && detailRes.data) {
         const erpData = detailRes.data;
         console.log("[DETAIL] hydrating store with", erpData);
+        
+        // Garantir que a hidratação aconteça ANTES da navegação
+        // editErpOrder atualiza o estado do Zustand
         editErpOrder({
           ...erpData,
           clientName: erpData.clientName || draft.customer_name_snapshot
         });
         
+        // Pequeno delay para garantir persistência no localStorage se necessário
+        await new Promise(r => setTimeout(r, 100));
+        
         console.log("[DETAIL] navigating to wizard with edit param");
-        navigate({ 
-          to: "/pedidos-venda/novo",
-          search: { edit: Number(draft.erp_order_number) } as any
-        });
+        window.location.href = `${window.location.origin}/pedidos-venda/novo?edit=${draft.erp_order_number}`;
       } else {
         toast.error("Erro ao carregar dados do ERP", {
           description: detailRes.error?.message
