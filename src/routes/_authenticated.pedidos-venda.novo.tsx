@@ -1385,6 +1385,9 @@ function NewOrderPage() {
 
                                   // Atualiza os itens com preços resolvidos
                                   useOrderFormStore.setState({ items: updatedItems });
+                                  
+                                  // Sprint 8.9.36: Transição automática para Passo 2 após repetir pedido
+                                  setStep("items");
 
                                   // 3. Validar se a logística do snapshot ainda é válida com o catálogo atual
                                   // (as funções de cobertura usam o estado do Zustand que acabamos de setar)
