@@ -339,10 +339,15 @@ function ProductCard({ product, clientId, addItem, removeItem, updateItemPrice, 
 
 function NewOrderPage() {
   const navigate = useNavigate();
+  const search = useSearch({ from: "/_authenticated/pedidos-venda/novo" });
+  const editOrderNumber = search.edit;
+  
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStep] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
@@ -351,8 +356,9 @@ function NewOrderPage() {
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
     setDelivery, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
-    repeatOrder, newOrderFromClient
+    repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
+
 
   
   // DIAGNÓSTICO: Chamada direta via useServerFn ignorando useQuery temporariamente
