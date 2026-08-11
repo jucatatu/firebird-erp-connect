@@ -367,51 +367,55 @@ function NewOrderPage() {
     const hydrate = async () => {
       if (!editParam) return;
       
-      console.log("[EDIT FLOW] editParam=", editParam);
+      console.log("[EDIT FLOW] editParam detected:", editParam);
 
-      // Se já está na store com o mesmo número, apenas garante o step
-      if (isEditing && erpOrderNumber === Number(editParam)) {
-        console.log("[EDIT FLOW] Already in store, step=items");
-        if (step === "client") setStepState("items");
+      // SPRINT 8.9.36.2: Prioridade máxima para o parâmetro da URL.
+      // Se estamos entrando na página com ?edit e o step ainda é 'client',
+      // ou se o número do pedido na store é diferente do da URL, precisamos hidratar/forçar.
+      const orderNumFromUrl = Number(editParam);
+      if (isNaN(orderNumFromUrl)) return;
+
+      if (isEditing && erpOrderNumber === orderNumFromUrl) {
+        // Já está carregado, mas a UI pode ter resetado o step (ex: hydration mismatch ou guard de create)
+        if (step !== "items") {
+          console.log("[EDIT FLOW] Order already in store, forcing step=items");
+          setStepState("items");
+        }
         return;
       }
 
       if (hydrationLoading) return;
 
-      const orderNum = Number(editParam);
-      if (isNaN(orderNum)) return;
-
       setHydrationLoading(true);
-      console.log("[EDIT FLOW] loading ERP order...");
-      toast.info(`Carregando pedido ERP ${orderNum}...`);
+      console.log("[EDIT FLOW] loading ERP order:", orderNumFromUrl);
+      toast.info(`Carregando pedido ERP ${orderNumFromUrl}...`);
       
       try {
-        const result = await fetchOrderDetail({ data: orderNum });
-        console.log("[EDIT FLOW] ERP response status=", result.ok ? "success" : "error");
+        const result = await fetchOrderDetail({ data: orderNumFromUrl });
+        console.log("[EDIT FLOW] ERP response status:", result.ok ? "success" : "error");
         
         if (result.ok && result.data) {
-          console.log("[EDIT FLOW] hydrating store...");
+          console.log("[EDIT FLOW] hydrating store with atomic data...");
+          // Garantimos que a store receba todos os flags de edição
           editErpOrder(result.data);
           
-          console.log("[EDIT FLOW] identityLocked=true");
-          console.log("[EDIT FLOW] step=items");
+          // Forçamos o step local imediatamente após a store ser atualizada
+          console.log("[EDIT FLOW] final state transition: step=items, identityLocked=true");
           setStepState("items");
-          console.log("[EDIT FLOW] ready");
-          toast.success(`Pedido ${orderNum} carregado para edição.`);
+          toast.success(`Pedido ${orderNumFromUrl} carregado para edição.`);
         } else {
-          console.log("[EDIT FLOW] REDIRECT TO LIST reason=ERP_FETCH_FAILED");
+          console.log("[EDIT FLOW] FAILED to load order:", result.error?.message);
           toast.error(result.error?.message || "Erro ao carregar pedido.");
-          // Mantém na página para diagnóstico conforme item 6
         }
       } catch (err) {
-        console.log("[EDIT FLOW] REDIRECT TO LIST reason=NETWORK_ERROR");
+        console.error("[EDIT FLOW] critical failure during hydration:", err);
         toast.error("Erro na comunicação com o servidor.");
       } finally {
         setHydrationLoading(false);
       }
     };
     hydrate();
-  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]);
+  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder, step]); // step adicionado para garantir correção se algo o resetar
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
@@ -1214,7 +1218,7 @@ function NewOrderPage() {
         )}
       </div>
 
-      {step === "client" && (
+      {(step === "client" && !identityLocked) && (
         <Card className="shadow-none border-none sm:border">
           <CardHeader className="pb-2"><CardTitle className="text-xl font-bold flex items-center gap-2"><UserIcon className="h-5 w-5 text-primary" /> Identificação</CardTitle></CardHeader>
           <CardContent className="space-y-6">
