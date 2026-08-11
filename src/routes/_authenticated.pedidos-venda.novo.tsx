@@ -739,17 +739,12 @@ function NewOrderPage() {
         et.equipment_role === 'dispenser' || et.description?.toLowerCase().includes("chopeira")
       );
 
-      // Algoritmo: Encontrar combinação que use MENOS equipamentos
-      // Como o número de vias é pequeno (geralmente < 5), podemos fazer uma busca simples
-      // ou apenas priorizar a chopeira que mais se aproxima das vias necessárias sem excesso desnecessário
-      
       const sortedChopeiras = [...chopeiras].sort((a, b) => {
          const vA = a.tap_count || Number(a.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          const vB = b.tap_count || Number(b.description.match(/(\d+)\s*vias/i)?.[1] || 1);
          return vB - vA; // Maior primeiro
       });
 
-      // Busca por equipamento único que cubra tudo
       const exactMatch = sortedChopeiras.find(ch => (ch.tap_count || 1) === requiredVias);
       const nextBest = [...sortedChopeiras].reverse().find(ch => (ch.tap_count || 1) >= requiredVias);
 
@@ -770,7 +765,6 @@ function NewOrderPage() {
           tapLines: nextBest.tap_count || 1
         });
       } else {
-        // Fallback: Combinar equipamentos se não houver um que cubra tudo sozinho
         let remaining = requiredVias;
         for (const ch of sortedChopeiras) {
           const vias = ch.tap_count || 1;
@@ -834,7 +828,6 @@ function NewOrderPage() {
         }
       }
 
-      // Se sobrar, pegar o menor barril que cubra o resto do produto
       if (remainingLiters > 0 && sortedBarris.length > 0) {
         const smallestToCover = [...sortedBarris].reverse().find(b => {
           const capacity = b.capacity_liters || Number(b.description.match(/(\d+)\s*l/i)?.[1] || 0);
@@ -854,6 +847,7 @@ function NewOrderPage() {
       }
     });
 
+    // Sprint 8.9.36.5: Atualização atômica para garantir que isCoverageValid() dispare imediatamente
     useOrderFormStore.setState({ equipments: newEquips });
     setSuggestionDirty(false);
     toast.success("Sugestão otimizada de equipamentos aplicada");
