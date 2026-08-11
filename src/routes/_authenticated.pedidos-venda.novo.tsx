@@ -30,12 +30,19 @@ import { useSwipeable } from "react-swipeable";
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
-  head: () => ({
-    meta: [
-      { title: isEditing ? `Editar Pedido ${erpOrderNumber || ""} — ERP` : "Novo Pedido — ERP" },
-      { name: "description", content: isEditing ? "Edição de pedido integrado ao ERP." : "Fluxo de criação de pedido de venda integrado ao ERP." },
-    ],
-  }),
+  head: () => {
+    // Acessando o store de forma estática para o head (SSR safe)
+    const state = useOrderFormStore.getState();
+    const isEditing = state.isEditing;
+    const erpOrderNumber = state.erpOrderNumber;
+
+    return {
+      meta: [
+        { title: isEditing ? `Editar Pedido ${erpOrderNumber || ""} — ERP` : "Novo Pedido — ERP" },
+        { name: "description", content: isEditing ? "Edição de pedido integrado ao ERP." : "Fluxo de criação de pedido de venda integrado ao ERP." },
+      ],
+    };
+  },
   component: NewOrderPage,
 });
 
