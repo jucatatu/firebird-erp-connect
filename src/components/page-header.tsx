@@ -5,7 +5,9 @@ import { ChevronRight, Home } from "lucide-react";
 export interface Crumb {
   label: string;
   to?: string;
+  search?: any;
 }
+
 
 export function PageHeader({
   title,
@@ -31,7 +33,7 @@ export function PageHeader({
             <span key={i} className="inline-flex items-center gap-1">
               <ChevronRight className="h-3 w-3" />
               {c.to ? (
-                <Link to={c.to} className="hover:text-foreground">
+                <Link to={c.to} search={c.search} className="hover:text-foreground">
                   {c.label}
                 </Link>
               ) : (
