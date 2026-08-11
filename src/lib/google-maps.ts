@@ -15,9 +15,10 @@ export async function loadGoogleMapsLibraries() {
 
   // Sprint 8.9.37: Usando a API de carregamento dinâmico
   // O Loader carrega o script globalmente, importLibrary retorna a biblioteca
-  const { Map, InfoWindow } = await loader.importLibrary("maps") as any;
-  const { AdvancedMarkerElement, PinElement } = await loader.importLibrary("marker") as any;
-  const { Place, AutocompleteElement } = await loader.importLibrary("places") as any;
+  const { Map, InfoWindow } = await (loader as any).importLibrary("maps");
+  const { AdvancedMarkerElement, PinElement } = await (loader as any).importLibrary("marker");
+  const { Place, AutocompleteElement } = await (loader as any).importLibrary("places");
+
 
   return { Map, InfoWindow, AdvancedMarkerElement, PinElement, Place, AutocompleteElement };
 }
