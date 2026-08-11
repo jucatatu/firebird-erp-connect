@@ -70,11 +70,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   // Setup Autocomplete
   useEffect(() => {
     if (isSearching && isMapsLoaded && mapsLibs && autocompleteRef.current) {
-      const { AutocompleteElement } = mapsLibs;
-      const autocomplete = new AutocompleteElement({
-        fields: ["address_components", "formatted_address", "geometry", "name", "place_id"],
-        locationBias: { radius: 10000, center: { lat: -26.48, lng: -49.07 } }, // Bias towards Jaraguá do Sul region
-      });
+      // Sprint 8.9.37: Usando o Web Component nativo gmp-place-autocomplete
+      const autocomplete = document.createElement("gmp-place-autocomplete");
+      (autocomplete as any).fields = "address_components,formatted_address,geometry,name,place_id";
+      (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
+
 
       // Clear previous
       autocompleteRef.current.innerHTML = "";

@@ -8,16 +8,18 @@ export async function loadGoogleMapsLibraries() {
   }
 
   // Sprint 8.9.37: Usando a API funcional moderna
+  // Nota: De acordo com a tipagem do js-api-loader, a chave é passada em key, não apiKey
   setOptions({
-    apiKey: GOOGLE_MAPS_API_KEY,
-    version: "weekly",
+    key: GOOGLE_MAPS_API_KEY,
+    v: "weekly",
     libraries: ["places", "marker"]
   });
 
   const { Map, InfoWindow } = await importLibrary("maps");
   const { AdvancedMarkerElement, PinElement } = await importLibrary("marker");
-  const { Place, AutocompleteElement } = await importLibrary("places");
+  const { Place } = await importLibrary("places");
 
-  return { Map, InfoWindow, AdvancedMarkerElement, PinElement, Place, AutocompleteElement };
+  return { Map, InfoWindow, AdvancedMarkerElement, PinElement, Place };
 }
+
 
