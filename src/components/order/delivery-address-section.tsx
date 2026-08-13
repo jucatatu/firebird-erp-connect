@@ -3,10 +3,12 @@ import { useOrderFormStore, type DeliveryAddress } from "@/hooks/use-order-form"
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, CheckCircle2, MapPin, Search, Truck, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, MapPin, Search, Truck, Loader2, Map as MapIcon, Navigation } from "lucide-react";
 import { loadGoogleMapsLibraries } from "@/lib/google-maps";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }) {
   const { 
@@ -43,7 +45,8 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         longitude: null,
         placeId: null,
         complement: clientAddress.complement || "",
-        reference: ""
+        reference: "",
+        noNumber: clientAddress.number === "S/N"
       };
       setDeliveryAddress(initialAddress);
       setDeliveryAddressConfirmed(false);
@@ -72,28 +75,17 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     if (isSearching && isMapsLoaded && mapsLibs && autocompleteRef.current) {
       console.log("[GOOGLE MAPS] Inicializando autocomplete...");
       
-      // Sprint 8.9.37.1: Garantir que o elemento existe antes de tentar usar
-      // A Places API New usa o web component <gmp-place-autocomplete>
       const autocomplete = document.createElement("gmp-place-autocomplete");
       
-      // Configurações básicas
+      // Sprint 8.9.37.2: Campos estruturados via address_components
       (autocomplete as any).fields = "address_components,formatted_address,geometry,name,place_id";
       
-      // Priorizar Brasil, mas sem restrição rígida de cidade (apenas bias)
-      if (deliveryAddress?.latitude && deliveryAddress?.longitude) {
-        (autocomplete as any).locationBias = { 
-          radius: 10000, 
-          center: { lat: deliveryAddress.latitude, lng: deliveryAddress.longitude } 
-        };
-      } else {
-        // Bias padrão para Jaraguá do Sul se não houver coords
-        (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
-      }
+      // Bias para Jaraguá do Sul/SC e Restrição para Brasil
+      (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
+      (autocomplete as any).componentRestrictions = { country: "br" };
 
-      // Adicionar label para acessibilidade/UX conforme pedido
-      autocomplete.setAttribute("placeholder", "Digite um endereço, local ou estabelecimento");
+      autocomplete.setAttribute("placeholder", "Digite rua, endereço ou estabelecimento");
 
-      // Limpar e anexar
       autocompleteRef.current.innerHTML = "";
       autocompleteRef.current.appendChild(autocomplete);
 
@@ -101,29 +93,55 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         console.log("[GOOGLE MAPS] Local selecionado:", event.place);
         const place = event.place;
         
-        // Se for uma string (apenas texto digitado sem selecionar sugestão), ignorar ou tratar
-        if (!place || typeof place === 'string' || !place.geometry) {
-          console.warn("[GOOGLE MAPS] Seleção inválida ou incompleta");
-          return;
+        if (!place || typeof place === 'string') return;
+
+        // Se o place não tiver campos carregados (pode acontecer se disparar antes do fetch completar internamente)
+        // usamos o Place object moderno se disponível
+        let fullPlace = place;
+        if (!place.address_components && mapsLibs.Place) {
+           try {
+             fullPlace = await place.fetchFields({
+               fields: ["address_components", "formatted_address", "geometry", "name", "place_id", "location"]
+             });
+           } catch (e) {
+             console.error("[GOOGLE MAPS] Erro ao buscar campos extras:", e);
+           }
         }
 
-        const components = place.address_components || [];
-        const getComp = (type: string) => components.find((c: any) => c.types.includes(type))?.long_name || "";
+        const components = fullPlace.address_components || [];
+        const getComp = (types: string[]) => components.find((c: any) => types.some(t => c.types.includes(t)))?.long_name || "";
+
+        const streetNumber = getComp(["street_number"]);
+        const street = getComp(["route"]);
+        
+        // Bairro resolution tolerante
+        const neighborhood = getComp(["neighborhood", "sublocality", "sublocality_level_1"]);
+        
+        // Cidade resolution
+        const city = getComp(["administrative_area_level_2", "locality"]);
+        
+        const state = getComp(["administrative_area_level_1"]);
+        const postalCode = getComp(["postal_code"]);
+        const country = getComp(["country"]);
+
+        const lat = fullPlace.geometry?.location?.lat;
+        const lng = fullPlace.geometry?.location?.lng;
 
         const newAddress: DeliveryAddress = {
-          formattedAddress: place.formatted_address || place.name || "",
-          street: getComp("route"),
-          number: getComp("street_number"),
-          neighborhood: getComp("sublocality_level_1") || getComp("neighborhood"),
-          city: getComp("administrative_area_level_2") || getComp("locality"),
-          state: getComp("administrative_area_level_1"),
-          postalCode: getComp("postal_code"),
-          country: getComp("country"),
-          latitude: typeof place.geometry.location.lat === 'function' ? place.geometry.location.lat() : place.geometry.location.lat,
-          longitude: typeof place.geometry.location.lng === 'function' ? place.geometry.location.lng() : place.geometry.location.lng,
-          placeId: place.place_id,
+          formattedAddress: fullPlace.formatted_address || fullPlace.name || "",
+          street: street,
+          number: streetNumber,
+          neighborhood: neighborhood,
+          city: city,
+          state: state,
+          postalCode: postalCode,
+          country: country,
+          latitude: typeof lat === 'function' ? lat() : lat,
+          longitude: typeof lng === 'function' ? lng() : lng,
+          placeId: fullPlace.place_id,
           complement: deliveryAddress?.complement || "",
-          reference: deliveryAddress?.reference || ""
+          reference: deliveryAddress?.reference || "",
+          noNumber: false
         };
 
         console.log("[GOOGLE MAPS] Endereço estruturado:", newAddress);
@@ -131,6 +149,14 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         setDeliveryAddress(newAddress);
         setDeliveryAddressConfirmed(false);
         setIsSearching(false);
+        
+        // Se não retornou número, focar no campo número após o render
+        if (!streetNumber && street) {
+          setTimeout(() => {
+            const numInput = document.getElementById("delivery-number");
+            numInput?.focus();
+          }, 100);
+        }
       };
 
       autocomplete.addEventListener("gmp-placeselect", handlePlaceSelect);
@@ -182,13 +208,37 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   }, [deliveryAddress, isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed]);
 
   const handleConfirm = () => {
+    if (!deliveryAddress) return;
+    
+    // Validação de número (Sprint 8.9.37.2)
+    const needsNumber = deliveryAddress.street && !deliveryAddress.noNumber;
+    if (needsNumber && !deliveryAddress.number) {
+      toast.error("Por favor, informe o número ou marque 'Sem número'");
+      document.getElementById("delivery-number")?.focus();
+      return;
+    }
+
+    if (deliveryAddress.noNumber && !deliveryAddress.reference) {
+       toast.error("Para endereços sem número, um ponto de referência é obrigatório");
+       document.getElementById("delivery-reference")?.focus();
+       return;
+    }
+
     setDeliveryAddressConfirmed(true);
     toast.success("Endereço de entrega confirmado!");
   };
 
   const handleManualEdit = (field: keyof DeliveryAddress, value: any) => {
     if (!deliveryAddress) return;
-    setDeliveryAddress({ ...deliveryAddress, [field]: value });
+    
+    const updated = { ...deliveryAddress, [field]: value };
+    
+    // Se marcou noNumber, forçar number para "S/N"
+    if (field === "noNumber") {
+      updated.number = value ? "S/N" : "";
+    }
+    
+    setDeliveryAddress(updated);
     setDeliveryAddressConfirmed(false);
   };
 
@@ -212,24 +262,83 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
 
       {!isSearching ? (
         <div className="space-y-4">
-          <div className="p-4 border rounded-xl bg-card shadow-sm space-y-3">
-            <div className="flex items-start gap-3">
-              <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="p-4 border rounded-xl bg-card shadow-sm space-y-4">
+            <div className="flex items-start gap-3 pb-2 border-b border-dashed">
+              <MapPin className="h-5 w-5 text-primary mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold leading-snug">{deliveryAddress?.formattedAddress || "Nenhum endereço definido"}</p>
-                <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">Preenchido a partir do cadastro do cliente</p>
+                <div className="flex gap-2 mt-1">
+                   <Badge variant="secondary" className="text-[9px] uppercase font-bold py-0 h-4">
+                     {deliveryAddress?.city || "Cidade não informada"}
+                   </Badge>
+                   {deliveryAddress?.neighborhood && (
+                     <Badge variant="outline" className="text-[9px] uppercase font-bold py-0 h-4">
+                       {deliveryAddress.neighborhood}
+                     </Badge>
+                   )}
+                </div>
               </div>
             </div>
 
-            {deliveryAddress?.latitude && deliveryAddress?.longitude && (
-              <div 
-                ref={mapContainerRef} 
-                className="w-full h-48 rounded-lg border bg-muted/20 overflow-hidden" 
-              />
-            )}
+            {/* Formulário Estruturado (Sprint 8.9.37.2) */}
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-8 sm:col-span-9 space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                  Logradouro <Navigation className="h-2 w-2" />
+                </Label>
+                <Input 
+                  placeholder="Rua, Av, Travessa..." 
+                  value={deliveryAddress?.street || ""} 
+                  onChange={(e) => handleManualEdit("street", e.target.value)}
+                  className="h-9 text-xs font-medium"
+                />
+              </div>
+              <div className="col-span-4 sm:col-span-3 space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Número</Label>
+                <Input 
+                  id="delivery-number"
+                  placeholder="Ex: 123" 
+                  value={deliveryAddress?.noNumber ? "S/N" : (deliveryAddress?.number || "")} 
+                  disabled={deliveryAddress?.noNumber}
+                  onChange={(e) => handleManualEdit("number", e.target.value)}
+                  className={cn("h-9 text-xs font-bold", !deliveryAddress?.number && !deliveryAddress?.noNumber && "border-amber-500 bg-amber-50/30")}
+                />
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div className="space-y-1">
+              <div className="col-span-12 flex items-center space-x-2 -mt-1">
+                <Checkbox 
+                  id="no-number" 
+                  checked={deliveryAddress?.noNumber || false} 
+                  onCheckedChange={(checked) => handleManualEdit("noNumber", checked)}
+                />
+                <label 
+                  htmlFor="no-number" 
+                  className="text-[11px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Endereço sem número
+                </label>
+              </div>
+
+              <div className="col-span-6 space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Bairro</Label>
+                <Input 
+                  placeholder="Bairro" 
+                  value={deliveryAddress?.neighborhood || ""} 
+                  onChange={(e) => handleManualEdit("neighborhood", e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="col-span-6 space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cidade</Label>
+                <Input 
+                  placeholder="Cidade" 
+                  value={deliveryAddress?.city || ""} 
+                  onChange={(e) => handleManualEdit("city", e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="col-span-6 space-y-1">
                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Complemento</Label>
                 <Input 
                   placeholder="Ex: Apto 101, Fundos..." 
@@ -238,16 +347,34 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                   className="h-9 text-xs"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Ponto de Referência</Label>
+              <div className="col-span-6 space-y-1">
+                <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                   Ponto de Referência {deliveryAddress?.noNumber && <span className="text-destructive">*</span>}
+                </Label>
                 <Input 
+                  id="delivery-reference"
                   placeholder="Ex: Próximo ao mercado..." 
                   value={deliveryAddress?.reference || ""} 
                   onChange={(e) => handleManualEdit("reference", e.target.value)}
-                  className="h-9 text-xs"
+                  className={cn("h-9 text-xs", deliveryAddress?.noNumber && !deliveryAddress?.reference && "border-amber-500 bg-amber-50/30")}
                 />
               </div>
             </div>
+
+            {deliveryAddress?.latitude && deliveryAddress?.longitude && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                    <MapIcon className="h-3 w-3" /> Localização no Mapa
+                  </Label>
+                  <span className="text-[9px] text-muted-foreground italic">Arraste o marcador se necessário</span>
+                </div>
+                <div 
+                  ref={mapContainerRef} 
+                  className="w-full h-40 rounded-lg border bg-muted/20 overflow-hidden shadow-inner" 
+                />
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               {!deliveryAddressConfirmed ? (
@@ -255,15 +382,15 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                   className="flex-1 bg-green-600 hover:bg-green-700 font-bold"
                   onClick={handleConfirm}
                 >
-                  Confirmar este endereço
+                  <CheckCircle2 className="h-4 w-4 mr-2" /> Confirmar endereço
                 </Button>
               ) : (
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 border-green-600 text-green-700 hover:bg-green-50"
                   onClick={() => setDeliveryAddressConfirmed(false)}
                 >
-                  Alterar endereço
+                  Desbloquear para editar
                 </Button>
               )}
               <Button 
@@ -274,15 +401,14 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                   loadMaps();
                 }}
               >
-                <Search className="h-4 w-4 mr-2" /> Buscar outro endereço
+                <Search className="h-4 w-4 mr-2" /> Buscar outro local
               </Button>
             </div>
             
-            {!deliveryAddressConfirmed && (
-              <p className="text-[10px] text-destructive font-medium text-center italic">
-                * As alterações aqui valem somente para este pedido.
-              </p>
-            )}
+            <p className="text-[10px] text-muted-foreground text-center italic leading-tight">
+              * Dados estruturados serão salvos no pedido para o motorista.<br/>
+              Alterações aqui não afetam o cadastro fixo do cliente.
+            </p>
           </div>
         </div>
       ) : (
@@ -329,7 +455,12 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                 }}>Confirmar Manualmente</Button>
               </div>
             ) : (
-              <div ref={autocompleteRef} className="google-places-autocomplete-container" />
+              <div className="space-y-4">
+                 <div ref={autocompleteRef} className="google-places-autocomplete-container" />
+                 <p className="text-[10px] text-muted-foreground text-center">
+                    Dica: Digite rua e número para maior precisão
+                 </p>
+              </div>
             )}
           </div>
         </div>
