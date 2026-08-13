@@ -36,6 +36,7 @@ export interface DeliveryAddress {
   placeId: string | null;
   complement: string;
   reference: string;
+  noNumber?: boolean; // Sprint 8.9.37.2
 }
 
 export interface OrderFormStore {
