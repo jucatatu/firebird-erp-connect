@@ -107,7 +107,7 @@ function OrdersListPage() {
         actions={
           (role === "vendedor" || isAdmin) && (
             <Button asChild size="sm" onClick={() => useOrderFormStore.getState().resetItemsAndClient()}>
-              <Link to="/pedidos-venda/novo" search={{}}>
+              <Link to="/pedidos-venda/novo" search={{ edit: undefined, status: undefined }}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Novo pedido
               </Link>
             </Button>
@@ -175,7 +175,7 @@ function OrdersListPage() {
           action={
             (role === "vendedor" || isAdmin) && (
               <Button asChild size="sm">
-                <Link to="/pedidos-venda/novo" search={{}}>Novo pedido</Link>
+                <Link to="/pedidos-venda/novo" search={{ edit: undefined, status: undefined }}>Novo pedido</Link>
               </Button>
             )
           }
