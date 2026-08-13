@@ -234,12 +234,14 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     try {
       console.log("[GEOCODE] Iniciando geocodificação server-side para:", deliveryAddress);
       const res = await geocodeFn({
-        street: deliveryAddress.street,
-        number: deliveryAddress.number || "S/N",
-        neighborhood: deliveryAddress.neighborhood,
-        city: deliveryAddress.city,
-        state: deliveryAddress.state,
-        country: deliveryAddress.country || "Brasil"
+        data: {
+          street: deliveryAddress.street,
+          number: deliveryAddress.number || "S/N",
+          neighborhood: deliveryAddress.neighborhood,
+          city: deliveryAddress.city,
+          state: deliveryAddress.state,
+          country: deliveryAddress.country || "Brasil"
+        }
       });
 
       if (res.ok && res.data) {
