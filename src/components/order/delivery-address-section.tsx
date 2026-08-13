@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { geocodeStructuredAddress } from "@/lib/geocoding.functions.ts";
+import { useServerFn } from "@tanstack/react-start";
 
 export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }) {
   const { 
@@ -17,8 +19,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     setDeliveryAddress, 
     setDeliveryAddressConfirmed 
   } = useOrderFormStore();
+  
+  const geocodeFn = useServerFn(geocodeStructuredAddress);
 
   const [isSearching, setIsSearching] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [isMapsLoaded, setIsMapsLoaded] = useState(false);
   const [mapsLibs, setMapsLibs] = useState<any>(null);
   const [isLoadingMaps, setIsLoadingMaps] = useState(false);
@@ -207,12 +212,12 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     }
   }, [deliveryAddress, isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!deliveryAddress) return;
     
     // Validação de número (Sprint 8.9.37.2)
     const needsNumber = deliveryAddress.street && !deliveryAddress.noNumber;
-    if (needsNumber && !deliveryAddress.number) {
+    if (needsNumber && (!deliveryAddress.number || deliveryAddress.number === "S/N")) {
       toast.error("Por favor, informe o número ou marque 'Sem número'");
       document.getElementById("delivery-number")?.focus();
       return;
@@ -224,8 +229,51 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
        return;
     }
 
-    setDeliveryAddressConfirmed(true);
-    toast.success("Endereço de entrega confirmado!");
+    // Geocodificação após número estar presente
+    setIsGeocoding(true);
+    try {
+      console.log("[GEOCODE] Iniciando geocodificação server-side para:", deliveryAddress);
+      const res = await geocodeFn({
+        street: deliveryAddress.street,
+        number: deliveryAddress.number || "S/N",
+        neighborhood: deliveryAddress.neighborhood,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        country: deliveryAddress.country || "Brasil"
+      });
+
+      if (res.ok && res.data) {
+        const { latitude, longitude, formattedAddress, placeId, precision } = res.data;
+        
+        setDeliveryAddress({
+          ...deliveryAddress,
+          latitude,
+          longitude,
+          formattedAddress: formattedAddress || deliveryAddress.formattedAddress,
+          placeId: placeId || deliveryAddress.placeId
+        });
+
+        if (precision === "APPROXIMATE" || precision === "GEOMETRIC_CENTER") {
+          toast.warning("Localização aproximada. Confira o ponto no mapa.");
+        } else {
+          toast.success("Endereço validado com sucesso!");
+        }
+        
+        setDeliveryAddressConfirmed(true);
+      } else {
+        console.warn("[GEOCODE] Falha na geocodificação precisa:", res.error);
+        toast.error("Não foi possível validar as coordenadas exatas. Tente ajustar no mapa.");
+        // Permitir confirmar mesmo assim se houver rua, mas avisar
+        if (deliveryAddress.street) {
+           setDeliveryAddressConfirmed(true);
+        }
+      }
+    } catch (err) {
+      console.error("[GEOCODE] Erro:", err);
+      toast.error("Erro ao validar endereço.");
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   const handleManualEdit = (field: keyof DeliveryAddress, value: any) => {
@@ -381,8 +429,19 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                 <Button 
                   className="flex-1 bg-green-600 hover:bg-green-700 font-bold"
                   onClick={handleConfirm}
+                  disabled={isGeocoding}
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-2" /> Confirmar endereço
+                  {isGeocoding ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Validando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Confirmar endereço
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button 
