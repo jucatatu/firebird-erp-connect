@@ -83,11 +83,17 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       const autocomplete = document.createElement("gmp-place-autocomplete");
       
       // Sprint 8.9.37.2: Campos estruturados via address_components
-      (autocomplete as any).fields = "address_components,formatted_address,geometry,name,place_id";
+      // Sprint 8.9.37.3: Usando propriedades modernas da Places API (New)
+      (autocomplete as any).fields = ["address_components", "formatted_address", "geometry", "name", "place_id"];
       
-      // Bias para Jaraguá do Sul/SC e Restrição para Brasil
-      (autocomplete as any).locationBias = { radius: 10000, center: { lat: -26.48, lng: -49.07 } };
-      (autocomplete as any).componentRestrictions = { country: "br" };
+      // Bias para Jaraguá do Sul/SC (Apenas como BIAS, não restrição rígida)
+      (autocomplete as any).locationBias = { 
+        radius: 10000, 
+        center: { lat: -26.48, lng: -49.07 } 
+      };
+      
+      // Restrição para Brasil usando a propriedade correta da API New
+      (autocomplete as any).includedRegionCodes = ["br"];
 
       autocomplete.setAttribute("placeholder", "Digite rua, endereço ou estabelecimento");
 
