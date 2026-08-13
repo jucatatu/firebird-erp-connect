@@ -289,7 +289,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     }
     
     setDeliveryAddress(updated);
-    setDeliveryAddressConfirmed(false);
+    // Se mudou qualquer campo estruturado crítico, invalidar confirmação
+    const criticalFields: (keyof DeliveryAddress)[] = ["street", "number", "neighborhood", "city", "state", "postalCode", "noNumber"];
+    if (criticalFields.includes(field)) {
+      setDeliveryAddressConfirmed(false);
+    }
   };
 
   return (
@@ -421,48 +425,46 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                 </div>
                 <div 
                   ref={mapContainerRef} 
-                  className="w-full h-40 rounded-lg border bg-muted/20 overflow-hidden shadow-inner" 
+                  className="w-full h-[200px] rounded-xl border bg-muted/20 overflow-hidden shadow-inner animate-in zoom-in duration-300" 
                 />
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              {!deliveryAddressConfirmed ? (
-                <Button 
-                  className="flex-1 bg-green-600 hover:bg-green-700 font-bold"
-                  onClick={handleConfirm}
-                  disabled={isGeocoding}
-                >
-                  {isGeocoding ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Validando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Confirmar endereço
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-green-600 text-green-700 hover:bg-green-50"
-                  onClick={() => setDeliveryAddressConfirmed(false)}
-                >
-                  Desbloquear para editar
-                </Button>
-              )}
+            <div className="flex flex-col gap-3 pt-2">
+              <Button 
+                className={cn(
+                  "w-full h-12 text-sm font-bold gap-2 shadow-md transition-all active:scale-[0.98]",
+                  deliveryAddressConfirmed 
+                    ? "bg-green-600 text-white hover:bg-green-700" 
+                    : "bg-primary text-primary-foreground hover:shadow-lg"
+                )}
+                onClick={handleConfirm}
+                disabled={isGeocoding}
+              >
+                {isGeocoding ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Geocodificando...
+                  </>
+                ) : deliveryAddressConfirmed ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Endereço Confirmado
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="h-4 w-4" /> Validar e Confirmar Endereço
+                  </>
+                )}
+              </Button>
+              
               <Button 
                 variant="outline" 
-                className="flex-1"
+                className="w-full h-10 text-xs font-semibold gap-2 border-dashed"
                 onClick={() => {
                   setIsSearching(true);
                   loadMaps();
                 }}
               >
-                <Search className="h-4 w-4 mr-2" /> Buscar outro local
+                <Search className="h-3 w-3" /> Buscar outro endereço (Google)
               </Button>
             </div>
             
@@ -473,13 +475,15 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           </div>
         </div>
       ) : (
-        <div className="p-4 border rounded-xl bg-card shadow-sm space-y-4">
+        <div className="p-4 border rounded-xl bg-card shadow-sm space-y-4 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold">Buscar novo endereço</h4>
-            <Button variant="ghost" size="sm" onClick={() => setIsSearching(false)}>Cancelar</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsSearching(false)} className="h-8 text-[10px] uppercase font-bold text-muted-foreground">
+              Voltar
+            </Button>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             {isLoadingMaps ? (
               <div className="flex flex-col items-center justify-center py-10 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -488,39 +492,22 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
             ) : mapsError ? (
               <div className="p-3 border rounded-lg bg-destructive/5 border-destructive/20 space-y-2">
                 <p className="text-xs text-destructive">{mapsError}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input 
-                    placeholder="Rua" 
-                    value={deliveryAddress?.street || ""} 
-                    onChange={(e) => handleManualEdit("street", e.target.value)}
-                  />
-                  <Input 
-                    placeholder="Número" 
-                    value={deliveryAddress?.number || ""} 
-                    onChange={(e) => handleManualEdit("number", e.target.value)}
-                  />
-                  <Input 
-                    placeholder="Bairro" 
-                    value={deliveryAddress?.neighborhood || ""} 
-                    onChange={(e) => handleManualEdit("neighborhood", e.target.value)}
-                  />
-                  <Input 
-                    placeholder="Cidade" 
-                    value={deliveryAddress?.city || ""} 
-                    onChange={(e) => handleManualEdit("city", e.target.value)}
-                  />
-                </div>
-                <Button variant="outline" className="w-full text-xs" onClick={() => {
-                  setDeliveryAddressConfirmed(false);
-                  setIsSearching(false);
-                }}>Confirmar Manualmente</Button>
+                <Button variant="outline" className="w-full text-xs" onClick={() => setIsSearching(false)}>
+                  Preencher Manualmente
+                </Button>
               </div>
             ) : (
               <div className="space-y-4">
-                 <div ref={autocompleteRef} className="google-places-autocomplete-container" />
-                 <p className="text-[10px] text-muted-foreground text-center">
-                    Dica: Digite rua e número para maior precisão
-                 </p>
+                 <div 
+                   ref={autocompleteRef} 
+                   className="w-full [&_gmp-place-autocomplete]:w-full [&_input]:h-12 [&_input]:rounded-xl [&_input]:border-primary/30 [&_input]:focus:border-primary [&_input]:shadow-sm" 
+                 />
+                 <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50/50 border border-blue-100">
+                   <Search className="h-4 w-4 text-blue-500 shrink-0" />
+                   <p className="text-[11px] text-blue-700 leading-tight">
+                     Digite a rua e número, estabelecimento ou um local conhecido.
+                   </p>
+                 </div>
               </div>
             )}
           </div>
