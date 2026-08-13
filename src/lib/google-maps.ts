@@ -1,5 +1,6 @@
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
+// A conexão gerenciada do Lovable disponibiliza a chave via VITE_GOOGLE_MAPS_API_KEY
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 export async function loadGoogleMapsLibraries() {
