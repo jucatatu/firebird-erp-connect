@@ -289,7 +289,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     }
     
     setDeliveryAddress(updated);
-    setDeliveryAddressConfirmed(false);
+    // Se mudou qualquer campo estruturado crítico, invalidar confirmação
+    const criticalFields: (keyof DeliveryAddress)[] = ["street", "number", "neighborhood", "city", "state", "postalCode", "noNumber"];
+    if (criticalFields.includes(field)) {
+      setDeliveryAddressConfirmed(false);
+    }
   };
 
   return (
