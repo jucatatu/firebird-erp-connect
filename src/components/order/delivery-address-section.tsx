@@ -373,8 +373,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500">
-      {/* 1. Primeira Decisão: ENTREGA ou RETIRADA */}
-      <div className="space-y-3">
+      <div id="logistics-start" className="space-y-3">
         <Label className="text-xs font-bold uppercase text-muted-foreground">Como o cliente receberá o pedido?</Label>
         <div className="grid grid-cols-2 gap-3">
           <Button
