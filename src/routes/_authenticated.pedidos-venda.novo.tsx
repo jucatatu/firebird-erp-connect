@@ -367,12 +367,8 @@ function NewOrderPage() {
     return true;
   };
 
-  // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
-  // SPRINT 8.9.39: Adicionar gate de normalização logística
-  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
-  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
-
   const { edit: editParam } = Route.useSearch();
+
 
   const setStep = (newStep: typeof step) => {
     if (identityLocked && newStep === "client" && !editParam) {
@@ -638,6 +634,11 @@ function NewOrderPage() {
   const createOrderM = useCreateErpOrder();
 
   const [showAddEquip, setShowAddEquip] = useState(false);
+
+  // SPRINT 8.9.39: Adicionar gate de normalização logística
+  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
+  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
+
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
