@@ -1072,8 +1072,9 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
-          deliveryAddress: deliveryAddress || undefined,
-          deliveryAddressConfirmed: deliveryAddressConfirmed,
+        deliveryAddress: deliveryAddress || undefined,
+        deliveryAddressConfirmed: deliveryAddressConfirmed,
+        deliveryAddressSource: deliveryAddressSource,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
 
         })),
