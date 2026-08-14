@@ -4,7 +4,7 @@ import { formatDateOnly } from "@/utils/date-utils";
 /**
  * Resumo de produtos: Chopp Pilsen 30L, American IPA 10L...
  */
-export function getItemsSummary(payload: any, limit: number = 2): string {
+export function getItemsSummary(payload: any, limit: number = 3): string {
   const items = payload?.items || [];
   if (items.length === 0) return "Nenhum produto";
   
@@ -24,7 +24,7 @@ export function getItemsSummary(payload: any, limit: number = 2): string {
 /**
  * Resumo de equipamentos: Barril 30L 1x, Chopeira 2 vias 1x...
  */
-export function getEquipmentsSummary(payload: any, limit: number = 2): string {
+export function getEquipmentsSummary(payload: any, limit: number = 3): string {
   const equipments = payload?.equipments || payload?.equipment || [];
   if (equipments.length === 0) return "Nenhum";
   
