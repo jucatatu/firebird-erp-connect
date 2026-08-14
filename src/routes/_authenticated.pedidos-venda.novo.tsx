@@ -350,6 +350,30 @@ function NewOrderPage() {
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
 
+  const isLogisticsValid = () => {
+    if (deliver === null || deliver === undefined) return false;
+    if (!deliveryAt) return false;
+
+    // isDeliveryAddressValid logic
+    if (deliver) {
+      if (deliveryAddressSource === "client") {
+        // Preserva regra: se source client, não exige confirmação extra se os campos base existirem (feito no componente via setDeliveryAddressConfirmed)
+        if (!deliveryAddressConfirmed) return false;
+      } else {
+        // Custom exige confirmado
+        if (!deliveryAddressConfirmed) return false;
+      }
+    }
+
+    if (returnEquipment && !returnAt) return false;
+
+    return true;
+  };
+
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState<User | null>(null);
+  const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
   // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
   const { edit: editParam } = Route.useSearch();
@@ -358,6 +382,24 @@ function NewOrderPage() {
       console.log("[WIZARD] Bloqueando navegação para 'client' porque a identidade está travada.");
       return;
     }
+
+    // Sprint 8.9.38.1 - Validação centralizada para avançar de delivery para payment
+    if (step === "delivery" && newStep === "payment") {
+      if (!isLogisticsValid()) {
+        if (!deliveryAt) {
+          toast.error(`Informe a data da ${deliver ? 'entrega' : 'retirada'}.`);
+        } else if (deliver && !deliveryAddressConfirmed) {
+          toast.error("Confirme o endereço de entrega.");
+        }
+        return;
+      }
+    }
+
+    // Ao mudar para a etapa logística, posicionar no topo
+    if (newStep === "delivery") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
     setStepState(newStep);
   };
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
