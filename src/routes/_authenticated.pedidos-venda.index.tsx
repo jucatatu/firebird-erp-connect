@@ -195,143 +195,166 @@ function OrdersListPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((d) => (
-                  <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-3 align-top">
-                      <Link
-                        to="/pedidos-venda/$draftId"
-                        params={{ draftId: d.id }}
-                        className="block group"
-                      >
-                        <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors whitespace-pre-line">
-                          {d.customer_name_snapshot || "(sem cliente)"}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <OrderIdentifier id={d.id} />
-                          {d.erp_order_number && (
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
-                              {erpStatusQ.isError ? (
-                                <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
-                                  ERP: INDISPONÍVEL
-                                </Badge>
-                              ) : statusMap.has(d.erp_order_number!) ? (
-                                <Badge 
-                                  variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
-                                  className={`text-[9px] h-3.5 px-1 py-0 uppercase font-bold w-fit ${
-                                    !(statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists) 
-                                      ? "border-primary/20 bg-primary/5 text-primary" 
-                                      : "bg-destructive/10 text-destructive border-destructive/20"
-                                  }`}
-                                >
-                                  ERP: {statusMap.get(d.erp_order_number!)?.exists === false ? "EXCLUÍDO" : (statusMap.get(d.erp_order_number!)?.statusDescription || "...")}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
-                                  ERP: CARREGANDO...
-                                </Badge>
+                {rows.map((d) => {
+                  const erpStatus = statusMap.get(d.erp_order_number!);
+                  const isDeleted = erpStatus?.exists === false || erpStatus?.deleted;
+
+                  return (
+                    <tr key={d.id} className="border-t transition-colors hover:bg-muted/30">
+                      <td className="px-4 py-3 align-top">
+                        <Link
+                          to="/pedidos-venda/$draftId"
+                          params={{ draftId: d.id }}
+                          className="block group"
+                        >
+                          <div className="text-base font-bold text-foreground group-hover:text-primary transition-colors whitespace-pre-line leading-tight mb-1">
+                            {d.customer_name_snapshot || "(sem cliente)"}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {d.erp_order_number && (
+                              <span className="text-xs font-bold text-muted-foreground/80">ERP {d.erp_order_number}</span>
+                            )}
+                            <div className="flex items-center gap-2">
+                              {d.erp_order_number && (
+                                erpStatusQ.isError ? (
+                                  <Badge variant="secondary" className="text-[10px] h-5 px-2 py-0 border-muted text-muted-foreground uppercase font-bold">
+                                    ERP: INDISPONÍVEL
+                                  </Badge>
+                                ) : erpStatus ? (
+                                  <Badge 
+                                    variant={isDeleted ? "destructive" : "outline"}
+                                    className={`text-[10px] h-5 px-2 py-0 uppercase font-bold ${
+                                      !isDeleted 
+                                        ? "border-primary/20 bg-primary/5 text-primary" 
+                                        : "bg-destructive/10 text-destructive border-destructive/20"
+                                    }`}
+                                  >
+                                    ERP: {erpStatus.exists === false ? "EXCLUÍDO" : (erpStatus.statusDescription || "...")}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] h-5 px-2 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold">
+                                    ERP: ...
+                                  </Badge>
+                                )
                               )}
+                              <StatusBadge status={d.status} className="h-5 px-2 text-[10px] py-0" />
                             </div>
-                          )}
+                          </div>
+                          <div className="mt-2">
+                            <OrderIdentifier id={d.id} className="text-[10px] opacity-60" />
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 align-top max-w-[250px]">
+                        <div className="space-y-1">
+                          <div className="flex flex-col text-[10px]">
+                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Produtos</span>
+                            <span className="text-foreground/80 truncate leading-normal">{getItemsSummary(d.payload, 4)}</span>
+                          </div>
+                          <div className="flex flex-col text-[10px]">
+                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Equipamentos</span>
+                            <span className="text-foreground/80 truncate leading-normal">{getEquipmentsSummary(d.payload, 4)}</span>
+                          </div>
+                          <div className="flex flex-col text-[10px]">
+                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Logística</span>
+                            <span className="text-foreground/80 truncate leading-normal">{getLogisticsSummary(d.payload)}</span>
+                          </div>
                         </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 align-top max-w-[250px]">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Produtos:</span>
-                          <span className="text-foreground/80 truncate">{getItemsSummary(d.payload)}</span>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <div className="flex flex-col text-[10px] text-foreground/80">
+                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Empresa</span>
+                          <span>{companyLabel(d.company_id)} • {new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Equipamentos:</span>
-                          <span className="text-foreground/80 truncate">{getEquipmentsSummary(d.payload)}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px]">
-                          <span className="font-bold text-muted-foreground/60 uppercase tracking-tighter">Logística:</span>
-                          <span className="text-foreground/80 truncate">{getLogisticsSummary(d.payload)}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-top text-foreground/80">
-                      {companyLabel(d.company_id)}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <StatusBadge status={d.status} />
-                    </td>
-                    <td className="px-4 py-3 align-top text-xs text-muted-foreground">
-                      {new Date(d.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {/* Status badge is now integrated in the first column for better flow */}
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        {/* Date is integrated with Company */}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           {/* Mobile cards */}
           <ul className="space-y-2 md:hidden">
-            {rows.map((d) => (
-              <li key={d.id}>
-                <Link
-                  to="/pedidos-venda/$draftId"
-                  params={{ draftId: d.id }}
-                  className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <OrderIdentifier id={d.id} />
-                    <StatusBadge status={d.status} />
-                  </div>
-                  
-                  <div className="flex flex-col gap-1 mb-3">
-                    <div className="text-sm font-bold text-foreground whitespace-pre-line">
-                      {d.customer_name_snapshot || "(sem cliente)"}
+            {rows.map((d) => {
+              const erpStatus = statusMap.get(d.erp_order_number!);
+              const isDeleted = erpStatus?.exists === false || erpStatus?.deleted;
+              
+              return (
+                <li key={d.id}>
+                  <Link
+                    to="/pedidos-venda/$draftId"
+                    params={{ draftId: d.id }}
+                    className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
+                  >
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="text-lg font-bold text-foreground whitespace-pre-line leading-tight">
+                        {d.customer_name_snapshot || "(sem cliente)"}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-3">
+                        {d.erp_order_number && (
+                          <span className="text-xs font-bold text-muted-foreground/80">ERP {d.erp_order_number}</span>
+                        )}
+                        <OrderIdentifier id={d.id} className="text-[10px] opacity-60" />
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold">{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
-                        {erpStatusQ.isError ? (
-                          <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
+
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      {d.erp_order_number && (
+                        erpStatusQ.isError ? (
+                          <Badge variant="secondary" className="text-[10px] h-5 px-2 py-0 border-muted text-muted-foreground uppercase font-bold">
                             ERP: INDISPONÍVEL
                           </Badge>
-                        ) : statusMap.has(d.erp_order_number!) ? (
+                        ) : erpStatus ? (
                           <Badge 
-                            variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
-                            className={`text-[8px] h-3.5 px-1 py-0 uppercase font-bold w-fit ${
-                              !(statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists) 
+                            variant={isDeleted ? "destructive" : "outline"}
+                            className={`text-[10px] h-5 px-2 py-0 uppercase font-bold ${
+                              !isDeleted 
                                 ? "border-primary/20 bg-primary/5 text-primary" 
                                 : "bg-destructive/10 text-destructive border-destructive/20"
                             }`}
                           >
-                            ERP: {statusMap.get(d.erp_order_number!)?.exists === false ? "EXCLUÍDO" : (statusMap.get(d.erp_order_number!)?.statusDescription || "...")}
+                            ERP: {erpStatus.exists === false ? "EXCLUÍDO" : (erpStatus.statusDescription || "...")}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
+                          <Badge variant="outline" className="text-[10px] h-5 px-2 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold">
                             ERP: ...
                           </Badge>
-                        )}
-                      </div>
-                      <span>·</span>
+                        )
+                      )}
+                      <StatusBadge status={d.status} className="h-5 px-2 text-[10px] py-0" />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase mb-4">
                       <span>{companyLabel(d.company_id)}</span>
-                      <span>·</span>
+                      <span>•</span>
                       <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5 pt-2 border-t border-dashed border-muted/50">
-                    <div className="flex items-start gap-1 text-[10px]">
-                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Produtos:</span>
-                      <span className="text-foreground/80 line-clamp-1">{getItemsSummary(d.payload)}</span>
+                    <div className="space-y-3 pt-3 border-t border-dashed border-muted/50">
+                      <div className="flex flex-col gap-0.5 text-[10px]">
+                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Produtos</span>
+                        <span className="text-foreground/85 line-clamp-2 leading-normal">{getItemsSummary(d.payload, 4)}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-[10px]">
+                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Equipamentos</span>
+                        <span className="text-foreground/85 line-clamp-2 leading-normal">{getEquipmentsSummary(d.payload, 4)}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-[10px]">
+                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Logística</span>
+                        <span className="text-foreground/85 line-clamp-1 leading-normal">{getLogisticsSummary(d.payload)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-start gap-1 text-[10px]">
-                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Equipamentos:</span>
-                      <span className="text-foreground/80 line-clamp-1">{getEquipmentsSummary(d.payload)}</span>
-                    </div>
-                    <div className="flex items-start gap-1 text-[10px]">
-                      <span className="font-bold text-muted-foreground shrink-0 uppercase tracking-tighter">Logística:</span>
-                      <span className="text-foreground/80 line-clamp-1">{getLogisticsSummary(d.payload)}</span>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
