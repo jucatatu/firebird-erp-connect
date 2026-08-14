@@ -511,6 +511,20 @@ function NewOrderPage() {
           return;
         }
 
+        // SPRINT 8.9.39.4: Logging for audit (Item 7)
+        if (isEditing) {
+          console.log("[EDIT PAYMENT] ERP values from store:", { paymentTermId, paymentMethodId, saleTypeId });
+          console.log("[EDIT PAYMENT] options loaded:", {
+            paymentTermsCount: result.data.paymentTerms.length,
+            paymentMethodsCount: result.data.paymentMethods.length,
+            saleTypesCount: result.data.saleTypes.length
+          });
+          const termExists = result.data.paymentTerms.some((t: any) => t.id === paymentTermId);
+          const methodExists = result.data.paymentMethods.some((m: any) => m.id === paymentMethodId);
+          const saleTypeExists = result.data.saleTypes.some((s: any) => s.id === saleTypeId);
+          console.log("[EDIT PAYMENT] matches:", { termExists, methodExists, saleTypeExists });
+        }
+
         setLocalPaymentOptions({ loading: false, error: null, data: result.data });
       } else {
         console.error("[PAYMENT UI] error", result.error);
