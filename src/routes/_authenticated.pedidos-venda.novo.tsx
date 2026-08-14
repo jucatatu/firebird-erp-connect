@@ -1336,7 +1336,7 @@ function NewOrderPage() {
                 {clientName}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Empresa: {companyId === 3 ? "GROTT" : "GRAAL"}
+                Empresa: {companyId === 1 ? "GRAAL" : companyId === 3 ? "GROTT" : "Carregando..."}
               </p>
             </div>
             
