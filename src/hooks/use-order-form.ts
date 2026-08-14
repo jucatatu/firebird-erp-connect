@@ -208,6 +208,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       }),
       setDeliveryAddress: (address) => set({ deliveryAddress: address, deliveryAddressConfirmed: false }),
       setDeliveryAddressConfirmed: (confirmed) => set({ deliveryAddressConfirmed: confirmed }),
+      setDeliveryAddressSource: (source) => set({ deliveryAddressSource: source }),
       setReturn: (ret: boolean, date: string | null) => set((state) => {
 
         const newState: Partial<OrderFormStore> = { returnEquipment: ret, returnAt: date };
