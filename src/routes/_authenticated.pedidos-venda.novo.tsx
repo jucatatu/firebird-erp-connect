@@ -1239,6 +1239,25 @@ function NewOrderPage() {
 
 
 
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const steps: (typeof step)[] = ["client", "items", "delivery", "payment", "review"];
+      const currentIndex = steps.indexOf(step);
+      if (currentIndex < steps.length - 1) {
+        setStep(steps[currentIndex + 1]);
+      }
+    },
+    onSwipedRight: () => {
+      const steps: (typeof step)[] = ["client", "items", "delivery", "payment", "review"];
+      const currentIndex = steps.indexOf(step);
+      if (currentIndex > 0) {
+        setStep(steps[currentIndex - 1]);
+      }
+    },
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
   return (
     <div {...swipeHandlers} className="flex flex-col min-h-screen bg-background pb-10">
 
