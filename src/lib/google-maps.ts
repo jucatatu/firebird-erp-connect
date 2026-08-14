@@ -31,9 +31,7 @@ export async function loadGoogleMapsLibraries() {
       importLibrary("places")
     ]);
 
-    console.log("[GOOGLE MAPS] Maps library carregada:", !!mapsLib);
-    console.log("[GOOGLE MAPS] Marker library carregada:", !!markerLib);
-    console.log("[GOOGLE MAPS] Places library carregada:", !!placesLib);
+    console.log("[GOOGLE MAPS] Libraries loaded");
 
     // Na API moderna, importLibrary("places") retorna o namespace que contém PlaceAutocompleteElement
     const isAutocompleteAvailable = !!(placesLib as any).PlaceAutocompleteElement || !!(window as any).google?.maps?.places?.PlaceAutocompleteElement;
