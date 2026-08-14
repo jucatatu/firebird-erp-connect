@@ -28,6 +28,7 @@ import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 import { companyLabel } from "@/components/order-identifier";
 import { formatDateOnly, addDaysToDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
+import { cn } from "@/lib/utils";
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
