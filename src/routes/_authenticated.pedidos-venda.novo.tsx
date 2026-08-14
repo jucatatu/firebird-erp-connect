@@ -511,6 +511,20 @@ function NewOrderPage() {
           return;
         }
 
+        // SPRINT 8.9.39.4: Logging for audit (Item 7)
+        if (isEditing) {
+          console.log("[EDIT PAYMENT] ERP values from store:", { paymentTermId, paymentMethodId, saleTypeId });
+          console.log("[EDIT PAYMENT] options loaded:", {
+            paymentTermsCount: result.data.paymentTerms.length,
+            paymentMethodsCount: result.data.paymentMethods.length,
+            saleTypesCount: result.data.saleTypes.length
+          });
+          const termExists = result.data.paymentTerms.some((t: any) => t.id === paymentTermId);
+          const methodExists = result.data.paymentMethods.some((m: any) => m.id === paymentMethodId);
+          const saleTypeExists = result.data.saleTypes.some((s: any) => s.id === saleTypeId);
+          console.log("[EDIT PAYMENT] matches:", { termExists, methodExists, saleTypeExists });
+        }
+
         setLocalPaymentOptions({ loading: false, error: null, data: result.data });
       } else {
         console.error("[PAYMENT UI] error", result.error);
@@ -527,12 +541,13 @@ function NewOrderPage() {
   };
 
   useEffect(() => {
-    // Sprint 8.9.36.3: Não carregar defaults no modo edição para evitar sobrescrita do ERP
-    if (!clientId || !companyId || hydrationLoading || isEditing) return;
+    // SPRINT 8.9.39.4: Separar carregamento do catálogo da aplicação de padrões.
+    // O catálogo é necessário em CREATE e EDIT.
+    if (!clientId || !companyId || hydrationLoading) return;
 
-    console.log("[PAYMENT UI] clientId/companyId changed, loading defaults for CREATE mode");
+    console.log("[PAYMENT UI] clientId/companyId changed, loading catalog options");
     void loadPaymentOptionsDirectly();
-  }, [clientId, companyId, hydrationLoading, isEditing]);
+  }, [clientId, companyId, hydrationLoading]);
 
   const clientDetailQ = useErpClientDetail(clientId);
   
@@ -541,6 +556,10 @@ function NewOrderPage() {
 
   // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
+    // SPRINT 8.9.39.4: NÃO aplicar defaults do cliente no EDIT.
+    // No modo edição, os valores devem vir exclusivamente do pedido ERP (já hidratado na store).
+    if (isEditing) return;
+
     if (clientDetailQ.data?.ok && clientDetailQ.data.data && localPaymentOptions.data) {
       const detail = clientDetailQ.data.data;
       const options = localPaymentOptions.data;
@@ -574,7 +593,7 @@ function NewOrderPage() {
         toast.warning("Forma de pagamento padrão do cliente não disponível ou inativa no ERP.");
       }
     }
-  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType]);
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType, isEditing]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
@@ -1998,6 +2017,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.paymentTerms?.map((t: any) => (
                           <option key={t.id} value={t.id}>{t.description}</option>
                         ))}
+                        {isEditing && paymentTermId && !localPaymentOptions.data?.paymentTerms?.some((t: any) => t.id === paymentTermId) && (
+                          <option value={paymentTermId}>{`ID ${paymentTermId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -2011,6 +2033,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.paymentMethods?.map((m: any) => (
                           <option key={m.id} value={m.id}>{m.description}</option>
                         ))}
+                        {isEditing && paymentMethodId && !localPaymentOptions.data?.paymentMethods?.some((m: any) => m.id === paymentMethodId) && (
+                          <option value={paymentMethodId}>{`ID ${paymentMethodId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -2024,6 +2049,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.saleTypes?.map((s: any) => (
                           <option key={s.id} value={s.id}>{s.description}</option>
                         ))}
+                        {isEditing && saleTypeId && !localPaymentOptions.data?.saleTypes?.some((s: any) => s.id === saleTypeId) && (
+                          <option value={saleTypeId}>{`ID ${saleTypeId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                   </div>
