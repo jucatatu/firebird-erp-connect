@@ -49,13 +49,14 @@ export interface OrderFormStore {
   erpOrderId: number | null;
   erpOrderNumber: number | null;
   isEditing: boolean;
-  identityLocked: boolean; // Sprint 8.9.36: Bloqueio de identidade
+  identityLocked: boolean;
   items: OrderItem[];
   equipments: OrderEquipment[];
   deliver: boolean;
   deliveryAt: string | null;
   deliveryAddress: DeliveryAddress | null;
   deliveryAddressConfirmed: boolean;
+  deliveryAddressSource: "client" | "custom"; // Sprint 8.9.38
   returnEquipment: boolean;
   returnAt: string | null;
   notes: string;
@@ -111,6 +112,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
       deliveryAt: null,
       deliveryAddress: null,
       deliveryAddressConfirmed: false,
+      deliveryAddressSource: "client", // Sprint 8.9.38
       returnEquipment: false,
       returnAt: null,
       notes: "",
@@ -233,6 +235,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         deliveryAt: null,
         deliveryAddress: null,
         deliveryAddressConfirmed: false,
+        deliveryAddressSource: "client",
         returnEquipment: false,
         returnAt: null,
         notes: "",
@@ -260,6 +263,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
         deliveryAt: null,
         deliveryAddress: null,
         deliveryAddressConfirmed: false,
+        deliveryAddressSource: "client",
         returnAt: null,
       }),
 
@@ -301,6 +305,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           deliveryAt: null, // Data deve ser preenchida pelo vendedor
           deliveryAddress: payload.deliveryAddress || null,
           deliveryAddressConfirmed: false, // Repetir exige nova confirmação
+          deliveryAddressSource: payload.deliveryAddressSource || "client",
           returnEquipment: payload.returnEquipment ?? false,
           returnAt: null,
 
@@ -328,6 +333,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           deliveryAt: null,
           deliveryAddress: null,
           deliveryAddressConfirmed: false,
+          deliveryAddressSource: "client",
           returnEquipment: false,
           returnAt: null,
 
@@ -369,6 +375,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
           deliveryAt: order.deliveryAt,
           deliveryAddress: order.deliveryAddress || null,
           deliveryAddressConfirmed: !!order.deliveryAddressConfirmed,
+          deliveryAddressSource: order.deliveryAddressSource || "client",
           returnEquipment: order.returnEquipment ?? false,
           returnAt: order.returnAt,
 

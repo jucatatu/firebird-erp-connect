@@ -140,6 +140,7 @@ export interface CreateOrderInput {
   notes?: string | null;
   deliveryAddress?: any;
   deliveryAddressConfirmed?: boolean;
+  deliveryAddressSource?: "client" | "custom";
 
   items: Array<{ 
     productId: number; 
@@ -174,8 +175,12 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
 
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
-    deliveryAddress: input.deliveryAddress ?? null,
-    deliveryAddressConfirmed: input.deliveryAddressConfirmed ?? false,
+    // deliveryAddress: NÃO vazar para o payload estrito se o ERP não aceita.
+    // Sprint 8.9.38: O contrato do ERP Node é estrito. 
+    // Se o backend Node não foi alterado para aceitar esses campos, não enviamos.
+    // Auditar se o Node aceita 'deliveryAddress' (provavelmente não, ou apenas campos específicos).
+    // Vou remover o envio desses campos operacionais de UI para o ERP.
+    // Manter apenas o essencial que o ERP espera (baseado no validator do Node).
 
     items: input.items.map(item => ({
       productId: item.productId,
@@ -317,7 +322,8 @@ export async function handleCreateErpOrder(
       mirrorId = inserted.id;
     }
 
-    console.log("[ORDER SERVER] Mirror success:", mirrorId);
+    console.log("[ORDER SAVE] snapshot response success:", mirrorId);
+    console.log("[ORDER SAVE] finished");
     return {
       ...result,
       data: { ...result.data, mirrorId }
