@@ -527,12 +527,13 @@ function NewOrderPage() {
   };
 
   useEffect(() => {
-    // Sprint 8.9.36.3: Não carregar defaults no modo edição para evitar sobrescrita do ERP
-    if (!clientId || !companyId || hydrationLoading || isEditing) return;
+    // SPRINT 8.9.39.4: Separar carregamento do catálogo da aplicação de padrões.
+    // O catálogo é necessário em CREATE e EDIT.
+    if (!clientId || !companyId || hydrationLoading) return;
 
-    console.log("[PAYMENT UI] clientId/companyId changed, loading defaults for CREATE mode");
+    console.log("[PAYMENT UI] clientId/companyId changed, loading catalog options");
     void loadPaymentOptionsDirectly();
-  }, [clientId, companyId, hydrationLoading, isEditing]);
+  }, [clientId, companyId, hydrationLoading]);
 
   const clientDetailQ = useErpClientDetail(clientId);
   
