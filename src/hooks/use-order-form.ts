@@ -79,6 +79,7 @@ export interface OrderFormStore {
       setDelivery: (deliver: boolean, date: string | null) => void;
       setDeliveryAddress: (address: DeliveryAddress | null) => void;
       setDeliveryAddressConfirmed: (confirmed: boolean) => void;
+      setDeliveryAddressSource: (source: "client" | "custom") => void;
       setReturn: (ret: boolean, date: string | null) => void;
       setNotes: (notes: string) => void;
       setPayment: (termId: number | null, methodId: number | null) => void;
