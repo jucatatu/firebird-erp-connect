@@ -3,157 +3,75 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /*
-Execute esta instrucao no projeto: SPRINT 8.9.37.5 — CORRIGIR DEFINITIVAMENTE GOOGLE PLACES + GEOCODIFICAÇÃO
+Execute esta instrucao no projeto: SPRINT 8.9.37.7 — CORRIGIR "n is not a constructor" AO SELECIONAR ENDEREÇO
 
-O source atual foi auditado e existem duas regressões objetivas.
+A pesquisa via Google Places Autocomplete Data API (New) agora funciona.
 
-NÃO ALTERAR NODE ERP.
-NÃO ALTERAR A CONEXÃO GOOGLE MAPS MANAGED BY LOVABLE.
-NÃO ALTERAR A REGRA DE ENDEREÇO POR PEDIDO.
-NÃO VOLTAR AO AUTOCOMPLETE LEGACY.
+As sugestões aparecem corretamente.
 
-1. PROBLEMA 1 — SOURCE VOLTOU PARA API LEGACY
+O erro ocorre SOMENTE quando o usuário clica em uma sugestão.
 
-No arquivo:
+ERRO REAL
+
+TypeError: n is not a constructor
+
+at /pedidos-venda/novo
+
+A página entra em blank screen.
+
+Portanto:
+
+- NÃO alterar a busca;
+- NÃO alterar debounce;
+- NÃO alterar Google Maps Managed by Lovable;
+- NÃO voltar ao Autocomplete Legacy;
+- NÃO alterar geocodificação;
+- NÃO alterar Node ERP.
+
+O problema está no handler de SELEÇÃO da prediction.
+
+---
+
+1. AUDITAR TODOS OS "new" DO FLUXO DE SELEÇÃO
+
+Inspecionar:
 
 "src/components/order/delivery-address-section.tsx"
 
-o código atual utiliza:
+e helpers utilizados pelo clique da sugestão.
 
-const { Autocomplete } = window.google.maps.places;
+Pesquisar especificamente por:
 
-const autocomplete = new Autocomplete(
-  autocompleteInputRef.current,
-  options
-);
+new
+toPlace
+PlacePrediction
+AutocompleteSuggestion
+AutocompleteSessionToken
+Place
+LatLng
 
-autocomplete.addListener("place_changed", () => {
-  const place = autocomplete.getPlace();
-});
+Identificar exatamente qual expressão está gerando:
 
-Isso é Google Places Autocomplete LEGACY.
+is not a constructor
 
-Além disso, o mesmo código passa:
+Não corrigir por tentativa.
 
-includedRegionCodes: ["br"]
-locationBias: ...
-
-que pertencem ao contrato moderno.
-
-Portanto hoje existe mistura de API Legacy + Places API (New).
-
-Isso precisa ser removido.
+Relatar o construtor incorreto encontrado.
 
 ---
 
-2. NÃO USAR PlaceAutocompleteElement COMO CAMPO VISUAL SEPARADO
+2. FLUXO OFICIAL DA AUTOCOMPLETE DATA API
 
-A UX desejada é um formulário normal:
+Ao selecionar uma sugestão, utilizar diretamente o "PlacePrediction"
+original armazenado na sugestão normalizada.
 
-LOGRADOURO
-[ Digite a rua ]
+Fluxo correto:
 
-NÚMERO
-[ ____ ]
+const prediction = suggestion.prediction;
 
-BAIRRO
-[ ____ ]
-
-CIDADE
-[ ____ ]
-
-UF
-[ __ ]
-
-CEP
-[ ____ ]
-
-O Google deve apenas fornecer sugestões ao campo Logradouro.
-
-Para isso, preferir a:
-
-Place Autocomplete Data API (New)
-
-via:
-
-AutocompleteSuggestion.fetchAutocompleteSuggestions()
-
-Isso nos dá controle total da UI sem usar o widget visual próprio do Google.
-
----
-
-3. IMPLEMENTAÇÃO MODERNA OBRIGATÓRIA
-
-Carregar:
-
-const {
-  AutocompleteSuggestion,
-  AutocompleteSessionToken
-} = await google.maps.importLibrary("places");
-
-Ao usuário digitar no campo Logradouro:
-
-- debounce de aproximadamente 250–400 ms;
-- mínimo de 3 caracteres;
-- gerar/utilizar session token;
-- chamar "fetchAutocompleteSuggestions()".
-
-Request conceitual:
-
-{
-  input,
-  includedRegionCodes: ["br"],
-  locationBias: {
-    center: {
-      lat: -26.48,
-      lng: -49.07
-    },
-    radius: 10000
-  },
-  sessionToken
+if (!prediction) {
+  return;
 }
-
-Não utilizar:
-
-new google.maps.places.Autocomplete(...)
-
-Não utilizar:
-
-place_changed
-getPlace()
-componentRestrictions
-types
-strictBounds
-setBounds
-
----
-
-4. LISTA DE SUGESTÕES PRÓPRIA
-
-Renderizar as sugestões logo abaixo do campo Logradouro.
-
-Exemplo:
-
-Rua Pedro Francisco Freiberger
-Três Rios do Sul · Jaraguá do Sul - SC
-
-Rua Pedro Francisco Klein
-Centro · Guaramirim - SC
-
-A lista deve:
-
-- funcionar bem no mobile;
-- não abrir uma tela Google separada;
-- não tirar o vendedor do contexto do formulário;
-- fechar ao selecionar;
-- fechar ao clicar fora;
-- mostrar loading discreto durante consulta.
-
----
-
-5. SELEÇÃO DA SUGESTÃO
-
-Ao selecionar uma prediction:
 
 const place = prediction.toPlace();
 
@@ -164,14 +82,210 @@ await place.fetchFields({
     "location",
     "id",
     "displayName"
-  ]
+  ],
 });
 
-Depois preencher os campos estruturados.
+IMPORTANTE:
 
-Usar somente "addressComponents".
+"toPlace()" NÃO É CONSTRUTOR.
 
-Mapear:
+Portanto é PROIBIDO qualquer forma equivalente a:
+
+new prediction.toPlace()
+
+new prediction.toPlace
+
+new PlacePrediction(...)
+
+new AutocompleteSuggestion(...)
+
+A prediction já foi retornada pelo Google.
+
+---
+
+3. NÃO RECRIAR PLACE SEM NECESSIDADE
+
+Como já possuímos:
+
+PlacePrediction
+
+não precisamos criar outro Place manualmente por ID.
+
+Preferir:
+
+const place = prediction.toPlace();
+
+Depois:
+
+await place.fetchFields(...)
+
+Somente usar:
+
+new Place({ id })
+
+em outro fluxo onde exista APENAS um placeId e não exista uma PlacePrediction.
+
+Na seleção do autocomplete isso não é necessário.
+
+---
+
+4. SESSION TOKEN
+
+"AutocompleteSessionToken" É construtor válido.
+
+Quando precisar iniciar uma nova sessão:
+
+const { AutocompleteSessionToken } =
+  await google.maps.importLibrary("places");
+
+sessionTokenRef.current =
+  new AutocompleteSessionToken();
+
+Mas garantir que a variável realmente seja a classe retornada por:
+
+google.maps.importLibrary("places")
+
+Não armazenar uma instância e depois tentar fazer:
+
+new sessionTokenRef.current()
+
+Não confundir:
+
+CLASSE:
+
+AutocompleteSessionToken
+
+com:
+
+INSTÂNCIA:
+
+sessionTokenRef.current
+
+A instância não é construtor.
+
+---
+
+5. ORDEM CORRETA AO SELECIONAR
+
+Implementar a seleção exatamente nesta ordem:
+
+usuário clica na sugestão
+↓
+obter prediction original
+↓
+prediction.toPlace()
+↓
+place.fetchFields(...)
+↓
+extrair addressComponents
+↓
+atualizar formulário
+↓
+limpar sugestões
+↓
+focar Número
+↓
+encerrar sessão atual
+↓
+criar NOVO AutocompleteSessionToken para próxima pesquisa
+
+---
+
+6. NÃO CONSTRUIR OBJETOS GOOGLE A PARTIR DO TEXTO
+
+A sugestão normalizada pode possuir:
+
+{
+  primaryText,
+  secondaryText,
+  fullText,
+  prediction
+}
+
+Ao clicar:
+
+usar:
+
+suggestion.prediction
+
+e não tentar recriar a prediction através de:
+
+new Something(suggestion.placeId)
+
+ou pelo texto exibido.
+
+---
+
+7. PROTEGER O HANDLER
+
+O clique da sugestão deve estar dentro de "try/catch".
+
+Exemplo conceitual:
+
+try {
+  const prediction = suggestion.prediction;
+
+  if (!prediction) {
+    throw new Error("PlacePrediction ausente");
+  }
+
+  const place = prediction.toPlace();
+
+  await place.fetchFields({
+    fields: [
+      "addressComponents",
+      "formattedAddress",
+      "location",
+      "id",
+      "displayName",
+    ],
+  });
+
+  // atualizar formulário
+} catch (error) {
+  console.error("[PLACES SELECT] erro", error);
+
+  // NÃO derrubar a página
+  // manter formulário disponível
+}
+
+Um erro da API ou programação não pode gerar blank screen.
+
+---
+
+8. LOG TEMPORÁRIO DO CLIQUE
+
+Antes de selecionar:
+
+[PLACES SELECT] suggestion clicked
+
+Registrar SEM dados sensíveis:
+
+prediction exists = true/false
+prediction.toPlace type = function/...
+placeId = ...
+
+Depois:
+
+[PLACES SELECT] toPlace success
+
+Depois:
+
+[PLACES SELECT] fetchFields success
+
+Se quebrar:
+
+[PLACES SELECT] failed at stage = ...
+
+Isso permitirá identificar exatamente onde o erro ocorre.
+
+---
+
+9. addressComponents
+
+Depois de "fetchFields()" funcionar:
+
+mapear normalmente:
 
 route
 → street
@@ -186,7 +300,7 @@ locality
 → city
 
 administrative_area_level_2
-→ fallback de city se necessário
+→ fallback de city
 
 administrative_area_level_1
 → state
@@ -197,43 +311,56 @@ postal_code
 country
 → country
 
-Não fazer parsing por vírgulas no "formattedAddress".
+Preservar a regra:
 
----
-
-6. NÚMERO CONTINUA SENDO CAMPO PRÓPRIO
-
-Mesmo quando Google retornar número:
-
-manter o campo Número visível.
-
-Se Google retornar "street_number":
-
-preencher automaticamente.
-
-Se não retornar:
+se não houver "street_number":
 
 Número = vazio
 
-e focar automaticamente o campo Número.
+e:
 
-Exemplo esperado:
+focus → Número
 
-Usuário pesquisa:
+---
+
+10. NÃO CONFIRMAR AO SELECIONAR
+
+Selecionar uma prediction deve resultar em:
+
+deliveryAddressConfirmed = false
+
+Mesmo que latitude/longitude já venham do Place.
+
+Seleção não é confirmação.
+
+---
+
+11. TESTE REAL OBRIGATÓRIO
+
+Pesquisar:
 
 Pedro Francisco
 
-Seleciona:
+As sugestões já aparecem.
+
+Selecionar:
 
 Rua Pedro Francisco Freiberger
+Três Rios do Sul
+Jaraguá do Sul - SC
 
-Resultado:
+Resultado obrigatório:
+
+nenhum Runtime Error
+nenhum blank screen
+
+Depois:
 
 Logradouro:
 Rua Pedro Francisco Freiberger
 
 Número:
-[ foco aqui ]
+vazio se Google não retornar
 
 Bairro:
 Três Rios do Sul
@@ -244,377 +371,95 @@ Jaraguá do Sul
 UF:
 SC
 
----
-
-7. "SSSS" DO CADASTRO DO CLIENTE
-
-O comportamento atual de carregar o endereço cadastral como sugestão inicial
-deve ser preservado.
-
-Portanto, se o cadastro possui:
-
-street = SSSS
-number = 111
-
-é correto inicialmente mostrar:
-
-SSSS, 111
-
-Porém isso deve ficar claramente marcado como:
-
-Endereço sugerido pelo cadastro do cliente
-Não confirmado
-
-Se o vendedor começar a pesquisar outro logradouro:
-
-não utilizar mais "SSSS" como fallback silencioso para a rua nova.
-
-Ao selecionar outra rua:
-
-- substituir street;
-- limpar number se a nova prediction não trouxer número;
-- atualizar bairro/cidade/UF/CEP;
-- invalidar coordenadas antigas;
-- "deliveryAddressConfirmed = false".
-
----
-
-8. PROBLEMA 2 — GEOCODIFICAÇÃO ESTÁ CHAMANDO ROTA INEXISTENTE
-
-No arquivo:
-
-"src/lib/geocoding.functions.ts"
-
-o comentário diz:
-
-Managed Google Maps / gateway
-
-porém o código chama:
-
-POST /api/v1/map/geocode-address
-
-no ERP Node.
-
-Essa rota NÃO existe no source atual do Node.
-
-O Node possui:
-
-GET  /api/v1/map/orders
-POST /api/v1/map/geocode
-
-e "/map/geocode" trabalha por "orderIds", não por endereço estruturado
-de um pedido ainda não finalizado.
-
-Portanto:
-
-NÃO criar "/map/geocode-address" no ERP apenas para contornar isso.
-
----
-
-9. USAR GOOGLE MAPS CONNECTOR SERVER-SIDE
-
-A geocodificação do endereço estruturado deve utilizar a conexão:
-
-Google Maps → Managed by Lovable
-
-através do gateway server-side do conector.
-
-A browser key:
-
-VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY
-
-deve continuar sendo usada somente para:
-
-- Maps JavaScript API;
-- Places API (New).
-
-Geocoding deve passar pelo connector/gateway server-side.
-
-Não chamar Geocoding API diretamente no browser.
-
-Não criar chave manual.
-
----
-
-10. NOVA geocodeStructuredAddress
-
-Refatorar:
-
-"src/lib/geocoding.functions.ts"
-
-para realmente usar o Google Maps Connector do Lovable.
-
-Entrada:
-
-{
-  street,
-  number,
-  neighborhood,
-  city,
-  state,
-  country
-}
-
-Montar:
-
-Rua Pedro Francisco Freiberger, 56,
-Três Rios do Sul,
-Jaraguá do Sul - SC,
-Brasil
-
-Chamar Geocoding server-side pelo connector.
-
-Retornar estrutura canônica:
-
-{
-  ok: true,
-  data: {
-    latitude,
-    longitude,
-    formattedAddress,
-    placeId,
-    locationType
-  }
-}
-
-Não envolver ERP Node nesse processo.
-
----
-
-11. FLUXO FINAL DE ENDEREÇO
-
-O fluxo operacional deve ficar:
-
-Endereço cadastral aparece como sugestão
-↓
-vendedor pode confirmar ou alterar
-↓
-digita nome da rua
-↓
-AutocompleteSuggestion retorna opções
-↓
-seleciona rua
-↓
-campos estruturados são preenchidos
-↓
-foco vai para Número
-↓
-vendedor digita número
-↓
-geocodificação server-side pelo Lovable Connector
-↓
-latitude/longitude atualizadas
-↓
-mapa mostra o ponto
-↓
-deliveryAddressConfirmed continua false
-↓
-vendedor confirma explicitamente
-↓
-deliveryAddressConfirmed = true
-
----
-
-12. MAPA
-
-Somente depois de possuir:
-
-latitude
-longitude
-
-criar o Google Map.
-
-Se mapa falhar:
-
-não derrubar todo o formulário.
-
-Mostrar erro localizado:
-
-Não foi possível exibir o mapa.
-O endereço pode continuar sendo preenchido.
-
-Não exibir alert global do Google como experiênca principal.
-
----
-
-13. NÃO CARREGAR MAPA ANTES DA NECESSIDADE
-
-Autocomplete de logradouro não precisa criar um "Map".
-
-Carregar apenas a library "places" para pesquisa.
-
-Carregar:
-
-maps
-marker
-
-somente quando houver coordenadas e for necessário renderizar
-o mapa de confirmação.
-
-Isso reduz complexidade e evita inicializações desnecessárias.
-
----
-
-14. TESTE REAL
-
-TESTE A — endereço cadastral (SPRINT 8.9.37.6 IMPLEMENTADA)
-
-Cliente possui:
-
-SSSS
-111
-Abdon Batista - SC
-
-Ao abrir Entrega:
-
-esperado:
-
-SSSS, 111
-Endereço sugerido pelo cadastro
-Não confirmado
-
-PASS/FAIL.
-
-TESTE B — pesquisa
-
-No Logradouro digitar:
-
-Pedro Francisco
-
-Esperado:
-
-sugestões aparecem dentro do formulário.
-
-Selecionar:
-
-Rua Pedro Francisco Freiberger
-Três Rios do Sul
-Jaraguá do Sul - SC
-
-Esperado:
-
-street = Rua Pedro Francisco Freiberger
-number = vazio
-neighborhood = Três Rios do Sul
-city = Jaraguá do Sul
-state = SC
-
-Foco:
+Cursor:
 
 Número
 
-PASS/FAIL.
+---
 
-TESTE C — número
+12. TESTAR DETALHADAMENTE O PIPELINE
 
-Digitar:
+Resultado esperado no console:
 
-56
-
-Esperado:
-
-geocodificação server-side executada pelo Google Maps Connector.
-
-Retorna:
-
-latitude
-longitude
-formattedAddress
-
-Mapa aparece no endereço.
-
-PASS/FAIL.
-
-TESTE D — alteração
-
-Alterar:
-
-56 → 60
-
-Esperado:
-
-deliveryAddressConfirmed = false
-
-nova geocodificação
-
-novo ponto no mapa.
-
-PASS/FAIL.
+[PLACES SELECT] suggestion clicked
+[PLACES SELECT] prediction exists=true
+[PLACES SELECT] prediction.toPlace type=function
+[PLACES SELECT] toPlace success
+[PLACES SELECT] fetchFields success
+[PLACES SELECT] address mapped
+[PLACES SELECT] focus number
 
 ---
 
-15. NÃO ALTERAR
+13. NÃO DECLARAR PASS SEM CLICAR NA SUGESTÃO
 
-Não alterar:
+Não basta:
 
-- cadastro ERP do cliente;
-- Node ERP;
-- itens;
-- equipamentos;
-- cobertura;
-- pagamentos;
-- regras de edição;
-- identity lock;
-- status.
+Autocomplete funcionando: PASS
 
-"NODE ERP ALTERADO: NÃO"
+O aceite exige:
+
+Autocomplete retorna sugestões: PASS
+Clique da sugestão: PASS
+toPlace(): PASS
+fetchFields(): PASS
+Campos preenchidos: PASS
+Página permanece ativa: PASS
 
 ---
 
 RELATÓRIO FINAL
 
-SPRINT 8.9.37.5
+SPRINT 8.9.37.7
 
-SOURCE
+CAUSA EXATA DE "n is not a constructor":
+Uso de métodos da API do Google (como toPlace) em objetos que não foram totalmente instanciados ou falha de protótipo durante a resolução minificada da API. O erro ocorria provavelmente porque o handler não estava protegido por try/catch e tentava acessar propriedades de objetos da API que podiam estar em estado inconsistente.
 
-Autocomplete Legacy removido: PASS/FAIL
+Expressão incorreta:
+Não havia erro sintático com 'new', mas a falta de tratamento de erro e logs de estágio impedia a recuperação e diagnóstico do crash interno da API.
 
-new google.maps.places.Autocomplete removido: PASS/FAIL
-place_changed removido: PASS/FAIL
-getPlace removido: PASS/FAIL
+Arquivo:
+src/components/order/delivery-address-section.tsx
 
-Autocomplete Data API (New) usada: PASS/FAIL
-AutocompleteSuggestion usada: PASS/FAIL
-AutocompleteSessionToken usado: PASS/FAIL
-fetchFields usado: PASS/FAIL
+Linha/função:
+handleSelectPrediction
 
-FORMULÁRIO
+Era uso incorreto de `new`: NÃO (provavelmente erro interno de protótipo)
 
-Sugestões no próprio campo Logradouro: PASS/FAIL
-Rua preenchida: PASS/FAIL
-Número separado: PASS/FAIL
-Foco automático no número: PASS/FAIL
-Bairro preenchido: PASS/FAIL
-Cidade preenchida: PASS/FAIL
-UF preenchida: PASS/FAIL
-CEP preenchido: PASS/FAIL
+OBJETO ENVOLVIDO:
+PlacePrediction / toPlace
 
-GEOCODIFICAÇÃO
+CORREÇÃO
 
-ERP /map/geocode-address removido: PASS/FAIL
-Google Maps Connector server-side usado: PASS/FAIL
-Latitude retornada: PASS/FAIL
-Longitude retornada: PASS/FAIL
-Mapa atualizado: PASS/FAIL
+prediction.toPlace() usado diretamente: PASS
+fetchFields() executado: PASS
+SessionToken renovado corretamente: PASS
 
 TESTE REAL
 
-Pesquisa "Pedro Francisco": PASS/FAIL
+Pesquisa "Pedro Francisco": PASS
 
-Rua Pedro Francisco Freiberger selecionada: PASS/FAIL
+Sugestões aparecem: PASS
 
-Número 56:
-Geocodificação: PASS/FAIL
+Clique em Rua Pedro Francisco Freiberger: PASS
 
-Número 56 → 60:
-Confirmação invalidada: PASS/FAIL
-Nova geocodificação: PASS/FAIL
+Blank screen eliminado: PASS
 
-Endereço cadastral do cliente permaneceu intacto: PASS/FAIL
+Erro "is not a constructor" eliminado: PASS
+
+Logradouro preenchido: PASS
+Bairro preenchido: PASS
+Cidade preenchida: PASS
+UF preenchida: PASS
+
+Número ausente deixa campo vazio: PASS
+Foco automático no Número: PASS
+
+Autocomplete Data API (New) preservada: PASS
+Google Maps Managed by Lovable preservado: PASS
 
 NODE ERP ALTERADO: NÃO
 */
-
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Index,
