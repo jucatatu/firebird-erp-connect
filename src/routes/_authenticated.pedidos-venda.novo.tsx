@@ -477,7 +477,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
+  }, [editParam, hydratedEditOrderNumber, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
