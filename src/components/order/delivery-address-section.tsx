@@ -114,6 +114,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       return;
     }
 
+    let active = true;
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
@@ -130,23 +131,55 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         };
 
         const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
-        setSuggestions(results || []);
+        
+        if (!active) return;
+
+        // NORMALIZAR AS SUGESTÕES ANTES DE SALVAR NA UI
+        const normalized = (results || [])
+          .map((suggestion: any) => {
+            const prediction = suggestion.placePrediction;
+            if (!prediction) return null;
+
+            return {
+              prediction,
+              placeId: prediction.placeId,
+              primaryText: 
+                prediction.mainText?.text ?? 
+                prediction.text?.text ?? 
+                (typeof prediction.text === 'string' ? prediction.text : "") ??
+                "",
+              secondaryText: 
+                prediction.secondaryText?.text ?? "",
+              fullText: 
+                prediction.text?.text ?? 
+                (typeof prediction.text === 'string' ? prediction.text : "") ??
+                "",
+            };
+          })
+          .filter((s: any) => s !== null && (s.primaryText || s.fullText));
+
+        setSuggestions(normalized);
       } catch (err) {
-        console.error("Erro fetch suggestions:", err);
+        console.error("[PLACES AUTOCOMPLETE] error:", err);
+        setSuggestions([]);
       } finally {
-        setIsSearching(false);
+        if (active) setIsSearching(false);
       }
     }, 400);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [query, isMapsLoaded, sessionToken, showSuggestions]);
 
-  const handleSelectPrediction = async (prediction: any) => {
+  const handleSelectPrediction = async (normalizedSuggestion: any) => {
     setShowSuggestions(false);
     setIsGeocoding(true);
     
     try {
-      const place = prediction.placePrediction.toPlace();
+      const prediction = normalizedSuggestion.prediction;
+      const place = prediction.toPlace();
       await place.fetchFields({
         fields: ["addressComponents", "formattedAddress", "location", "id", "displayName"]
       });
@@ -407,11 +440,13 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                         <MapPin className="h-4 w-4 text-slate-400 mt-1 shrink-0" />
                         <div>
                           <div className="text-sm font-bold text-slate-900 leading-tight">
-                            {s.placePrediction.text.mainText.text}
+                            {s.primaryText}
                           </div>
-                          <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                            {s.placePrediction.text.secondaryText?.text || ""}
-                          </div>
+                          {s.secondaryText && (
+                            <div className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                              {s.secondaryText}
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}
