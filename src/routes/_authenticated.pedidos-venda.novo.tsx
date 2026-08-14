@@ -716,7 +716,7 @@ function NewOrderPage() {
     }
 
     const currentEquips = equipments;
-    const catalog = (equipmentTypesQ.data as any).data;
+    const catalog = (equipmentTypesQ.data as any).data.equipmentTypes || (equipmentTypesQ.data as any).data;
     
     // Identifica se algum equipamento precisa de normalização
     const needsNormalization = currentEquips.some(eq => 
@@ -736,9 +736,10 @@ function NewOrderPage() {
       const type = catalog.find((t: any) => t.id === eq.equipmentTypeId);
       if (!type) return eq;
 
-      const role = type.category === 'KEG' ? 'KEG' : (type.category === 'TAP' ? 'TAP' : 'OTHER');
-      const capacityLiters = type.capacity_liters || (role === 'KEG' ? Number(type.description?.match(/(\d+)\s*l/i)?.[1]) : undefined);
-      const tapLines = type.taps_count || (role === 'TAP' ? Number(type.description?.match(/(\d+)\s*vias/i)?.[1] || (type.description?.toLowerCase().includes("via") ? 1 : undefined)) : undefined);
+      const role = type.category === 'KEG' || type.description?.toLowerCase().includes("barril") ? 'KEG' : (type.category === 'TAP' || type.description?.toLowerCase().includes("chopeira") ? 'TAP' : 'OTHER');
+      const capacityLiters = type.capacity_liters || Number(type.description?.match(/(\d+)\s*l/i)?.[1]);
+      const tapLines = type.taps_count || type.tap_count || Number(type.description?.match(/(\d+)\s*vias/i)?.[1] || (type.description?.toLowerCase().includes("via") ? 1 : 0));
+
       
       let assignedProductId = eq.assignedProductId;
       
