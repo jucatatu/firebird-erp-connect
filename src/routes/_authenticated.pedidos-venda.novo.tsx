@@ -1049,9 +1049,21 @@ function NewOrderPage() {
     preventScrollOnSwipe: true,
   });
 
-  // 2. RETURNS CONDICIONAIS (Gate de Hidratação Sprint 8.9.36.3/4)
-  
-  if (isHydrating) {
+  // 2. Gate de Hidratação Sprint 8.9.39.1
+  // Validamos se a normalização técnica e operacional está concluída.
+  const isNormalizationComplete = !isEditing || equipments.every(eq => {
+    if (eq.role === "KEG") {
+      const basic = eq.capacityLiters !== undefined && eq.capacityLiters > 0;
+      if (!basic) return false;
+      // Se apenas 1 chopp, assignedProductId deve estar preenchido
+      if (choppItems.length === 1 && !eq.assignedProductId) return false;
+      return true;
+    }
+    if (eq.role === "TAP") return eq.tapLines !== undefined;
+    return eq.role !== undefined;
+  });
+
+  if (isHydrating || !isNormalizationComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 animate-in fade-in duration-500">
         <div className="relative">
@@ -1061,7 +1073,7 @@ function NewOrderPage() {
         <div className="text-center space-y-2">
           <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
           <p className="text-sm text-muted-foreground max-w-[280px]">
-            {hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística e equipamentos..."}
+            {isHydrating ? (hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : "Sincronizando equipamentos com o catálogo..."}
           </p>
         </div>
       </div>
