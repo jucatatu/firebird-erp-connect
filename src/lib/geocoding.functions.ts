@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export interface GeocodeAddressInput {
   street: string;
@@ -22,8 +23,10 @@ export interface GeocodeResult {
 /**
  * Sprint 8.9.37.5: Geocodificação Server-side via Managed Google Maps Connector
  * Não utiliza o ERP Node para geocodificação.
+ * Requer autenticação para usar o connector.
  */
 export const geocodeStructuredAddress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((d) => 
     z.object({
       street: z.string().min(1),
@@ -38,9 +41,9 @@ export const geocodeStructuredAddress = createServerFn({ method: "POST" })
     // A geocodificação do endereço estruturado deve utilizar a conexão:
     // Google Maps -> Managed by Lovable através do gateway server-side do conector.
     
-    // Importação dinâmica para evitar leak de tipos de servidor para o cliente
     const { callConnector } = await import("@/integrations/supabase/connector-attacher.server");
     
+    // Montar endereço para geocodificação: Rua + Número, Bairro, Cidade - UF, País
     const addressLine = `${data.street}, ${data.number}, ${data.neighborhood}, ${data.city} - ${data.state}, ${data.country}`;
     
     console.log("[GEOCODE SERVER] Geocodificando via Lovable Connector:", addressLine);
@@ -55,6 +58,17 @@ export const geocodeStructuredAddress = createServerFn({ method: "POST" })
           language: "pt-BR"
         }
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[GEOCODE SERVER] Erro gateway:", response.status, errorText);
+        return {
+          ok: false,
+          status: response.status,
+          data: null,
+          error: "Erro na comunicação com o serviço de mapas."
+        };
+      }
 
       const body = await response.json();
 
@@ -86,7 +100,7 @@ export const geocodeStructuredAddress = createServerFn({ method: "POST" })
         error: body.status || "ADDRESS_NOT_FOUND"
       };
     } catch (error: any) {
-      console.error("[GEOCODE SERVER] Erro ao chamar connector:", error);
+      console.error("[GEOCODE SERVER] Exceção connector:", error);
       return {
         ok: false,
         status: 500,
