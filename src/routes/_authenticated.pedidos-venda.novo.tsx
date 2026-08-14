@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRecentOrderDrafts } from "@/hooks/use-order-drafts";
 import { getItemsSummary, getEquipmentsSummary } from "@/lib/order-summary";
 import { companyLabel } from "@/components/order-identifier";
-import { formatDateOnly } from "@/utils/date-utils";
+import { formatDateOnly, addDaysToDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
 
 
