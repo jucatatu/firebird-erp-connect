@@ -114,33 +114,34 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         const lng = place.geometry?.location?.lng;
 
         const newAddress: DeliveryAddress = {
+          ...deliveryAddress,
           formattedAddress: place.formatted_address || place.name || "",
           street: street,
           number: streetNumber || "",
-          neighborhood: neighborhood,
-          city: city,
-          state: state,
-          postalCode: postalCode,
-          country: country,
+          neighborhood: neighborhood || deliveryAddress?.neighborhood || "",
+          city: city || deliveryAddress?.city || "",
+          state: state || deliveryAddress?.state || "",
+          postalCode: postalCode || deliveryAddress?.postalCode || "",
+          country: country || "Brasil",
           latitude: typeof lat === 'function' ? lat() : lat,
           longitude: typeof lng === 'function' ? lng() : lng,
           placeId: place.place_id,
-          complement: deliveryAddress?.complement || "",
-          reference: deliveryAddress?.reference || "",
           noNumber: false
         };
 
         setDeliveryAddress(newAddress);
         setDeliveryAddressConfirmed(false);
         
-        // Focar no campo número após selecionar rua
-        setTimeout(() => {
-          const numInput = document.getElementById("delivery-number");
-          numInput?.focus();
-        }, 100);
+        // Focar no campo número após selecionar rua se vier vazio
+        if (!streetNumber) {
+          setTimeout(() => {
+            const numInput = document.getElementById("delivery-number");
+            numInput?.focus();
+          }, 100);
+        }
       });
     }
-  }, [isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed, deliveryAddress?.complement, deliveryAddress?.reference]);
+  }, [isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed, deliveryAddress]);
 
   // Setup Map
   useEffect(() => {
