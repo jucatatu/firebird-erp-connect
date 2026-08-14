@@ -246,17 +246,25 @@ function OrdersListPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 align-top max-w-[250px]">
-                        <div className="space-y-1">
-                          <div className="flex flex-col text-[10px]">
-                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Produtos</span>
-                            <span className="text-foreground/80 truncate leading-normal">{getItemsSummary(d.payload, 4)}</span>
+                        <div className="space-y-2">
+                          <div className="flex flex-col gap-0.5 text-[10px]">
+                            <span className="font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
+                            {getItemList(d.payload, 2).map((item, idx) => (
+                              <div key={idx} className={`${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                                {item.text}
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex flex-col text-[10px]">
-                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Equipamentos</span>
-                            <span className="text-foreground/80 truncate leading-normal">{getEquipmentsSummary(d.payload, 4)}</span>
+                          <div className="flex flex-col gap-0.5 text-[10px]">
+                            <span className="font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
+                            {getEquipmentList(d.payload, 2).map((item, idx) => (
+                              <div key={idx} className={`${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                                {item.text}
+                              </div>
+                            ))}
                           </div>
-                          <div className="flex flex-col text-[10px]">
-                            <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Logística</span>
+                          <div className="flex flex-col gap-0.5 text-[10px]">
+                            <span className="font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Logística</span>
                             <span className="text-foreground/80 truncate leading-normal">{getLogisticsSummary(d.payload)}</span>
                           </div>
                         </div>
@@ -280,10 +288,12 @@ function OrdersListPage() {
             </table>
           </div>
           {/* Mobile cards */}
-          <ul className="space-y-2 md:hidden">
+          <ul className="space-y-3 md:hidden">
             {rows.map((d) => {
               const erpStatus = statusMap.get(d.erp_order_number!);
               const isDeleted = erpStatus?.exists === false || erpStatus?.deleted;
+              const productList = getItemList(d.payload, 3);
+              const equipmentList = getEquipmentList(d.payload, 3);
               
               return (
                 <li key={d.id}>
@@ -292,19 +302,20 @@ function OrdersListPage() {
                     params={{ draftId: d.id }}
                     className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
                   >
-                    <div className="flex flex-col gap-1 mb-2">
-                      <div className="text-lg font-bold text-foreground whitespace-pre-line leading-tight">
-                        {d.customer_name_snapshot || "(sem cliente)"}
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-3">
-                        {d.erp_order_number && (
-                          <span className="text-xs font-bold text-muted-foreground/80">ERP {d.erp_order_number}</span>
-                        )}
-                        <OrderIdentifier id={d.id} className="text-[10px] opacity-60" />
-                      </div>
+                    {/* 1. Cliente */}
+                    <div className="text-lg font-bold text-foreground whitespace-pre-line leading-tight mb-1">
+                      {d.customer_name_snapshot || "(sem cliente)"}
+                    </div>
+                    
+                    {/* 2. ERP + Identificador */}
+                    <div className="flex items-center gap-4 mb-3">
+                      {d.erp_order_number && (
+                        <span className="text-xs font-bold text-foreground">ERP {d.erp_order_number}</span>
+                      )}
+                      <OrderIdentifier id={d.id} className="text-[10px] opacity-40 font-mono" />
                     </div>
 
+                    {/* 3. Status ERP + Sincronização */}
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       {d.erp_order_number && (
                         erpStatusQ.isError ? (
@@ -331,25 +342,43 @@ function OrdersListPage() {
                       <StatusBadge status={d.status} className="h-5 px-2 text-[10px] py-0" />
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-medium uppercase mb-4">
+                    {/* 4. Empresa + Data */}
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase mb-3">
                       <span>{companyLabel(d.company_id)}</span>
                       <span>•</span>
                       <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                     </div>
 
-                    <div className="space-y-3 pt-3 border-t border-dashed border-muted/50">
-                      <div className="flex flex-col gap-0.5 text-[10px]">
-                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Produtos</span>
-                        <span className="text-foreground/85 line-clamp-2 leading-normal">{getItemsSummary(d.payload, 4)}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-[10px]">
-                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Equipamentos</span>
-                        <span className="text-foreground/85 line-clamp-2 leading-normal">{getEquipmentsSummary(d.payload, 4)}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-[10px]">
-                        <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Logística</span>
-                        <span className="text-foreground/85 line-clamp-1 leading-normal">{getLogisticsSummary(d.payload)}</span>
-                      </div>
+                    {/* 5. Blocos de Conteúdo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                      {/* Bloco Produtos */}
+                      {productList.length > 0 && (
+                        <div className="rounded-lg border border-muted/30 bg-muted/5 p-2 flex flex-col gap-1">
+                          <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
+                          {productList.map((item, idx) => (
+                            <div key={idx} className={`text-[11px] leading-tight ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                              {item.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Bloco Equipamentos */}
+                      {equipmentList.length > 0 && (
+                        <div className="rounded-lg border border-muted/30 bg-muted/5 p-2 flex flex-col gap-1">
+                          <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
+                          {equipmentList.map((item, idx) => (
+                            <div key={idx} className={`text-[11px] leading-tight ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                              {item.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 6. Logística Rodapé */}
+                    <div className="text-[10px] font-bold text-muted-foreground/80 uppercase">
+                      {getLogisticsSummary(d.payload)}
                     </div>
                   </Link>
                 </li>
