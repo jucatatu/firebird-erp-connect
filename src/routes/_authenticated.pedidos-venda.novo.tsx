@@ -341,11 +341,11 @@ function NewOrderPage() {
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
-    deliveryAddress, deliveryAddressConfirmed,
+    deliveryAddress, deliveryAddressConfirmed, deliveryAddressSource,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
-    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setReturn, setNotes, setPayment, setSaleType, reset,
+    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setDeliveryAddressSource, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
