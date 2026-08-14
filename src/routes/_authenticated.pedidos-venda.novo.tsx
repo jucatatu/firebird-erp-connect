@@ -1782,11 +1782,18 @@ function NewOrderPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>{deliver ? "Data de Entrega" : "Data da Retirada"}</Label>
+                  <Label>{deliver ? "Data de Entrega *" : "Data da Retirada *"}</Label>
                   <Input 
                     type="date" 
                     value={deliveryAt?.split('T')[0] || ""} 
-                    onChange={(e) => setDelivery(deliver, e.target.value)} 
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setDelivery(deliver, newDate);
+                      // Recalcular data de recolhimento se estiver ativo (+7 dias)
+                      if (returnEquipment && newDate) {
+                        setReturn(true, addDaysToDateOnly(newDate, 7));
+                      }
+                    }} 
                     className="h-11"
                   />
                 </div>
