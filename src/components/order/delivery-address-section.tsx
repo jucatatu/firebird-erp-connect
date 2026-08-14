@@ -529,54 +529,82 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           </div>
 
           <div className="pt-2 border-t border-dashed space-y-4">
-            <Button 
-              className={cn(
-                "w-full h-12 text-sm font-bold gap-2 shadow-md transition-all active:scale-[0.98]",
-                deliveryAddressConfirmed 
-                  ? "bg-green-600 text-white hover:bg-green-700" 
-                  : "bg-primary text-primary-foreground hover:shadow-lg"
-              )}
-              onClick={() => validateAndConfirm(true)}
-              disabled={isGeocoding}
-            >
-              {isGeocoding ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Validando Localização...
-                </>
-              ) : deliveryAddressConfirmed ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" /> Endereço Confirmado
-                </>
-              ) : (
-                <>
-                  <Navigation className="h-4 w-4" /> Validar Localização
-                </>
-              )}
-            </Button>
-
             {deliveryAddress?.latitude && deliveryAddress?.longitude && (
-              <div className="space-y-2 animate-in zoom-in duration-300">
-                <div className="flex items-center justify-between">
+              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-500">
+                <div className="flex items-center justify-between px-1">
                   <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                    <MapIcon className="h-3 w-3" /> Mapa de Entrega
+                    Confirmar Localização <MapIcon className="h-2 w-2" />
                   </Label>
-                  <span className="text-[9px] text-muted-foreground italic">Arraste para ajuste fino</span>
+                  {deliveryAddress.placeId && (
+                    <Badge variant="outline" className="text-[8px] h-4 font-normal">
+                      ID: {deliveryAddress.placeId.slice(0, 8)}
+                    </Badge>
+                  )}
                 </div>
+                
                 <div 
                   ref={mapContainerRef} 
-                  className="w-full h-[180px] rounded-xl border bg-muted/20 overflow-hidden shadow-inner" 
-                />
+                  className="w-full h-64 rounded-xl border-2 border-primary/10 shadow-inner overflow-hidden relative bg-slate-100"
+                >
+                  {isLoadingMaps && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-50/50 z-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  )}
+                  {mapsError && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 bg-slate-50">
+                      <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-xs font-medium text-muted-foreground">{mapsError}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">O endereço pode continuar sendo preenchido manualmente.</p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center px-4 italic">
+                  Arraste o marcador para ajuste fino da entrega se necessário.
+                </p>
+              </div>
+            )}
+
+            {deliveryAddress && !deliveryAddressConfirmed && deliveryAddress.street && (
+              <div className="pt-2">
+                <Button 
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl gap-2 shadow-lg shadow-primary/20"
+                  onClick={() => validateAndConfirm(true)}
+                  disabled={isGeocoding}
+                >
+                  {isGeocoding ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Validando...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="h-5 w-5" />
+                      Confirmar Endereço Logístico
+                    </>
+                  )}
+                </Button>
                 
-                {!deliveryAddressConfirmed && (
-                   <p className="text-[10px] text-destructive font-bold text-center">
-                     ⚠️ ENDEREÇO NÃO CONFIRMADO. Clique em Validar.
+                {!deliveryAddressConfirmed && !deliveryAddress.latitude && (deliveryAddress.number || deliveryAddress.noNumber) && (
+                   <p className="text-[10px] text-amber-600 text-center mt-2 font-medium">
+                     Aguardando geocodificação server-side...
                    </p>
                 )}
               </div>
             )}
+            
+            {deliveryAddressConfirmed && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-green-800 leading-tight">Endereço Confirmado</p>
+                  <p className="text-[10px] text-green-600">Pronto para finalização logística.</p>
+                </div>
+              </div>
+            )}
           </div>
           
-          <p className="text-[9px] text-muted-foreground text-center italic leading-tight">
+          <p className="text-[9px] text-muted-foreground text-center italic leading-tight mt-4">
             * O endereço é uma sugestão baseada no cadastro. <br/>
             Alterações valem apenas para este pedido.
           </p>
@@ -585,3 +613,4 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     </div>
   );
 }
+
