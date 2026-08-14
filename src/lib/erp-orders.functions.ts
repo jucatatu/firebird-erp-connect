@@ -129,9 +129,9 @@ export interface CreateOrderInput {
     fantasyName?: string | null;
   };
   sellerId: number;
-  saleTypeId: number;
-  paymentTermId: number;
-  paymentMethodId: number;
+  saleTypeId: number | null;
+  paymentTermId: number | null;
+  paymentMethodId: number | null;
   deliver: boolean;
   deliveryAt: string;
   returnEquipment: boolean;
@@ -165,9 +165,9 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
     companyId: input.companyId,
     clientId: input.clientId,
     sellerId: sellerId,
-    saleTypeId: input.saleTypeId,
-    paymentTermId: input.paymentTermId,
-    paymentMethodId: input.paymentMethodId,
+    saleTypeId: input.saleTypeId as number,
+    paymentTermId: input.paymentTermId as number,
+    paymentMethodId: input.paymentMethodId as number,
     deliver: input.deliver,
     deliveryAt: input.deliveryAt.includes('T') ? input.deliveryAt.split('T')[0] : input.deliveryAt,
     returnEquipment: input.returnEquipment,
@@ -540,34 +540,34 @@ export const getErpOrderDetail = createServerFn({ method: "GET" })
     // Mapeamento exato do contrato Node (orders.repository.js / orders.mapper.js) para CreateOrderInput
     // O backend retorna campos em camelCase pois é orquestrado pelo service/mapper
     const mapped: ErpOrderDetail = {
-      orderId: Number(raw.ID_ORDENS_VENDA || raw.orderId),
-      orderNumber: Number(raw.N_PEDIDO || raw.orderNumber),
-      statusId: Number(raw.ID_STATUS || raw.statusId),
-      statusDescription: raw.STATUS_DESCRICAO || raw.statusDescription,
-      companyId: Number(raw.ID_EMPRESA || raw.companyId),
-      clientId: Number(raw.ID_CLIENTE || raw.clientId),
-      sellerId: Number(raw.ID_VENDEDOR || raw.sellerId),
-      saleTypeId: Number(raw.ID_TIPO_VENDA || raw.saleTypeId),
-      paymentTermId: Number(raw.ID_PRAZO_PAGTO || raw.paymentTermId),
-      paymentMethodId: Number(raw.ID_FORMA_PAGTO || raw.paymentMethodId),
+      orderId: Number(raw.ID_ORDENS_VENDA ?? raw.orderId),
+      orderNumber: Number(raw.N_PEDIDO ?? raw.orderNumber),
+      statusId: Number(raw.ID_STATUS ?? raw.statusId),
+      statusDescription: raw.STATUS_DESCRICAO ?? raw.statusDescription,
+      companyId: Number(raw.ID_EMPRESA ?? raw.companyId),
+      clientId: Number(raw.ID_CLIENTE ?? raw.clientId),
+      sellerId: Number(raw.ID_VENDEDOR ?? raw.sellerId),
+      saleTypeId: raw.saleTypeId != null ? Number(raw.saleTypeId) : (raw.ID_TIPO_VENDA != null ? Number(raw.ID_TIPO_VENDA) : null),
+      paymentTermId: raw.paymentTermId != null ? Number(raw.paymentTermId) : (raw.ID_FPGTO != null ? Number(raw.ID_FPGTO) : (raw.ID_PRAZO_PAGTO != null ? Number(raw.ID_PRAZO_PAGTO) : null)),
+      paymentMethodId: raw.paymentMethodId != null ? Number(raw.paymentMethodId) : (raw.ID_FORMA_PAGTO != null ? Number(raw.ID_FORMA_PAGTO) : null),
       deliver: raw.ENTREGAR === 1 || raw.deliver === true,
-      deliveryAt: raw.DATA_ENTREGA || raw.deliveryAt,
+      deliveryAt: raw.DATA_ENTREGA ?? raw.deliveryAt,
       returnEquipment: raw.RECOLHER_EQUIPAMENTO === 1 || raw.returnEquipment === true,
-      returnAt: raw.DATA_RECOLHIMENTO || raw.returnAt,
-      notes: raw.OBSERVACAO || raw.notes,
-      freightValue: Number(raw.VALOR_FRETE || raw.freightValue || 0),
+      returnAt: raw.DATA_RECOLHIMENTO ?? raw.returnAt,
+      notes: raw.OBSERVACAO ?? raw.notes,
+      freightValue: Number(raw.VALOR_FRETE ?? raw.freightValue ?? 0),
       items: (raw.items || []).map((i: any) => ({
-        productId: Number(i.ID_PRODUTO || i.productId),
-        description: i.DESCRICAO || i.description,
-        quantity: Number(i.QUANTIDADE || i.quantity),
-        unit: i.UNIDADE || i.unit,
-        unitPrice: Number(i.PRECO_TABELA || i.unitPrice), // Preço "original" de tabela na época ou atual
-        manualUnitPrice: i.PRECO_UNITARIO !== i.PRECO_TABELA ? Number(i.PRECO_UNITARIO || i.manualUnitPrice) : null
+        productId: Number(i.ID_PRODUTO ?? i.productId),
+        description: i.DESCRICAO ?? i.description,
+        quantity: Number(i.QUANTIDADE ?? i.quantity),
+        unit: i.UNIDADE ?? i.unit,
+        unitPrice: Number(i.PRECO_TABELA ?? i.unitPrice),
+        manualUnitPrice: i.PRECO_UNITARIO !== i.PRECO_TABELA ? Number(i.PRECO_UNITARIO ?? i.manualUnitPrice) : null
       })),
       equipments: (raw.equipments || []).map((e: any) => ({
-        equipmentTypeId: Number(e.ID_TIPO_EQUIPAMENTO || e.equipmentTypeId),
-        description: e.DESCRICAO || e.description,
-        quantity: Number(e.QUANTIDADE || e.quantity)
+        equipmentTypeId: Number(e.ID_TIPO_EQUIPAMENTO ?? e.equipmentTypeId),
+        description: e.DESCRICAO ?? e.description,
+        quantity: Number(e.QUANTIDADE ?? e.quantity)
       }))
     };
 
