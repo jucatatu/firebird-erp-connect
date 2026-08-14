@@ -254,7 +254,10 @@ export async function handleCreateErpOrder(
 
   const erpPayload = buildErpCreateOrderPayload(input, profile.erp_seller_id);
 
-  console.log("[ORDER SERVER] calling ERP POST /api/v1/orders", JSON.stringify(erpPayload));
+  console.log("[ORDER SAVE] start");
+  console.log("[ORDER SAVE] ERP payload built", JSON.stringify(erpPayload));
+  
+  console.log("[ORDER SAVE] POST started");
   const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
@@ -262,9 +265,15 @@ export async function handleCreateErpOrder(
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
 
+  console.log("[ORDER SAVE] POST response", { 
+    ok: result.ok, 
+    status: result.status,
+    orderNumber: result.data?.orderNumber
+  });
+
   if (!result.ok || !result.data) return result;
 
-  console.log("[ORDER SERVER] ERP success, creating operational mirror in Supabase", { 
+  console.log("[ORDER SAVE] snapshot started", { 
     orderNumber: result.data.orderNumber,
     orderId: result.data.orderId
   });
