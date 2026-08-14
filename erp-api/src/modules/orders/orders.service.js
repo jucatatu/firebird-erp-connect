@@ -350,7 +350,7 @@ async function getOrderDetail(orderNumber) {
     statusId: Number(order.ID_STATUS),
     statusDescription: order.STATUS_DESCRICAO ? String(order.STATUS_DESCRICAO).trim() : null,
     saleTypeId: Number(order.ID_TIPO_VENDA),
-    paymentTermId: Number(order.ID_PRAZO),
+    paymentTermId: order.ID_FPGTO != null ? Number(order.ID_FPGTO) : null,
     paymentMethodId: Number(order.ID_FORMA_PAGAMENTO),
     deliver: order.ENTREGAR === 1,
     deliveryAt: order.DATA_PREV_ENTREGA,
