@@ -198,8 +198,25 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     const criticalFields: (keyof DeliveryAddress)[] = ["street", "number", "neighborhood", "city", "state", "postalCode", "noNumber"];
     if (criticalFields.includes(field)) {
       setDeliveryAddressConfirmed(false);
+      
+      // Se for alteração de número e for um número válido, podemos tentar geocodificar (opcional, vamos manter manual por enquanto como solicitado)
+      // Se alterar logradouro, o efeito de limpeza já deve ser tratado no Autocomplete listener
     }
   };
+
+  // Efeito para geocodificação automática após preencher número (Sprint 8.9.37.4 Item 9)
+  useEffect(() => {
+    if (!deliveryAddress || deliveryAddressConfirmed || isGeocoding) return;
+    
+    const hasBaseInfo = deliveryAddress.street && (deliveryAddress.number || deliveryAddress.noNumber) && deliveryAddress.city;
+    if (!hasBaseInfo) return;
+
+    const timer = setTimeout(() => {
+      validateAndConfirm(false); // Validar sem mostrar toast de sucesso imediato
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [deliveryAddress?.street, deliveryAddress?.number, deliveryAddress?.noNumber, deliveryAddress?.city, deliveryAddressConfirmed]);
 
   const validateAndConfirm = async () => {
     if (!deliveryAddress) return;
