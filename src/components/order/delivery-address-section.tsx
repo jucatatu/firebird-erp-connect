@@ -16,8 +16,12 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   const { 
     deliveryAddress, 
     deliveryAddressConfirmed, 
+    deliveryAddressSource,
     setDeliveryAddress, 
-    setDeliveryAddressConfirmed 
+    setDeliveryAddressConfirmed,
+    setDeliveryAddressSource,
+    deliver,
+    setDeliver
   } = useOrderFormStore();
   
   const geocodeFn = useServerFn(geocodeStructuredAddress);
