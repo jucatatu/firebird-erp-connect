@@ -542,6 +542,10 @@ function NewOrderPage() {
 
   // Efeito para carregar padrões do cliente usando localPaymentOptions
   useEffect(() => {
+    // SPRINT 8.9.39.4: NÃO aplicar defaults do cliente no EDIT.
+    // No modo edição, os valores devem vir exclusivamente do pedido ERP (já hidratado na store).
+    if (isEditing) return;
+
     if (clientDetailQ.data?.ok && clientDetailQ.data.data && localPaymentOptions.data) {
       const detail = clientDetailQ.data.data;
       const options = localPaymentOptions.data;
@@ -575,7 +579,7 @@ function NewOrderPage() {
         toast.warning("Forma de pagamento padrão do cliente não disponível ou inativa no ERP.");
       }
     }
-  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType]);
+  }, [clientDetailQ.data, localPaymentOptions.data, clientId, setPayment, setSaleType, isEditing]);
 
   const myProfile = useMyProfile(user);
   const myCompanies = useMyCompanies(user);
