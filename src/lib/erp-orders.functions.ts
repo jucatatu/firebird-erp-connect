@@ -484,24 +484,26 @@ export const updateErpOrder = createServerFn({ method: "POST" })
 
 
 export interface ErpOrderStatus {
-  orderId: number;
+  orderId: number | null;
   orderNumber: number;
-  statusId: number;
+  exists: boolean;
+  deleted: boolean;
+  statusId: number | null;
   statusDescription: string | null;
   canEdit: boolean;
 }
 
 
 export const getErpOrdersStatus = createServerFn({ method: "GET" })
-  .inputValidator((ids: number[]) => z.array(z.number()).parse(ids))
-  .handler(async ({ data: orderIds }) => {
-    if (orderIds.length === 0) return { ok: true, status: 200, data: [], error: null };
+  .inputValidator((numbers: number[]) => z.array(z.number()).parse(numbers))
+  .handler(async ({ data: orderNumbers }) => {
+    if (orderNumbers.length === 0) return { ok: true, status: 200, data: [], error: null };
     
     const { callErp } = await import("./erp.server");
     return callErp({
       method: "GET",
       path: "/api/v1/orders/batch-status",
-      query: { orderIds: orderIds.join(",") }
+      query: { orderNumbers: orderNumbers.join(",") }
     }) as Promise<ErpResponse<ErpOrderStatus[]>>;
   });
 
