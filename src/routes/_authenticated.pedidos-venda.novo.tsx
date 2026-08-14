@@ -351,6 +351,22 @@ function NewOrderPage() {
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
 
+  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const fetchPrice = useServerFn(resolveErpPrice);
+  const fetchOrderDetail = useServerFn(getErpOrderDetail);
+  const fetchClientDetail = useServerFn(getErpClientDetail);
+  
+  const [hydrationLoading, setHydrationLoading] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
+  const equipmentTypesQ = useErpEquipmentTypes({
+    q: "",
+    companyId: companyId as 1 | 3,
+    active: true,
+  });
+
+
+
   const isLogisticsValid = () => {
     if (deliver === null || deliver === undefined) return false;
     if (!deliveryAt) return false;
@@ -367,8 +383,8 @@ function NewOrderPage() {
     return true;
   };
 
-  // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
   const { edit: editParam } = Route.useSearch();
+
   const setStep = (newStep: typeof step) => {
     if (identityLocked && newStep === "client" && !editParam) {
       console.log("[WIZARD] Bloqueando navegação para 'client' porque a identidade está travada.");
@@ -396,14 +412,6 @@ function NewOrderPage() {
   };
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
 
-  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
-  const fetchPrice = useServerFn(resolveErpPrice);
-  const fetchOrderDetail = useServerFn(getErpOrderDetail);
-  const fetchClientDetail = useServerFn(getErpClientDetail);
-  
-  const [hydrationLoading, setHydrationLoading] = useState(false);
-  const [hydrationError, setHydrationError] = useState<string | null>(null);
-
   useEffect(() => {
     const hydrate = async () => {
       if (!editParam) return;
@@ -424,6 +432,7 @@ function NewOrderPage() {
         }
         return;
       }
+
 
       if (hydrationLoading) return;
 
@@ -624,15 +633,16 @@ function NewOrderPage() {
     limit: 200,
   });
 
-  const equipmentTypesQ = useErpEquipmentTypes({
-    q: "",
-    companyId: companyId as 1 | 3,
-    active: true,
-  });
 
   const createOrderM = useCreateErpOrder();
 
   const [showAddEquip, setShowAddEquip] = useState(false);
+
+  // SPRINT 8.9.39: Adicionar gate de normalização logística
+  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
+  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
+
+
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
@@ -697,7 +707,67 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
-  // SPRINT 8.9.36.6: Normalização automática e cálculo de cobertura reativo
+  // SPRINT 8.9.39: Normalização especializada para o modo EDIÇÃO
+  useEffect(() => {
+    if (!isEditing || hydrationLoading) return;
+    
+    const catalogReady = equipmentTypesQ.data?.ok && Array.isArray(equipmentTypesQ.data.data);
+    if (!catalogReady) {
+      console.log("[EDIT EQUIPMENT] Catalog not ready yet...");
+      return;
+    }
+
+    const currentEquips = equipments;
+    const catalog = (equipmentTypesQ.data as any).data.equipmentTypes || (equipmentTypesQ.data as any).data;
+    
+    // Identifica se algum equipamento precisa de normalização
+    const needsNormalization = currentEquips.some(eq => 
+      eq.role === undefined || 
+      eq.capacityLiters === undefined || 
+      eq.tapLines === undefined ||
+      // Prioridade 2: Se tem um único chopp e o barril está sem assignedProductId
+      (choppItems.length === 1 && eq.assignedProductId === null && catalog.find((t: any) => t.id === eq.equipmentTypeId)?.category === 'KEG')
+    );
+
+    if (!needsNormalization) return;
+
+    console.log("[EDIT EQUIPMENT] Normalizing equipments...");
+    console.log("[EDIT EQUIPMENT] Catalog ready:", catalogReady);
+    
+    const normalized = currentEquips.map(eq => {
+      const type = catalog.find((t: any) => t.id === eq.equipmentTypeId);
+      if (!type) return eq;
+
+      const role = type.category === 'KEG' || type.description?.toLowerCase().includes("barril") ? 'KEG' : (type.category === 'TAP' || type.description?.toLowerCase().includes("chopeira") ? 'TAP' : 'OTHER');
+      const capacityLiters = type.capacity_liters || Number(type.description?.match(/(\d+)\s*l/i)?.[1]);
+      const tapLines = type.taps_count || type.tap_count || Number(type.description?.match(/(\d+)\s*vias/i)?.[1] || (type.description?.toLowerCase().includes("via") ? 1 : 0));
+
+      
+      let assignedProductId = eq.assignedProductId;
+      
+      // PRIORIDADE 2: Único chopp no pedido
+      if (role === 'KEG' && !assignedProductId && choppItems.length === 1) {
+        assignedProductId = choppItems[0].productId;
+        console.log(`[EDIT EQUIPMENT] Auto-assigning KEG ${eq.description} to only chopp product: ${choppItems[0].productId}`);
+      }
+
+      return {
+        ...eq,
+        role: role as any,
+        capacityLiters,
+        tapLines,
+        assignedProductId
+      };
+    });
+
+    // Comparação profunda simples para evitar loops
+    const hasChanged = JSON.stringify(normalized) !== JSON.stringify(currentEquips);
+    if (hasChanged) {
+      console.log("[EDIT EQUIPMENT] Normalized equipments:", JSON.stringify(normalized));
+      useOrderFormStore.setState({ equipments: normalized });
+    }
+  }, [isEditing, hydrationLoading, equipmentTypesQ.data, equipments, choppItems]);
+
   useEffect(() => {
     // Requisitos mínimos para normalização
     const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
@@ -990,16 +1060,23 @@ function NewOrderPage() {
 
   // 2. RETURNS CONDICIONAIS (Gate de Hidratação Sprint 8.9.36.3/4)
   
-  if (editParam && (hydrationLoading || (erpOrderNumber !== Number(editParam)))) {
+  if (isHydrating) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground">
-          Carregando pedido ERP {editParam}...
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 animate-in fade-in duration-500">
+        <div className="relative">
+          <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+          <Loader2 className="h-12 w-12 animate-spin text-primary absolute inset-0" style={{ animationDirection: 'reverse', animationDuration: '2s' }} />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
+          <p className="text-sm text-muted-foreground max-w-[280px]">
+            {hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística e equipamentos..."}
+          </p>
+        </div>
       </div>
     );
   }
+
 
   if (editParam && hydrationError) {
     return (
