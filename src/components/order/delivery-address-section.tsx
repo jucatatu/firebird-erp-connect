@@ -372,7 +372,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-500">
+    <div className="space-y-4 animate-in fade-in duration-500 overflow-visible">
       <div id="logistics-start" className="space-y-3">
         <Label className="text-xs font-bold uppercase text-muted-foreground">Como o cliente receberá o pedido?</Label>
         <div className="grid grid-cols-2 gap-3">
@@ -415,18 +415,18 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
 
       {deliver && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-6">
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
               <h3 className="text-lg font-bold">Endereço de Entrega</h3>
             </div>
             {deliveryAddressConfirmed ? (
               <Badge className="bg-green-600 text-white gap-1 py-1 px-3">
-                <CheckCircle2 className="h-3 w-3" /> Válido
+                <CheckCircle2 className="h-3 w-3" /> Confirmado
               </Badge>
             ) : (
               <Badge variant="outline" className="text-destructive border-destructive/20 bg-destructive/5 gap-1 py-1 px-3">
-                <AlertCircle className="h-3 w-3" /> Incompleto
+                <AlertCircle className="h-3 w-3" /> Não Confirmado
               </Badge>
             )}
           </div>
