@@ -356,6 +356,7 @@ function NewOrderPage() {
   const fetchOrderDetail = useServerFn(getErpOrderDetail);
   const fetchClientDetail = useServerFn(getErpClientDetail);
   
+  const [hydratedEditOrderNumber, setHydratedEditOrderNumber] = useState<number | null>(null);
   const [hydrationLoading, setHydrationLoading] = useState(false);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
 
