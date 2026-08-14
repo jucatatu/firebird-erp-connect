@@ -91,7 +91,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         locationBias: { radius: 10000, center: { lat: -26.48, lng: -49.07 } },
         types: ["address", "establishment"]
       };
-
+      
       const autocomplete = new Autocomplete(autocompleteInputRef.current, options);
       autocompleteInstanceRef.current = autocomplete;
 
