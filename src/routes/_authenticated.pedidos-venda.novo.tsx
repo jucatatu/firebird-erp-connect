@@ -425,11 +425,8 @@ function NewOrderPage() {
       if (isNaN(orderNumFromUrl)) return;
 
       if (isEditing && erpOrderNumber === orderNumFromUrl) {
-        // Já está carregado, mas a UI pode ter resetado o step (ex: hydration mismatch ou guard de create)
-        if (step !== "items") {
-          console.log("[EDIT FLOW] Order already in store, forcing step=items");
-          setStepState("items");
-        }
+        // Pedido já está carregado e normalizado (ou em processo).
+        // Não forçamos o step continuamente para permitir navegação.
         return;
       }
 
@@ -482,7 +479,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder, step]); // step adicionado para garantir correção se algo o resetar
+  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
@@ -1390,8 +1387,8 @@ function NewOrderPage() {
                 // Regras de Navegação Sprint 8.9.23
                 if (s.id === "items") return !!companyId && !!clientId;
                 if (s.id === "delivery") return !!companyId && !!clientId && items.length > 0 && isCoverageValid();
-                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt;
-                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid();
+                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid() && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
                 
                 return false;
               };
@@ -1404,7 +1401,7 @@ function NewOrderPage() {
                   if (!companyId || !clientId) toast.error("Selecione a empresa e o cliente primeiro.");
                   else if (items.length === 0) toast.error("Adicione pelo menos um produto.");
                   else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega.");
-                  else if (!deliveryAt) toast.error("Defina os dados de entrega antes de avançar.");
+                  else if (!isLogisticsValid()) toast.error("Confirme os dados de logística antes de avançar.");
                   else toast.error("Complete as etapas anteriores para acessar esta fase.");
                 }
               };
