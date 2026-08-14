@@ -218,18 +218,18 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     return () => clearTimeout(timer);
   }, [deliveryAddress?.street, deliveryAddress?.number, deliveryAddress?.noNumber, deliveryAddress?.city, deliveryAddressConfirmed]);
 
-  const validateAndConfirm = async () => {
+  const validateAndConfirm = async (showSuccessToast = true) => {
     if (!deliveryAddress) return;
     
     const needsNumber = deliveryAddress.street && !deliveryAddress.noNumber;
     if (needsNumber && (!deliveryAddress.number || deliveryAddress.number === "S/N")) {
-      toast.error("Por favor, informe o número ou marque 'Sem número'");
+      if (showSuccessToast) toast.error("Por favor, informe o número ou marque 'Sem número'");
       document.getElementById("delivery-number")?.focus();
       return;
     }
 
     if (deliveryAddress.noNumber && !deliveryAddress.reference) {
-       toast.error("Para endereços sem número, um ponto de referência é obrigatório");
+       if (showSuccessToast) toast.error("Para endereços sem número, um ponto de referência é obrigatório");
        document.getElementById("delivery-reference")?.focus();
        return;
     }
