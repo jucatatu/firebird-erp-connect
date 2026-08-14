@@ -302,7 +302,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       <div className="space-y-4">
         <div className="p-4 border rounded-xl bg-card shadow-sm space-y-4">
           <div className="grid grid-cols-12 gap-3">
-            {/* LOGRADOURO com Google Autocomplete */}
+            {/* LOGRADOURO com Google Autocomplete como ASSISTENTE */}
             <div className="col-span-12 space-y-1">
               <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                 Logradouro <Search className="h-2 w-2" />
@@ -316,7 +316,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
               />
             </div>
 
-            {/* NÚMERO */}
+            {/* NÚMERO - FOCO AUTOMÁTICO APÓS LOGRADOURO */}
             <div className="col-span-6 space-y-1">
               <Label className="text-[10px] uppercase font-bold text-muted-foreground">Número</Label>
               <Input 
@@ -325,7 +325,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                 value={deliveryAddress?.noNumber ? "S/N" : (deliveryAddress?.number || "")} 
                 disabled={deliveryAddress?.noNumber}
                 onChange={(e) => handleManualEdit("number", e.target.value)}
-                className={cn("h-11 text-sm font-bold", !deliveryAddress?.number && !deliveryAddress?.noNumber && "border-amber-500 bg-amber-50/30")}
+                className={cn(
+                  "h-11 text-sm font-bold transition-all", 
+                  !deliveryAddress?.number && !deliveryAddress?.noNumber && "border-amber-500 bg-amber-50/30 ring-1 ring-amber-500/20",
+                  deliveryAddress?.number && !deliveryAddressConfirmed && "border-blue-500 bg-blue-50/30"
+                )}
               />
             </div>
 
