@@ -174,20 +174,42 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   }, [query, isMapsLoaded, sessionToken, showSuggestions]);
 
   const handleSelectPrediction = async (normalizedSuggestion: any) => {
+    console.log("[PLACES SELECT] suggestion clicked", {
+      predictionExists: !!normalizedSuggestion.prediction,
+      predictionType: typeof normalizedSuggestion.prediction,
+      placeId: normalizedSuggestion.placeId
+    });
+    
     setShowSuggestions(false);
     setIsGeocoding(true);
     
     try {
       const prediction = normalizedSuggestion.prediction;
+      if (!prediction) {
+        throw new Error("PlacePrediction ausente");
+      }
+
+      console.log("[PLACES SELECT] prediction.toPlace type:", typeof prediction.toPlace);
+      
+      // toPlace() is a method, not a constructor. 
+      // The crash "n is not a constructor" often happens if one tries to use 'new' on a function that isn't a constructor,
+      // or if the library didn't load correctly and returned a plain object/null where a class was expected.
       const place = prediction.toPlace();
+      console.log("[PLACES SELECT] toPlace success", { placeId: place.id });
+
       await place.fetchFields({
         fields: ["addressComponents", "formattedAddress", "location", "id", "displayName"]
       });
+      console.log("[PLACES SELECT] fetchFields success");
 
       const components = place.addressComponents;
-      const getComp = (types: string[]) => components.find((c: any) => types.some(t => c.types.includes(t)))?.longText || "";
+      if (!components) {
+        console.warn("[PLACES SELECT] No address components found");
+      }
 
-      const street = getComp(["route"]) || place.displayName || "";
+      const getComp = (types: string[]) => components?.find((c: any) => types.some(t => c.types.includes(t)))?.longText || "";
+
+      const street = getComp(["route"]) || (typeof place.displayName === 'string' ? place.displayName : place.displayName?.text) || "";
       const streetNumber = getComp(["street_number"]);
       const neighborhood = getComp(["neighborhood", "sublocality", "sublocality_level_1"]);
       const city = getComp(["locality", "administrative_area_level_2"]);
@@ -215,22 +237,31 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         reference: deliveryAddress?.reference || ""
       };
 
+      console.log("[PLACES SELECT] address mapped", { street, city });
       setQuery(street);
       setDeliveryAddress(newAddress);
       setDeliveryAddressConfirmed(false);
       
-      // Novo token para a próxima sessão
-      const { AutocompleteSessionToken } = (window as any).google.maps.places;
-      setSessionToken(new AutocompleteSessionToken());
+      // Renovar Session Token
+      try {
+        const { AutocompleteSessionToken } = (window as any).google.maps.places;
+        if (AutocompleteSessionToken) {
+          setSessionToken(new AutocompleteSessionToken());
+          console.log("[PLACES SELECT] session token renewed");
+        }
+      } catch (tokenErr) {
+        console.error("[PLACES SELECT] failed to renew session token", tokenErr);
+      }
 
       // Focar no campo número após selecionar rua se vier vazio
       if (!streetNumber) {
+        console.log("[PLACES SELECT] focus number");
         setTimeout(() => {
           document.getElementById("delivery-number")?.focus();
         }, 150);
       }
-    } catch (err) {
-      console.error("Erro ao selecionar lugar:", err);
+    } catch (err: any) {
+      console.error("[PLACES SELECT] failed at stage", err);
       toast.error("Erro ao obter detalhes do endereço");
     } finally {
       setIsGeocoding(false);
