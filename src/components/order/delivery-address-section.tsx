@@ -91,7 +91,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         locationBias: { radius: 10000, center: { lat: -26.48, lng: -49.07 } },
         types: ["address", "establishment"]
       };
-
+      
       const autocomplete = new Autocomplete(autocompleteInputRef.current, options);
       autocompleteInstanceRef.current = autocomplete;
 
@@ -114,33 +114,36 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         const lng = place.geometry?.location?.lng;
 
         const newAddress: DeliveryAddress = {
+          ...deliveryAddress!,
           formattedAddress: place.formatted_address || place.name || "",
           street: street,
           number: streetNumber || "",
-          neighborhood: neighborhood,
-          city: city,
-          state: state,
-          postalCode: postalCode,
-          country: country,
+          neighborhood: neighborhood || deliveryAddress?.neighborhood || "",
+          city: city || deliveryAddress?.city || "",
+          state: state || deliveryAddress?.state || "",
+          postalCode: postalCode || deliveryAddress?.postalCode || "",
+          country: country || "Brasil",
           latitude: typeof lat === 'function' ? lat() : lat,
           longitude: typeof lng === 'function' ? lng() : lng,
           placeId: place.place_id,
+          noNumber: false,
           complement: deliveryAddress?.complement || "",
-          reference: deliveryAddress?.reference || "",
-          noNumber: false
+          reference: deliveryAddress?.reference || ""
         };
 
         setDeliveryAddress(newAddress);
         setDeliveryAddressConfirmed(false);
         
-        // Focar no campo número após selecionar rua
-        setTimeout(() => {
-          const numInput = document.getElementById("delivery-number");
-          numInput?.focus();
-        }, 100);
+        // Focar no campo número após selecionar rua se vier vazio
+        if (!streetNumber) {
+          setTimeout(() => {
+            const numInput = document.getElementById("delivery-number");
+            numInput?.focus();
+          }, 100);
+        }
       });
     }
-  }, [isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed, deliveryAddress?.complement, deliveryAddress?.reference]);
+  }, [isMapsLoaded, mapsLibs, setDeliveryAddress, setDeliveryAddressConfirmed, deliveryAddress]);
 
   // Setup Map
   useEffect(() => {
@@ -195,21 +198,38 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
     const criticalFields: (keyof DeliveryAddress)[] = ["street", "number", "neighborhood", "city", "state", "postalCode", "noNumber"];
     if (criticalFields.includes(field)) {
       setDeliveryAddressConfirmed(false);
+      
+      // Se for alteração de número e for um número válido, podemos tentar geocodificar (opcional, vamos manter manual por enquanto como solicitado)
+      // Se alterar logradouro, o efeito de limpeza já deve ser tratado no Autocomplete listener
     }
   };
 
-  const validateAndConfirm = async () => {
+  // Efeito para geocodificação automática após preencher número (Sprint 8.9.37.4 Item 9)
+  useEffect(() => {
+    if (!deliveryAddress || deliveryAddressConfirmed || isGeocoding) return;
+    
+    const hasBaseInfo = deliveryAddress.street && (deliveryAddress.number || deliveryAddress.noNumber) && deliveryAddress.city;
+    if (!hasBaseInfo) return;
+
+    const timer = setTimeout(() => {
+      validateAndConfirm(false); // Validar sem mostrar toast de sucesso imediato
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [deliveryAddress?.street, deliveryAddress?.number, deliveryAddress?.noNumber, deliveryAddress?.city, deliveryAddressConfirmed]);
+
+  const validateAndConfirm = async (showSuccessToast = true) => {
     if (!deliveryAddress) return;
     
     const needsNumber = deliveryAddress.street && !deliveryAddress.noNumber;
     if (needsNumber && (!deliveryAddress.number || deliveryAddress.number === "S/N")) {
-      toast.error("Por favor, informe o número ou marque 'Sem número'");
+      if (showSuccessToast) toast.error("Por favor, informe o número ou marque 'Sem número'");
       document.getElementById("delivery-number")?.focus();
       return;
     }
 
     if (deliveryAddress.noNumber && !deliveryAddress.reference) {
-       toast.error("Para endereços sem número, um ponto de referência é obrigatório");
+       if (showSuccessToast) toast.error("Para endereços sem número, um ponto de referência é obrigatório");
        document.getElementById("delivery-reference")?.focus();
        return;
     }
@@ -240,19 +260,22 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
 
         if (precision === "APPROXIMATE" || precision === "GEOMETRIC_CENTER") {
           toast.warning("Localização aproximada. Confira o ponto no mapa.");
-        } else {
+        } else if (showSuccessToast) {
           toast.success("Endereço validado com sucesso!");
         }
         
-        setDeliveryAddressConfirmed(true);
+        // A geocodificação automática NÃO confirma o endereço, apenas atualiza coordenadas
+        if (showSuccessToast) {
+          setDeliveryAddressConfirmed(true);
+        }
       } else {
-        toast.error("Não foi possível validar as coordenadas exatas. Tente ajustar no mapa.");
-        if (deliveryAddress.street) {
+        if (showSuccessToast) toast.error("Não foi possível validar as coordenadas exatas. Tente ajustar no mapa.");
+        if (deliveryAddress.street && showSuccessToast) {
            setDeliveryAddressConfirmed(true);
         }
       }
     } catch (err) {
-      toast.error("Erro ao validar endereço.");
+      if (showSuccessToast) toast.error("Erro ao validar endereço.");
     } finally {
       setIsGeocoding(false);
     }
@@ -279,7 +302,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       <div className="space-y-4">
         <div className="p-4 border rounded-xl bg-card shadow-sm space-y-4">
           <div className="grid grid-cols-12 gap-3">
-            {/* LOGRADOURO com Google Autocomplete */}
+            {/* LOGRADOURO com Google Autocomplete como ASSISTENTE */}
             <div className="col-span-12 space-y-1">
               <Label className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                 Logradouro <Search className="h-2 w-2" />
@@ -293,7 +316,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
               />
             </div>
 
-            {/* NÚMERO */}
+            {/* NÚMERO - FOCO AUTOMÁTICO APÓS LOGRADOURO */}
             <div className="col-span-6 space-y-1">
               <Label className="text-[10px] uppercase font-bold text-muted-foreground">Número</Label>
               <Input 
@@ -302,7 +325,11 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                 value={deliveryAddress?.noNumber ? "S/N" : (deliveryAddress?.number || "")} 
                 disabled={deliveryAddress?.noNumber}
                 onChange={(e) => handleManualEdit("number", e.target.value)}
-                className={cn("h-11 text-sm font-bold", !deliveryAddress?.number && !deliveryAddress?.noNumber && "border-amber-500 bg-amber-50/30")}
+                className={cn(
+                  "h-11 text-sm font-bold transition-all", 
+                  !deliveryAddress?.number && !deliveryAddress?.noNumber && "border-amber-500 bg-amber-50/30 ring-1 ring-amber-500/20",
+                  deliveryAddress?.number && !deliveryAddressConfirmed && "border-blue-500 bg-blue-50/30"
+                )}
               />
             </div>
 
@@ -404,7 +431,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                   ? "bg-green-600 text-white hover:bg-green-700" 
                   : "bg-primary text-primary-foreground hover:shadow-lg"
               )}
-              onClick={validateAndConfirm}
+              onClick={() => validateAndConfirm(true)}
               disabled={isGeocoding}
             >
               {isGeocoding ? (
