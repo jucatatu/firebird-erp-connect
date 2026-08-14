@@ -457,7 +457,7 @@ Isso reduz complexidade e evita inicializações desnecessárias.
 
 14. TESTE REAL
 
-TESTE A — endereço cadastral
+TESTE A — endereço cadastral (SPRINT 8.9.37.6 IMPLEMENTADA)
 
 Cliente possui:
 
