@@ -341,11 +341,11 @@ function NewOrderPage() {
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
-    deliveryAddress, deliveryAddressConfirmed,
+    deliveryAddress, deliveryAddressConfirmed, deliveryAddressSource,
     returnEquipment, returnAt, notes, paymentTermId, paymentMethodId, saleTypeId,
     idempotencyKey, submissionStatus, erpOrderId, erpOrderNumber, isEditing, identityLocked,
     setClient, setCompany, addItem, removeItem, updateItemQuantity, updateItemPrice, addEquipment, removeEquipment,
-    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setReturn, setNotes, setPayment, setSaleType, reset,
+    setDelivery, setDeliveryAddress, setDeliveryAddressConfirmed, setDeliveryAddressSource, setReturn, setNotes, setPayment, setSaleType, reset,
     setIdempotencyKey, setSubmissionStatus, resetItemsAndClient,
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
@@ -1072,11 +1072,11 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
-          deliveryAddress: deliveryAddress || undefined,
-          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
-
         })),
+        deliveryAddress: deliveryAddress || undefined,
+        deliveryAddressConfirmed: deliveryAddressConfirmed,
+        deliveryAddressSource: deliveryAddressSource,
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
           description: e.description,
@@ -1165,11 +1165,11 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
-          deliveryAddress: deliveryAddress || undefined,
-          deliveryAddressConfirmed: deliveryAddressConfirmed,
           manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
-
         })),
+        deliveryAddress: deliveryAddress || undefined,
+        deliveryAddressConfirmed: deliveryAddressConfirmed,
+        deliveryAddressSource: deliveryAddressSource,
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
           description: e.description,
@@ -1738,89 +1738,93 @@ function NewOrderPage() {
       {step === "delivery" && clientId && (
         <div className="space-y-6">
           <Card className="shadow-none border-none sm:border">
-
-            <CardHeader><CardTitle className="text-lg">3. Entrega</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-lg">3. Logística</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipo do Pedido</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button 
-                    variant="outline" 
-                    className={`h-16 flex flex-col gap-1 border-2 transition-all ${deliver ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500' : 'hover:border-primary/50'}`}
-                    onClick={() => setDelivery(true, deliveryAt)}
-                  >
-                    <Truck className={`h-5 w-5 ${deliver ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                    <span className={`text-xs font-bold ${deliver ? 'text-orange-700' : ''}`}>ENTREGA</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    className={`h-16 flex flex-col gap-1 border-2 transition-all ${!deliver ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500' : 'hover:border-primary/50'}`}
-                    onClick={() => setDelivery(false, deliveryAt)}
-                  >
-                    <UserIcon className={`h-5 w-5 ${!deliver ? 'text-orange-600' : 'text-muted-foreground'}`} />
-                    <span className={`text-xs font-bold ${!deliver ? 'text-orange-700' : ''}`}>RETIRADA</span>
-                  </Button>
-                </div>
-              </div>
+              {/* Seção Centralizada de Endereço (Sprint 8.9.38) */}
+              <DeliveryAddressSection clientAddress={clientDetailQ.data?.data?.address} />
+
+              <Separator className="my-6" />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>{deliver ? "Data de Entrega" : "Data da Retirada"}</Label>
-                  <Input type="date" value={deliveryAt?.split('T')[0] || ""} onChange={(e) => setDelivery(deliver, e.target.value)} />
+                  <Input 
+                    type="date" 
+                    value={deliveryAt?.split('T')[0] || ""} 
+                    onChange={(e) => setDelivery(deliver, e.target.value)} 
+                    className="h-11"
+                  />
                 </div>
                 {deliver && (
                   <div className="space-y-2">
                     <Label>Horário Previsto (Opcional)</Label>
-                    <Input type="time" onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      if (deliveryAt) {
-                        const date = deliveryAt.split('T')[0];
-                        setDelivery(deliver, `${date}T${e.target.value}:00`);
-                      }
-                    }} />
+                    <Input 
+                      type="time" 
+                      className="h-11"
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        if (deliveryAt) {
+                          const date = deliveryAt.split('T')[0];
+                          setDelivery(deliver, `${date}T${e.target.value}:00`);
+                        }
+                      }} 
+                    />
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox id="returnEq" checked={returnEquipment} onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} />
-                <Label htmlFor="returnEq">Recolher equipamentos?</Label>
+              <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                <Checkbox 
+                  id="returnEq" 
+                  checked={returnEquipment} 
+                  onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} 
+                />
+                <Label htmlFor="returnEq" className="text-sm font-medium cursor-pointer">Recolher equipamentos?</Label>
               </div>
 
               {returnEquipment && (
-                <div className="space-y-2">
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                   <Label>Data de Recolhimento</Label>
-                  <Input type="date" value={returnAt?.split('T')[0] || ""} onChange={(e) => setReturn(returnEquipment, e.target.value)} />
+                  <Input 
+                    type="date" 
+                    value={returnAt?.split('T')[0] || ""} 
+                    onChange={(e) => setReturn(returnEquipment, e.target.value)} 
+                    className="h-11"
+                  />
                 </div>
               )}
 
               <div className="space-y-2">
                 <Label>Observações do Pedido</Label>
-                <Textarea placeholder="Instruções de entrega, detalhes adicionais..." value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} />
+                <Textarea 
+                  placeholder="Instruções de entrega, detalhes adicionais..." 
+                  value={notes} 
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                />
               </div>
 
-              <div className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setStep("items")}>Voltar</Button>
+              <div className="flex justify-between pt-4 gap-3">
+                <Button variant="outline" className="flex-1 h-12" onClick={() => setStep("items")}>Voltar</Button>
                 <Button 
+                  className="flex-[2] h-12 font-bold"
                   onClick={() => setStep("payment")}
                   disabled={deliver && !deliveryAddressConfirmed}
                 >
-                  Próximo
+                  Próximo Passo
                 </Button>
               </div>
+              
+              {deliver && !deliveryAddressConfirmed && (
+                <p className="text-[10px] text-destructive text-center font-bold animate-pulse">
+                  Por favor, confirme o endereço de entrega para prosseguir.
+                </p>
+              )}
             </CardContent>
           </Card>
-
-          {deliver && (
-            <Card className="shadow-none border-none sm:border">
-              <CardContent className="pt-6">
-                <DeliveryAddressSection clientAddress={clientDetailQ.data?.data?.address} />
-              </CardContent>
-            </Card>
-          )}
         </div>
-
-        )}
+      )}
 
         {step === "payment" && clientId && (
           <Card className="shadow-none border-none sm:border">

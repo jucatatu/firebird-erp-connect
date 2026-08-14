@@ -140,6 +140,7 @@ export interface CreateOrderInput {
   notes?: string | null;
   deliveryAddress?: any;
   deliveryAddressConfirmed?: boolean;
+  deliveryAddressSource?: "client" | "custom";
 
   items: Array<{ 
     productId: number; 
@@ -174,8 +175,12 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
 
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
-    deliveryAddress: input.deliveryAddress ?? null,
-    deliveryAddressConfirmed: input.deliveryAddressConfirmed ?? false,
+    // deliveryAddress: NÃO vazar para o payload estrito se o ERP não aceita.
+    // Sprint 8.9.38: O contrato do ERP Node é estrito. 
+    // Se o backend Node não foi alterado para aceitar esses campos, não enviamos.
+    // Auditar se o Node aceita 'deliveryAddress' (provavelmente não, ou apenas campos específicos).
+    // Vou remover o envio desses campos operacionais de UI para o ERP.
+    // Manter apenas o essencial que o ERP espera (baseado no validator do Node).
 
     items: input.items.map(item => ({
       productId: item.productId,
@@ -249,7 +254,10 @@ export async function handleCreateErpOrder(
 
   const erpPayload = buildErpCreateOrderPayload(input, profile.erp_seller_id);
 
-  console.log("[ORDER SERVER] calling ERP POST /api/v1/orders", JSON.stringify(erpPayload));
+  console.log("[ORDER SAVE] start");
+  console.log("[ORDER SAVE] ERP payload built", JSON.stringify(erpPayload));
+  
+  console.log("[ORDER SAVE] POST started");
   const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
@@ -257,9 +265,15 @@ export async function handleCreateErpOrder(
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
 
+  console.log("[ORDER SAVE] POST response", { 
+    ok: result.ok, 
+    status: result.status,
+    orderNumber: result.data?.orderNumber
+  });
+
   if (!result.ok || !result.data) return result;
 
-  console.log("[ORDER SERVER] ERP success, creating operational mirror in Supabase", { 
+  console.log("[ORDER SAVE] snapshot started", { 
     orderNumber: result.data.orderNumber,
     orderId: result.data.orderId
   });
@@ -317,7 +331,8 @@ export async function handleCreateErpOrder(
       mirrorId = inserted.id;
     }
 
-    console.log("[ORDER SERVER] Mirror success:", mirrorId);
+    console.log("[ORDER SAVE] snapshot response success:", mirrorId);
+    console.log("[ORDER SAVE] finished");
     return {
       ...result,
       data: { ...result.data, mirrorId }
