@@ -1401,7 +1401,7 @@ function NewOrderPage() {
                   if (!companyId || !clientId) toast.error("Selecione a empresa e o cliente primeiro.");
                   else if (items.length === 0) toast.error("Adicione pelo menos um produto.");
                   else if (!isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega.");
-                  else if (!deliveryAt) toast.error("Defina os dados de entrega antes de avançar.");
+                  else if (!isLogisticsValid()) toast.error("Confirme os dados de logística antes de avançar.");
                   else toast.error("Complete as etapas anteriores para acessar esta fase.");
                 }
               };
