@@ -2003,6 +2003,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.paymentTerms?.map((t: any) => (
                           <option key={t.id} value={t.id}>{t.description}</option>
                         ))}
+                        {isEditing && paymentTermId && !localPaymentOptions.data?.paymentTerms?.some((t: any) => t.id === paymentTermId) && (
+                          <option value={paymentTermId}>{`ID ${paymentTermId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -2016,6 +2019,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.paymentMethods?.map((m: any) => (
                           <option key={m.id} value={m.id}>{m.description}</option>
                         ))}
+                        {isEditing && paymentMethodId && !localPaymentOptions.data?.paymentMethods?.some((m: any) => m.id === paymentMethodId) && (
+                          <option value={paymentMethodId}>{`ID ${paymentMethodId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -2029,6 +2035,9 @@ function NewOrderPage() {
                         {localPaymentOptions.data?.saleTypes?.map((s: any) => (
                           <option key={s.id} value={s.id}>{s.description}</option>
                         ))}
+                        {isEditing && saleTypeId && !localPaymentOptions.data?.saleTypes?.some((s: any) => s.id === saleTypeId) && (
+                          <option value={saleTypeId}>{`ID ${saleTypeId} — Opção histórica não disponível`}</option>
+                        )}
                       </select>
                     </div>
                   </div>
