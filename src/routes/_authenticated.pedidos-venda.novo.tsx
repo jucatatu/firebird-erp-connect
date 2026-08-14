@@ -641,10 +641,6 @@ function NewOrderPage() {
   const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
 
 
-  // SPRINT 8.9.39: Adicionar gate de normalização logística
-  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
-  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
-
 
   const choppItems = items.filter(it => {
     const p = (productsQ.data as any)?.data?.products?.find((prod: any) => prod.id === it.productId);
