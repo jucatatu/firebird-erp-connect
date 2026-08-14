@@ -5,11 +5,23 @@ const { validateCreateOrder, validateUpdateOrder } = require("./orders.validator
 const service = require("./orders.service");
 
 const getBatchStatus = asyncHandler(async (req, res) => {
-  const { orderIds } = req.query;
-  if (!orderIds) return res.json({ success: true, data: [] });
-  const ids = String(orderIds).split(",").map(Number).filter(Boolean);
-  const statuses = await service.getBatchStatus(ids);
-  return res.json({ success: true, data: statuses });
+  const { orderNumbers, orderIds } = req.query;
+  
+  // Sprint 8.9.40: Suporte simultâneo para migração segura
+  if (orderNumbers) {
+    const numbers = String(orderNumbers).split(",").map(Number).filter(n => !isNaN(n));
+    const statuses = await service.getBatchStatus(numbers);
+    return res.json({ success: true, data: statuses });
+  }
+
+  if (orderIds) {
+    // Semântica LEGADA: ID interno Firebird
+    const ids = String(orderIds).split(",").map(Number).filter(n => !isNaN(n));
+    const statuses = await service.getBatchStatusLegacy(ids);
+    return res.json({ success: true, data: statuses });
+  }
+
+  return res.json({ success: true, data: [] });
 });
 
 const createOrder = asyncHandler(async (req, res) => {
