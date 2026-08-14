@@ -425,11 +425,8 @@ function NewOrderPage() {
       if (isNaN(orderNumFromUrl)) return;
 
       if (isEditing && erpOrderNumber === orderNumFromUrl) {
-        // Já está carregado, mas a UI pode ter resetado o step (ex: hydration mismatch ou guard de create)
-        if (step !== "items") {
-          console.log("[EDIT FLOW] Order already in store, forcing step=items");
-          setStepState("items");
-        }
+        // Pedido já está carregado e normalizado (ou em processo).
+        // Não forçamos o step continuamente para permitir navegação.
         return;
       }
 
