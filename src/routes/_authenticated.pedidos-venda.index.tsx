@@ -22,7 +22,7 @@ import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
 import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
-import { getItemsSummary, getEquipmentsSummary, getLogisticsSummary } from "@/lib/order-summary";
+import { getItemList, getEquipmentList, getLogisticsSummary } from "@/lib/order-summary";
 import { getErpOrdersStatus, type ErpOrderStatus } from "@/lib/erp-orders.functions";
 import { useQuery } from "@tanstack/react-query";
 
