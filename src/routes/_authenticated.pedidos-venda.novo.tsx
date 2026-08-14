@@ -1072,12 +1072,11 @@ function NewOrderPage() {
           description: i.description,
           quantity: i.quantity, 
           unit: i.description.toUpperCase().includes("CHOPP") ? "L" : "x",
+          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
+        })),
         deliveryAddress: deliveryAddress || undefined,
         deliveryAddressConfirmed: deliveryAddressConfirmed,
         deliveryAddressSource: deliveryAddressSource,
-          manualUnitPrice: i.manualPrice ? i.appliedUnitPrice : undefined 
-
-        })),
         equipments: equipments.map(e => ({ 
           equipmentTypeId: e.equipmentTypeId, 
           description: e.description,
