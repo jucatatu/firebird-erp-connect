@@ -1761,92 +1761,111 @@ function NewOrderPage() {
       )}
 
       {step === "delivery" && clientId && (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20 animate-in fade-in duration-500">
           <Card className="shadow-none border-none sm:border">
-            <CardHeader>
-              <CardTitle className="text-lg">3. Logística</CardTitle>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-bold uppercase tracking-tight text-primary">3. Logística</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Seção Centralizada de Endereço (Sprint 8.9.38) */}
+            <CardContent className="space-y-8">
+              {/* Seção de Endereço e Decisão Logística (Entrega/Retirada) */}
               <DeliveryAddressSection clientAddress={clientDetailQ.data?.data?.address} />
 
-              <Separator className="my-6" />
+              <Separator className="bg-primary/5" />
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>{deliver ? "Data de Entrega *" : "Data da Retirada *"}</Label>
-                  <Input 
-                    type="date" 
-                    value={deliveryAt?.split('T')[0] || ""} 
-                    onChange={(e) => {
-                      const newDate = e.target.value;
-                      setDelivery(deliver, newDate);
-                      // Recalcular data de recolhimento se estiver ativo (+7 dias)
-                      if (returnEquipment && newDate) {
-                        setReturn(true, addDaysToDateOnly(newDate, 7));
-                      }
-                    }} 
-                    className="h-11"
-                  />
-                </div>
-                {deliver && (
+              {/* Data e Horário */}
+              <div className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Horário Previsto (Opcional)</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {deliver ? "Data de Entrega *" : "Data da Retirada *"}
+                    </Label>
                     <Input 
-                      type="time" 
-                      className="h-11"
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        if (deliveryAt) {
-                          const date = deliveryAt.split('T')[0];
-                          setDelivery(deliver, `${date}T${e.target.value}:00`);
+                      type="date" 
+                      value={deliveryAt?.split('T')[0] || ""} 
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        setDelivery(deliver, newDate);
+                        if (returnEquipment && newDate) {
+                          setReturn(true, addDaysToDateOnly(newDate, 7));
                         }
                       }} 
+                      className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
                     />
                   </div>
-                )}
-              </div>
+                  {deliver && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Horário Previsto (Opcional)</Label>
+                      <Input 
+                        type="time" 
+                        className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          if (deliveryAt) {
+                            const date = deliveryAt.split('T')[0];
+                            setDelivery(deliver, `${date}T${e.target.value}:00`);
+                          }
+                        }} 
+                      />
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex items-center space-x-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <Checkbox 
-                  id="returnEq" 
-                  checked={returnEquipment} 
-                  onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)} 
-                />
-                <Label htmlFor="returnEq" className="text-sm font-medium cursor-pointer">Recolher equipamentos?</Label>
-              </div>
+                <Separator className="bg-primary/5" />
 
-              {returnEquipment && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                  <Label>Data de Recolhimento</Label>
-                  <Input 
-                    type="date" 
-                    value={returnAt?.split('T')[0] || ""} 
-                    onChange={(e) => setReturn(returnEquipment, e.target.value)} 
-                    className="h-11"
+                {/* Recolhimento */}
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 bg-muted/30 p-4 rounded-xl border border-muted/50 transition-colors hover:bg-muted/40 cursor-pointer" onClick={() => setReturn(!returnEquipment, returnAt)}>
+                    <Checkbox 
+                      id="returnEq" 
+                      checked={returnEquipment} 
+                      onCheckedChange={(checked: boolean) => setReturn(!!checked, returnAt)}
+                      className="h-5 w-5 rounded-md border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                    />
+                    <Label htmlFor="returnEq" className="text-sm font-bold cursor-pointer text-foreground uppercase tracking-tight">Recolher equipamentos?</Label>
+                  </div>
+
+                  {returnEquipment && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data de Recolhimento</Label>
+                      <Input 
+                        type="date" 
+                        value={returnAt?.split('T')[0] || ""} 
+                        onChange={(e) => setReturn(returnEquipment, e.target.value)} 
+                        className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-primary/5" />
+
+                {/* Observações */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Observações</Label>
+                  <Textarea 
+                    placeholder="Instruções de entrega, detalhes adicionais..." 
+                    value={notes} 
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                    className="min-h-[120px] text-base resize-none border-muted-foreground/20 focus:border-primary transition-all rounded-xl p-4 shadow-sm"
                   />
                 </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Observações do Pedido</Label>
-                <Textarea 
-                  placeholder="Instruções de entrega, detalhes adicionais..." 
-                  value={notes} 
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                />
               </div>
 
-              <div className="flex justify-between pt-4 gap-3">
-                <Button variant="outline" className="flex-1 h-12" onClick={() => setStep("items")}>Voltar</Button>
+              {/* Ações */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-primary/5">
+                <Button variant="outline" className="h-14 font-bold text-base order-2 sm:order-1 flex-1 rounded-xl" onClick={() => setStep("items")}>
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Voltar
+                </Button>
                 <Button 
-                  className="flex-[2] h-12 font-bold"
+                  className={cn(
+                    "h-14 font-bold text-base order-1 sm:order-2 flex-[2] rounded-xl shadow-lg transition-all active:scale-[0.98]",
+                    !isLogisticsValid() ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground shadow-primary/20"
+                  )}
                   onClick={() => setStep("payment")}
                 >
-                  Próximo Passo
+                  Próximo Passo <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
-              
+
               {deliver && !deliveryAddressConfirmed && (
                 <p className="text-[10px] text-destructive text-center font-bold animate-pulse">
                   Por favor, confirme o endereço de entrega para prosseguir.
