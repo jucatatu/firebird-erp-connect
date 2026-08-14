@@ -35,7 +35,7 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
-import { canEditErpOrder, getErpOrdersStatus, getErpOrderDetail } from "@/lib/erp-orders.functions";
+import { canEditErpOrder, getErpOrdersStatus, getErpOrderDetail, type ErpOrderStatus } from "@/lib/erp-orders.functions";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { useErpOrderDetail } from "@/hooks/use-erp";
 
