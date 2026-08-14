@@ -356,24 +356,15 @@ function NewOrderPage() {
 
     // isDeliveryAddressValid logic
     if (deliver) {
-      if (deliveryAddressSource === "client") {
-        // Preserva regra: se source client, não exige confirmação extra se os campos base existirem (feito no componente via setDeliveryAddressConfirmed)
-        if (!deliveryAddressConfirmed) return false;
-      } else {
-        // Custom exige confirmado
-        if (!deliveryAddressConfirmed) return false;
-      }
+      // Regra Sprint 8.9.38.1: Confirmação obrigatória para entrega.
+      // O componente DeliveryAddressSection marca automaticamente como confirmado se o endereço cadastral for válido.
+      if (!deliveryAddressConfirmed) return false;
     }
 
     if (returnEquipment && !returnAt) return false;
 
     return true;
   };
-
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
-  const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
 
   // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
   const { edit: editParam } = Route.useSearch();
