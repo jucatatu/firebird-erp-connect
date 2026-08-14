@@ -215,10 +215,6 @@ function OrdersListPage() {
                                 <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
                                   ERP: INDISPONÍVEL
                                 </Badge>
-                              {erpStatusQ.isError ? (
-                                <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
-                                  ERP: INDISPONÍVEL
-                                </Badge>
                               ) : statusMap.has(d.erp_order_number!) ? (
                                 <Badge 
                                   variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
