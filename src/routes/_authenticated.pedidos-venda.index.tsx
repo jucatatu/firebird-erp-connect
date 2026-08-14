@@ -293,14 +293,14 @@ function OrdersListPage() {
                           </Badge>
                         ) : statusMap.has(d.erp_order_number!) ? (
                           <Badge 
-                            variant={statusMap.get(d.erp_order_number!)?.deleted ? "destructive" : "outline"}
+                            variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
                             className={`text-[8px] h-3.5 px-1 py-0 uppercase font-bold w-fit ${
-                              !statusMap.get(d.erp_order_number!)?.deleted 
+                              !(statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists) 
                                 ? "border-primary/20 bg-primary/5 text-primary" 
                                 : "bg-destructive/10 text-destructive border-destructive/20"
                             }`}
                           >
-                            ERP: {statusMap.get(d.erp_order_number!)?.statusDescription || "..."}
+                            ERP: {statusMap.get(d.erp_order_number!)?.exists === false ? "EXCLUÍDO" : (statusMap.get(d.erp_order_number!)?.statusDescription || "...")}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
