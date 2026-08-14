@@ -271,11 +271,18 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
   // Setup Map
   useEffect(() => {
     if (deliveryAddress?.latitude && deliveryAddress?.longitude && isMapsLoaded && mapsLibs && mapContainerRef.current) {
-      const { Map, AdvancedMarkerElement } = (window as any).google.maps;
+      const g = (window as any).google?.maps;
+      const MapCtor = mapsLibs.Map ?? g?.Map;
+      const MarkerCtor = mapsLibs.AdvancedMarkerElement ?? g?.marker?.AdvancedMarkerElement;
+      if (typeof MapCtor !== "function" || typeof MarkerCtor !== "function") {
+        console.error("[MAP] construtores indisponíveis", { MapCtor, MarkerCtor });
+        return;
+      }
       const position = { lat: deliveryAddress.latitude, lng: deliveryAddress.longitude };
 
+      try {
       if (!mapInstanceRef.current) {
-        mapInstanceRef.current = new Map(mapContainerRef.current, {
+        mapInstanceRef.current = new MapCtor(mapContainerRef.current, {
           center: position,
           zoom: 17,
           mapId: "DELIVERY_MAP",
@@ -284,7 +291,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           fullscreenControl: false
         });
 
-        markerRef.current = new AdvancedMarkerElement({
+        markerRef.current = new MarkerCtor({
           map: mapInstanceRef.current,
           position: position,
           gmpDraggable: true,
@@ -303,6 +310,9 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
       } else {
         mapInstanceRef.current.setCenter(position);
         markerRef.current.position = position;
+      }
+      } catch (err) {
+        console.error("[MAP] falha ao renderizar mapa", err);
       }
     }
   }, [deliveryAddress?.latitude, deliveryAddress?.longitude, isMapsLoaded, mapsLibs]);
