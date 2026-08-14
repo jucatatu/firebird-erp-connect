@@ -114,7 +114,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
         const lng = place.geometry?.location?.lng;
 
         const newAddress: DeliveryAddress = {
-          ...deliveryAddress,
+          ...deliveryAddress!,
           formattedAddress: place.formatted_address || place.name || "",
           street: street,
           number: streetNumber || "",
@@ -126,7 +126,9 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
           latitude: typeof lat === 'function' ? lat() : lat,
           longitude: typeof lng === 'function' ? lng() : lng,
           placeId: place.place_id,
-          noNumber: false
+          noNumber: false,
+          complement: deliveryAddress?.complement || "",
+          reference: deliveryAddress?.reference || ""
         };
 
         setDeliveryAddress(newAddress);
