@@ -631,15 +631,15 @@ function NewOrderPage() {
     limit: 200,
   });
 
-  const equipmentTypesQ = useErpEquipmentTypes({
-    q: "",
-    companyId: companyId as 1 | 3,
-    active: true,
-  });
 
   const createOrderM = useCreateErpOrder();
 
   const [showAddEquip, setShowAddEquip] = useState(false);
+
+  // SPRINT 8.9.39: Adicionar gate de normalização logística
+  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
+  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
+
 
   // SPRINT 8.9.39: Adicionar gate de normalização logística
   const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
