@@ -363,7 +363,9 @@ function NewOrderPage() {
     q: "",
     companyId: companyId as 1 | 3,
     active: true,
+    limit: 500,
   });
+
 
   const isLogisticsValid = () => {
     if (deliver === null || deliver === undefined) return false;
