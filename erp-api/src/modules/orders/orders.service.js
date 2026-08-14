@@ -314,8 +314,60 @@ async function createOrder({ payload, idempotencyKey, rawBody, correlationId }) 
   });
 }
 
+/**
+ * Sprint 8.9.40: Identifica registros deletados
+ */
+function isDeleted(record) {
+  if (!record) return false;
+  const val = record.DELETED;
+  if (val === null || val === undefined) return false;
+  // Firebird via node-firebird pode retornar number, boolean ou string
+  if (typeof val === "number") return val !== 0;
+  if (typeof val === "boolean") return val === true;
+  if (typeof val === "string") return val.trim() !== "0" && val.trim().toLowerCase() !== "false";
+  return !!val;
+}
+
 async function getBatchStatus(orderNumbers) {
   const rows = await repository.findStatusByNumbers(orderNumbers);
+  const { canEditErpOrder } = require("../../shared/orders/status-rules");
+  
+  const resultsMap = new Map();
+  rows.forEach(r => {
+    const num = Number(r.N_PEDIDO);
+    const deleted = isDeleted(r);
+    
+    resultsMap.set(num, {
+      orderId: Number(r.ID_ORDENS_VENDA),
+      orderNumber: num,
+      exists: true,
+      deleted: deleted,
+      statusId: deleted ? null : Number(r.ID_STATUS),
+      statusDescription: deleted ? "EXCLUÍDO" : (r.STATUS_DESCRICAO ? String(r.STATUS_DESCRICAO).trim() : null),
+      canEdit: deleted ? false : canEditErpOrder(r.ID_STATUS)
+    });
+  });
+
+  // Garantir resposta para todos os números solicitados (exclusão física)
+  return orderNumbers.map(num => {
+    if (resultsMap.has(num)) return resultsMap.get(num);
+    return {
+      orderId: null,
+      orderNumber: num,
+      exists: false,
+      deleted: true,
+      statusId: null,
+      statusDescription: "EXCLUÍDO",
+      canEdit: false
+    };
+  });
+}
+
+/**
+ * LEGACY — remover após migração completa do frontend
+ */
+async function getBatchStatusLegacy(orderIds) {
+  const rows = await repository.findStatusByIds(orderIds);
   const { canEditErpOrder } = require("../../shared/orders/status-rules");
   return rows.map(r => ({
     orderId: Number(r.ID_ORDENS_VENDA),
@@ -328,11 +380,21 @@ async function getBatchStatus(orderNumbers) {
 
 async function getOrderDetail(orderNumber) {
   const order = await repository.fetchOrderByNumber(orderNumber);
+  
   if (!order) {
     throw new AppError({
       message: "Pedido não encontrado no ERP.",
       statusCode: 404,
       code: "ORDER_NOT_FOUND",
+      retryable: false
+    });
+  }
+
+  if (isDeleted(order)) {
+    throw new AppError({
+      message: "Pedido excluído do ERP.",
+      statusCode: 410,
+      code: "ORDER_DELETED",
       retryable: false
     });
   }
@@ -382,6 +444,15 @@ async function updateOrder({ orderNumber, payload, correlationId }) {
         message: "Pedido não encontrado para atualização.",
         statusCode: 404,
         code: "ORDER_NOT_FOUND",
+        retryable: false
+      });
+    }
+
+    if (isDeleted(current)) {
+      throw new AppError({
+        message: "Pedido excluído do ERP e não pode ser alterado.",
+        statusCode: 410,
+        code: "ORDER_DELETED",
         retryable: false
       });
     }
@@ -463,6 +534,7 @@ function newCorrelationId() {
 module.exports = {
   createOrder,
   getBatchStatus,
+  getBatchStatusLegacy,
   getOrderDetail,
   updateOrder,
   newCorrelationId,
