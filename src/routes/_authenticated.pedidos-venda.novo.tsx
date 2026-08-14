@@ -707,99 +707,90 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
-  // SPRINT 8.9.39: Normalização especializada para o modo EDIÇÃO
+  // SPRINT 8.9.39.1: Pipeline ÚNICO de normalização técnica e operacional do EDIT
   useEffect(() => {
     if (!isEditing || hydrationLoading) return;
     
-    const catalogReady = equipmentTypesQ.data?.ok && Array.isArray(equipmentTypesQ.data.data);
+    // 1. Acesso canônico ao catálogo seguindo useErpEquipmentTypes
+    const equipmentTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes;
+    const catalogReady = equipmentTypesQ.data?.ok && Array.isArray(equipmentTypes);
+    
     if (!catalogReady) {
-      console.log("[EDIT EQUIPMENT] Catalog not ready yet...");
+      console.log("[EDIT NORMALIZE] Catalog not ready yet...");
       return;
     }
 
+    // 2. Acesso canônico aos produtos (para auto-associação)
+    const products = (productsQ.data as any)?.data?.products || [];
+    if (products.length === 0 && choppItems.length > 0) {
+       console.log("[EDIT NORMALIZE] Products not ready yet...");
+       return;
+    }
+
+    // 3. Helper de normalização de Role (Domínio da Store: TAP, KEG, OTHER)
+    const normalizeRole = (r?: string, desc?: string): "TAP" | "KEG" | "OTHER" => {
+      const roleStr = (r || "").toLowerCase();
+      const descStr = (desc || "").toLowerCase();
+      
+      if (roleStr === "keg" || descStr.includes("barril")) return "KEG";
+      if (roleStr === "dispenser" || descStr.includes("chopeira")) return "TAP";
+      if (roleStr === "other") return "OTHER";
+      
+      // Fallback por descrição
+      if (descStr.includes("barril") || descStr.includes("keg")) return "KEG";
+      if (descStr.includes("chopeira") || descStr.includes("extração")) return "TAP";
+      
+      return "OTHER";
+    };
+
+    // 4. Identificar necessidade de normalização
     const currentEquips = equipments;
-    const catalog = (equipmentTypesQ.data as any).data.equipmentTypes || (equipmentTypesQ.data as any).data;
-    
-    // Identifica se algum equipamento precisa de normalização
     const needsNormalization = currentEquips.some(eq => 
       eq.role === undefined || 
       eq.capacityLiters === undefined || 
-      eq.tapLines === undefined ||
-      // Prioridade 2: Se tem um único chopp e o barril está sem assignedProductId
-      (choppItems.length === 1 && eq.assignedProductId === null && catalog.find((t: any) => t.id === eq.equipmentTypeId)?.category === 'KEG')
+      eq.tapLines === undefined
     );
 
-    if (!needsNormalization) return;
+    // Se já temos roles normalizados, ainda podemos precisar de auto-associação
+    const needsAutoAssignment = choppItems.length === 1 && currentEquips.some(eq => 
+      eq.role === "KEG" && eq.assignedProductId === null
+    );
 
-    console.log("[EDIT EQUIPMENT] Normalizing equipments...");
-    console.log("[EDIT EQUIPMENT] Catalog ready:", catalogReady);
-    
-    const normalized = currentEquips.map(eq => {
-      const type = catalog.find((t: any) => t.id === eq.equipmentTypeId);
-      if (!type) return eq;
+    if (!needsNormalization && !needsAutoAssignment) return;
 
-      const role = type.category === 'KEG' || type.description?.toLowerCase().includes("barril") ? 'KEG' : (type.category === 'TAP' || type.description?.toLowerCase().includes("chopeira") ? 'TAP' : 'OTHER');
-      const capacityLiters = type.capacity_liters || Number(type.description?.match(/(\d+)\s*l/i)?.[1]);
-      const tapLines = type.taps_count || type.tap_count || Number(type.description?.match(/(\d+)\s*vias/i)?.[1] || (type.description?.toLowerCase().includes("via") ? 1 : 0));
-
-      
-      let assignedProductId = eq.assignedProductId;
-      
-      // PRIORIDADE 2: Único chopp no pedido
-      if (role === 'KEG' && !assignedProductId && choppItems.length === 1) {
-        assignedProductId = choppItems[0].productId;
-        console.log(`[EDIT EQUIPMENT] Auto-assigning KEG ${eq.description} to only chopp product: ${choppItems[0].productId}`);
-      }
-
-      return {
-        ...eq,
-        role: role as any,
-        capacityLiters,
-        tapLines,
-        assignedProductId
-      };
-    });
-
-    // Comparação profunda simples para evitar loops
-    const hasChanged = JSON.stringify(normalized) !== JSON.stringify(currentEquips);
-    if (hasChanged) {
-      console.log("[EDIT EQUIPMENT] Normalized equipments:", JSON.stringify(normalized));
-      useOrderFormStore.setState({ equipments: normalized });
-    }
-  }, [isEditing, hydrationLoading, equipmentTypesQ.data, equipments, choppItems]);
-
-  useEffect(() => {
-    // Requisitos mínimos para normalização
-    const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
-    const allProducts = (productsQ.data as any)?.data?.products || [];
-    
-    if (allEquipTypes.length === 0 || allProducts.length === 0) return;
-    if (equipments.length === 0) return;
-
-    // Localizar snapshot para apoio na reconstrução se necessário (Priority 1)
+    // 5. Recuperar snapshot operacional (Priority 1 para assignedProductId)
     const drafts = recentOrders.data || [];
     const draftSnapshot = erpOrderNumber ? drafts.find((d: any) => d.erp_order_number === erpOrderNumber) : null;
     const snapshotEquips = (draftSnapshot as any)?.payload?.equipments || [];
 
-    const normalizedEquips = equipments.map(eq => {
-      const catalogInfo = allEquipTypes.find((et: any) => et.id === eq.equipmentTypeId);
-      if (!catalogInfo) return eq;
+    console.log("[EDIT NORMALIZE] Starting pipeline...");
 
-      // Determinar metadados fixos do catálogo
-      const role = catalogInfo.equipment_role || (catalogInfo.description?.toLowerCase().includes("barril") ? "KEG" : "TAP");
-      const capacity = catalogInfo.capacity_liters || Number(catalogInfo.description?.match(/(\d+)\s*l/i)?.[1] || 0);
-      const tapLines = catalogInfo.tap_count || Number(catalogInfo.description?.match(/(\d+)\s*vias/i)?.[1] || 1);
+    const normalized = currentEquips.map(eq => {
+      const type = equipmentTypes.find((t: any) => t.id === eq.equipmentTypeId);
+      if (!type) return eq;
 
-      // Reconstrução do assignedProductId
-      let assignedProductId = eq.assignedProductId;
+      // ROLE: Sempre converter para o domínio da Store (UpperCase)
+      const role = normalizeRole(type.equipment_role || type.category, type.description);
       
+      // Litragem (Somente para KEG)
+      let capacityLiters = type.capacity_liters || 0;
+      if (role === "KEG" && capacityLiters === 0) {
+        const litersMatch = type.description?.match(/(\d+)\s*l/i);
+        if (litersMatch) capacityLiters = Number(litersMatch[1]);
+      }
+
+      // Vias (Somente para TAP)
+      const tapLines = role === "TAP" ? (type.taps_count || type.tap_count || (type.description?.toLowerCase().includes("via") ? 1 : 0)) : undefined;
+
+      // assignedProductId
+      let assignedProductId = eq.assignedProductId;
       if (!assignedProductId) {
-        // 1. Snapshot do Supabase (para pedidos originados ou editados no App)
+        // Priority 1: Snapshot do Supabase
         const snap = snapshotEquips.find((se: any) => se.equipmentTypeId === eq.equipmentTypeId);
         if (snap?.assignedProductId) {
           assignedProductId = snap.assignedProductId;
         } 
-        // 2. CASO AUTOMÁTICO — UM ÚNICO CHOPP (Priority 2)
+        // Priority 2: Auto-associação para pedido com um único chopp
         else if (role === "KEG" && choppItems.length === 1) {
           assignedProductId = choppItems[0].productId;
         }
@@ -807,20 +798,20 @@ function NewOrderPage() {
 
       return {
         ...eq,
-        role: role as any,
-        capacityLiters: capacity,
-        tapLines: role === "TAP" ? tapLines : undefined,
+        role,
+        capacityLiters,
+        tapLines,
         assignedProductId
       };
     });
 
-    // SPRINT 8.9.36.6 Item 7: Somente atualizar se houver diferença real para evitar loops
-    const hasChanged = JSON.stringify(normalizedEquips) !== JSON.stringify(equipments);
+    // 6. Atualização atômica com trava de loop
+    const hasChanged = JSON.stringify(normalized) !== JSON.stringify(currentEquips);
     if (hasChanged) {
-      console.log("[EQUIPMENT LOGISTICS] Normalizando equipamentos (Edit/Create sync)");
-      useOrderFormStore.setState({ equipments: normalizedEquips });
+      console.log("[EDIT NORMALIZE] Applying changes:", JSON.stringify(normalized));
+      useOrderFormStore.setState({ equipments: normalized });
     }
-  }, [equipmentTypesQ.data, productsQ.data, recentOrders.data, equipments, choppItems.length, erpOrderNumber]);
+  }, [isEditing, hydrationLoading, equipmentTypesQ.data, productsQ.data, recentOrders.data, equipments, choppItems]);
 
   // Sprint 8.9.19: P1 - Auto-marcar Recolher Equipamentos se houver retornáveis
   useEffect(() => {
@@ -1058,9 +1049,21 @@ function NewOrderPage() {
     preventScrollOnSwipe: true,
   });
 
-  // 2. RETURNS CONDICIONAIS (Gate de Hidratação Sprint 8.9.36.3/4)
-  
-  if (isHydrating) {
+  // 2. Gate de Hidratação Sprint 8.9.39.1
+  // Validamos se a normalização técnica e operacional está concluída.
+  const isNormalizationComplete = !isEditing || equipments.every(eq => {
+    if (eq.role === "KEG") {
+      const basic = eq.capacityLiters !== undefined && eq.capacityLiters > 0;
+      if (!basic) return false;
+      // Se apenas 1 chopp, assignedProductId deve estar preenchido
+      if (choppItems.length === 1 && !eq.assignedProductId) return false;
+      return true;
+    }
+    if (eq.role === "TAP") return eq.tapLines !== undefined;
+    return eq.role !== undefined;
+  });
+
+  if (isHydrating || !isNormalizationComplete) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 animate-in fade-in duration-500">
         <div className="relative">
@@ -1070,7 +1073,7 @@ function NewOrderPage() {
         <div className="text-center space-y-2">
           <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
           <p className="text-sm text-muted-foreground max-w-[280px]">
-            {hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística e equipamentos..."}
+            {isHydrating ? (hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : "Sincronizando equipamentos com o catálogo..."}
           </p>
         </div>
       </div>

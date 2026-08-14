@@ -306,6 +306,13 @@ export async function handleCreateErpOrder(
         erp_response: result.data,
         mirrored_at: new Date().toISOString()
       },
+      // Sprint 8.9.39.1: Persistir snapshot operacional detalhado no payload_v2 para auditoria
+      payload_v2: {
+        items: input.items,
+        equipments: input.equipments, // Aqui já contém role, capacityLiters, assignedProductId se vindo da store
+        deliveryAddress: input.deliveryAddress,
+        deliveryAddressSource: input.deliveryAddressSource
+      },
       idempotency_key: idempotencyKey || crypto.randomUUID()
     };
 
@@ -461,6 +468,12 @@ export const updateErpOrder = createServerFn({ method: "POST" })
             ...data.data,
             erp_response: result.data,
             updated_at: new Date().toISOString()
+          },
+          payload_v2: {
+            items: data.data.items,
+            equipments: data.data.equipments,
+            deliveryAddress: data.data.deliveryAddress,
+            deliveryAddressSource: data.data.deliveryAddressSource
           }
         })
         .eq("erp_order_id", result.data.orderId);

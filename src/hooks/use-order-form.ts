@@ -381,7 +381,7 @@ export const useOrderFormStore = create<OrderFormStore>()(
             description: e.description || `Equip. ${e.equipmentTypeId}`,
             quantity: e.quantity,
             assignedProductId: e.assignedProductId || null,
-            // Sprint 8.9.39: Garantir que metadados fiquem undefined para disparar normalização no Wizard
+            // Sprint 8.9.39.1: Resetar metadados para forçar normalização real no Wizard
             role: undefined,
             capacityLiters: undefined,
             tapLines: undefined
