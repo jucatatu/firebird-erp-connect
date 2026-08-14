@@ -417,20 +417,16 @@ function NewOrderPage() {
     const hydrate = async () => {
       if (!editParam) return;
       
-      console.log("[EDIT FLOW] editParam detected:", editParam);
-
-      // SPRINT 8.9.36.2: Prioridade máxima para o parâmetro da URL.
-      // Se estamos entrando na página com ?edit e o step ainda é 'client',
-      // ou se o número do pedido na store é diferente do da URL, precisamos hidratar/forçar.
       const orderNumFromUrl = Number(editParam);
       if (isNaN(orderNumFromUrl)) return;
 
-      if (isEditing && erpOrderNumber === orderNumFromUrl) {
-        // Pedido já está carregado e normalizado (ou em processo).
-        // Não forçamos o step continuamente para permitir navegação.
+      // SPRINT 8.9.39.3: Controle local de hidratação.
+      // Se já hidratamos este pedido NESTA montagem do componente, não repetimos.
+      if (hydratedEditOrderNumber === orderNumFromUrl) {
         return;
       }
-
+      
+      console.log("[EDIT FLOW] editParam detected:", editParam);
 
       if (hydrationLoading) return;
 
