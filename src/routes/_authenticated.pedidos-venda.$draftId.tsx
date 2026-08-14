@@ -133,7 +133,7 @@ function DraftDetailPage() {
   const canEdit = draft && (isOwner || isAdmin) && (
     draft.status === "draft" || 
     draft.status === "rejected" ||
-    (draft.status === "sent" && erpStatus && !erpStatus.deleted && erpStatus.canEdit)
+    (draft.status === "sent" && erpStatus && !erpStatus.deleted && erpStatus.exists && erpStatus.canEdit)
   );
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -239,14 +239,14 @@ function DraftDetailPage() {
               <div className="flex flex-col gap-1">
                 <CardTitle className="text-base">Dados do pedido</CardTitle>
                 {erpStatusDescription && (
-                  <div className={`flex items-center gap-1.5 text-xs font-bold uppercase ${erpStatus?.deleted ? "text-destructive" : "text-primary"}`}>
-                    ERP: {erpStatusDescription}
+                  <div className={`flex items-center gap-1.5 text-xs font-bold uppercase ${erpStatus?.deleted || !erpStatus?.exists ? "text-destructive" : "text-primary"}`}>
+                    ERP: {erpStatus?.exists === false ? "EXCLUÍDO (FÍSICO)" : erpStatusDescription}
                   </div>
                 )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {erpStatus?.deleted && (
+              {(erpStatus?.deleted || erpStatus?.exists === false) && (
                 <div className="mb-4 rounded-md bg-destructive/10 p-3 text-xs text-destructive border border-destructive/20 font-medium">
                   Este pedido não existe mais no ERP e foi mantido no aplicativo apenas para histórico.
                 </div>
