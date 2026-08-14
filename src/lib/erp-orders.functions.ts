@@ -129,9 +129,9 @@ export interface CreateOrderInput {
     fantasyName?: string | null;
   };
   sellerId: number;
-  saleTypeId: number;
-  paymentTermId: number;
-  paymentMethodId: number;
+  saleTypeId: number | null;
+  paymentTermId: number | null;
+  paymentMethodId: number | null;
   deliver: boolean;
   deliveryAt: string;
   returnEquipment: boolean;
