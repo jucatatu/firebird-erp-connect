@@ -356,6 +356,7 @@ function NewOrderPage() {
   const fetchOrderDetail = useServerFn(getErpOrderDetail);
   const fetchClientDetail = useServerFn(getErpClientDetail);
   
+  const [hydratedEditOrderNumber, setHydratedEditOrderNumber] = useState<number | null>(null);
   const [hydrationLoading, setHydrationLoading] = useState(false);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
 
@@ -416,20 +417,16 @@ function NewOrderPage() {
     const hydrate = async () => {
       if (!editParam) return;
       
-      console.log("[EDIT FLOW] editParam detected:", editParam);
-
-      // SPRINT 8.9.36.2: Prioridade máxima para o parâmetro da URL.
-      // Se estamos entrando na página com ?edit e o step ainda é 'client',
-      // ou se o número do pedido na store é diferente do da URL, precisamos hidratar/forçar.
       const orderNumFromUrl = Number(editParam);
       if (isNaN(orderNumFromUrl)) return;
 
-      if (isEditing && erpOrderNumber === orderNumFromUrl) {
-        // Pedido já está carregado e normalizado (ou em processo).
-        // Não forçamos o step continuamente para permitir navegação.
+      // SPRINT 8.9.39.3: Controle local de hidratação.
+      // Se já hidratamos este pedido NESTA montagem do componente, não repetimos.
+      if (hydratedEditOrderNumber === orderNumFromUrl) {
         return;
       }
-
+      
+      console.log("[EDIT FLOW] editParam detected:", editParam);
 
       if (hydrationLoading) return;
 
@@ -463,6 +460,7 @@ function NewOrderPage() {
           
           console.log("[EDIT FLOW] final state transition: step=items");
           setStepState("items");
+          setHydratedEditOrderNumber(orderNumFromUrl);
           toast.success(`Pedido ${orderNumFromUrl} carregado para edição.`);
         } else {
           const errMsg = result.error?.message || "Pedido não encontrado no ERP.";
@@ -479,7 +477,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
+  }, [editParam, hydratedEditOrderNumber, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
@@ -637,7 +635,7 @@ function NewOrderPage() {
 
   // SPRINT 8.9.39: Adicionar gate de normalização logística
   const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
-  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
+  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess || (Number(editParam) !== hydratedEditOrderNumber)));
 
 
 
@@ -1070,7 +1068,9 @@ function NewOrderPage() {
         <div className="text-center space-y-2">
           <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
           <p className="text-sm text-muted-foreground max-w-[280px]">
-            {isHydrating ? (hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : "Sincronizando equipamentos com o catálogo..."}
+            {isHydrating ? 
+              (hydrationLoading || Number(editParam) !== hydratedEditOrderNumber ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : 
+              "Sincronizando equipamentos com o catálogo..."}
           </p>
         </div>
       </div>
@@ -1338,7 +1338,7 @@ function NewOrderPage() {
                 {clientName}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Empresa: {companyId === 3 ? "GROTT" : "GRAAL"}
+                Empresa: {companyId === 1 ? "GRAAL" : companyId === 3 ? "GROTT" : "Carregando..."}
               </p>
             </div>
             

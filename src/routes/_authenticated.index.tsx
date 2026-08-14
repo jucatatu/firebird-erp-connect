@@ -3,51 +3,29 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 /*
-SPRINT 8.9.38 — LOGÍSTICA DE ENTREGA, ENDEREÇO READ ONLY E CORREÇÃO DO SALVAMENTO
+SPRINT 8.9.39.3 — CORRIGIR TELA VAZIA DO EDIT SEM REINTRODUZIR O LOOP DE NAVEGAÇÃO
 
-Relatório Final:
+CAUSA
+- step local iniciava como "client" na montagem.
+- Zustand persistia isEditing e erpOrderNumber.
+- O effect de hidratação via que o orderNumber no Zustand era o mesmo da URL e retornava cedo.
+- setStepState("items") nunca era chamado.
+- identityLocked impedia ver a etapa "client".
+- Resultado: Tela branca/vazia no edit após refresh.
 
-SALVAMENTO
-- Causa exata do pedido não salvar: O payload estrito do ERP Node estava recebendo campos de UI (deliveryAddress, deliveryAddressConfirmed, deliveryAddressSource) que disparavam erro 400 no Zod do backend.
-- POST ERP executado: SIM
-- HTTP: 201 (Simulado no ERP Node)
-- ERP orderNumber: Sincronizado
-- Campos operacionais vazavam no ERP payload: SIM (Corrigido)
-- ERP payload separado do snapshot: PASS
-- Pedido criado no ERP: PASS
-- Snapshot Supabase salvo: PASS
+CORREÇÃO
+- hydratedEditOrderNumber (local useState) agora rastreia hidratação por montagem.
+- O effect ignora o estado persistido do Zustand e força um GET ERP autoritativo uma vez por abertura de rota.
+- setStepState("items") é disparado atomicamente após o sucesso do GET.
+- step foi removido das dependências para evitar loop de navegação (Items -> Delivery -> Items).
+- isHydrating gate agora aguarda a sincronização local.
 
-LOGÍSTICA
-- Etapa começa por ENTREGA / RETIRADA: PASS
-- Foco automático no endereço removido: PASS
+HEADER
+- Corrigido fallback enganoso que mostrava "GRAAL" quando companyId era nulo.
 
-RETIRADA
-- Endereço oculto: PASS
-- Google não inicializado: PASS
-- Mapa não inicializado: PASS
-- Avança normalmente: PASS
-- Pedido salva: PASS
-
-ENDEREÇO CADASTRAL
-- Carregado automaticamente: PASS
-- deliveryAddressSource = client: PASS
-- Read only: PASS
-- Sem confirmação adicional: PASS
-- Sem geocodificação obrigatória: PASS
-- Próximo habilitado: PASS
-
-ENDEREÇO CUSTOM
-- Alterar Endereço: PASS
-- deliveryAddressSource = custom: PASS
-- Autocomplete Google: PASS
-- Confirmação obrigatória: PASS
-
-EDIÇÃO
-- Endereço histórico preservado: PASS
-- Edição salva: PASS
-
-NODE ALTERADO: NÃO
-- O problema foi resolvido via separação de contratos (ERP Payload vs Supabase Snapshot) no frontend/functions.
+LOGÍSTICA / EQUIPAMENTOS
+- Normalização 8.9.39.1 de equipamentos mantida intacta.
+- Recalculo de cobertura preservado.
 */
 
 export const Route = createFileRoute("/_authenticated/")({
