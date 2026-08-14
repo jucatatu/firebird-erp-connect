@@ -544,12 +544,19 @@ export const searchErpProducts = createServerFn({ method: "POST" })
     if (q !== "" && (q.length < 3 || q.length > 60)) {
       throw new Error(`Busca "${q}" inválida. Informe de 3 a 60 caracteres.`);
     }
-    if (input.companyId !== undefined && input.companyId !== 1 && input.companyId !== 3) {
-      throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
+    // Normaliza empresa: aceita number/string; valores ausentes/inválidos viram undefined.
+    const rawCompany = input?.companyId as unknown;
+    let companyId: 1 | 3 | undefined;
+    if (rawCompany !== undefined && rawCompany !== null && rawCompany !== "") {
+      const n = Number(rawCompany);
+      if (n !== 1 && n !== 3) {
+        throw new Error("Empresa permitida: 1 (Graal) ou 3 (Grott).");
+      }
+      companyId = n as 1 | 3;
     }
     const limit = Number.isFinite(input.limit) ? Math.min(Math.max(Number(input.limit), 1), 200) : 50;
     const cursor = typeof input.cursor === "string" && input.cursor.trim() !== "" ? input.cursor.trim() : undefined;
-    return { q, companyId: input.companyId, active: input.active, limit, cursor, isAdminSearch: !!input.isAdminSearch };
+    return { q, companyId, active: input.active, limit, cursor, isAdminSearch: !!input.isAdminSearch };
   })
   .handler(async ({ data }) => {
     const { callErp } = await import("./erp.server");
