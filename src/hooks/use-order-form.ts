@@ -347,6 +347,15 @@ export const useOrderFormStore = create<OrderFormStore>()(
       },
       editErpOrder: (order: any, clientName: string) => {
         // Sprint 8.9.36.3: Hidratação atômica e isolada
+        // Sprint 8.9.39: Auditoria de equipamentos crus
+        console.log("[EDIT EQUIPMENT] ERP raw equipments:", JSON.stringify(order.equipments || []));
+        console.log("[EDIT EQUIPMENT] items:", JSON.stringify((order.items || []).map((i: any) => ({
+          productId: i.productId,
+          description: i.description,
+          quantity: i.quantity,
+          logisticsType: i.logisticsType // Se disponível no ERP
+        }))));
+
         set({
           clientId: order.clientId,
           clientName: clientName,
@@ -371,7 +380,11 @@ export const useOrderFormStore = create<OrderFormStore>()(
             equipmentTypeId: e.equipmentTypeId,
             description: e.description || `Equip. ${e.equipmentTypeId}`,
             quantity: e.quantity,
-            assignedProductId: e.assignedProductId || null
+            assignedProductId: e.assignedProductId || null,
+            // Sprint 8.9.39: Garantir que metadados fiquem undefined para disparar normalização no Wizard
+            role: undefined,
+            capacityLiters: undefined,
+            tapLines: undefined
           })),
           deliver: order.deliver ?? true,
           deliveryAt: order.deliveryAt,

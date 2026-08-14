@@ -368,7 +368,12 @@ function NewOrderPage() {
   };
 
   // SPRINT 8.9.36.1: Ignora guard se houver editParam para permitir hidratação direta no step correto
+  // SPRINT 8.9.39: Adicionar gate de normalização logística
+  const needsLogisticsNormalization = isEditing && equipments.some(eq => eq.role === undefined);
+  const isHydrating = hydrationLoading || (isEditing && (needsLogisticsNormalization || !equipmentTypesQ.isSuccess));
+
   const { edit: editParam } = Route.useSearch();
+
   const setStep = (newStep: typeof step) => {
     if (identityLocked && newStep === "client" && !editParam) {
       console.log("[WIZARD] Bloqueando navegação para 'client' porque a identidade está travada.");
@@ -697,7 +702,66 @@ function NewOrderPage() {
     }
   }, [items, equipments, choppItems]);
 
-  // SPRINT 8.9.36.6: Normalização automática e cálculo de cobertura reativo
+  // SPRINT 8.9.39: Normalização especializada para o modo EDIÇÃO
+  useEffect(() => {
+    if (!isEditing || hydrationLoading) return;
+    
+    const catalogReady = equipmentTypesQ.data?.ok && Array.isArray(equipmentTypesQ.data.data);
+    if (!catalogReady) {
+      console.log("[EDIT EQUIPMENT] Catalog not ready yet...");
+      return;
+    }
+
+    const currentEquips = equipments;
+    const catalog = (equipmentTypesQ.data as any).data;
+    
+    // Identifica se algum equipamento precisa de normalização
+    const needsNormalization = currentEquips.some(eq => 
+      eq.role === undefined || 
+      eq.capacityLiters === undefined || 
+      eq.tapLines === undefined ||
+      // Prioridade 2: Se tem um único chopp e o barril está sem assignedProductId
+      (choppItems.length === 1 && eq.assignedProductId === null && catalog.find((t: any) => t.id === eq.equipmentTypeId)?.category === 'KEG')
+    );
+
+    if (!needsNormalization) return;
+
+    console.log("[EDIT EQUIPMENT] Normalizing equipments...");
+    console.log("[EDIT EQUIPMENT] Catalog ready:", catalogReady);
+    
+    const normalized = currentEquips.map(eq => {
+      const type = catalog.find((t: any) => t.id === eq.equipmentTypeId);
+      if (!type) return eq;
+
+      const role = type.category === 'KEG' ? 'KEG' : (type.category === 'TAP' ? 'TAP' : 'OTHER');
+      const capacityLiters = type.capacity_liters || (role === 'KEG' ? Number(type.description?.match(/(\d+)\s*l/i)?.[1]) : undefined);
+      const tapLines = type.taps_count || (role === 'TAP' ? Number(type.description?.match(/(\d+)\s*vias/i)?.[1] || (type.description?.toLowerCase().includes("via") ? 1 : undefined)) : undefined);
+      
+      let assignedProductId = eq.assignedProductId;
+      
+      // PRIORIDADE 2: Único chopp no pedido
+      if (role === 'KEG' && !assignedProductId && choppItems.length === 1) {
+        assignedProductId = choppItems[0].productId;
+        console.log(`[EDIT EQUIPMENT] Auto-assigning KEG ${eq.description} to only chopp product: ${choppItems[0].productId}`);
+      }
+
+      return {
+        ...eq,
+        role: role as any,
+        capacityLiters,
+        tapLines,
+        assignedProductId
+      };
+    });
+
+    // Comparação profunda simples para evitar loops
+    const hasChanged = JSON.stringify(normalized) !== JSON.stringify(currentEquips);
+    if (hasChanged) {
+      console.log("[EDIT EQUIPMENT] Normalized equipments:", JSON.stringify(normalized));
+      useOrderFormStore.setState({ equipments: normalized });
+    }
+  }, [isEditing, hydrationLoading, equipmentTypesQ.data, equipments, choppItems]);
+
   useEffect(() => {
     // Requisitos mínimos para normalização
     const allEquipTypes = (equipmentTypesQ.data as any)?.data?.equipmentTypes || [];
