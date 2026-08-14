@@ -260,19 +260,22 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
 
         if (precision === "APPROXIMATE" || precision === "GEOMETRIC_CENTER") {
           toast.warning("Localização aproximada. Confira o ponto no mapa.");
-        } else {
+        } else if (showSuccessToast) {
           toast.success("Endereço validado com sucesso!");
         }
         
-        setDeliveryAddressConfirmed(true);
+        // A geocodificação automática NÃO confirma o endereço, apenas atualiza coordenadas
+        if (showSuccessToast) {
+          setDeliveryAddressConfirmed(true);
+        }
       } else {
-        toast.error("Não foi possível validar as coordenadas exatas. Tente ajustar no mapa.");
-        if (deliveryAddress.street) {
+        if (showSuccessToast) toast.error("Não foi possível validar as coordenadas exatas. Tente ajustar no mapa.");
+        if (deliveryAddress.street && showSuccessToast) {
            setDeliveryAddressConfirmed(true);
         }
       }
     } catch (err) {
-      toast.error("Erro ao validar endereço.");
+      if (showSuccessToast) toast.error("Erro ao validar endereço.");
     } finally {
       setIsGeocoding(false);
     }
