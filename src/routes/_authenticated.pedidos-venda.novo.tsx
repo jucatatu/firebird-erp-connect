@@ -1850,7 +1850,6 @@ function NewOrderPage() {
                 <Button 
                   className="flex-[2] h-12 font-bold"
                   onClick={() => setStep("payment")}
-                  disabled={deliver && !deliveryAddressConfirmed}
                 >
                   Próximo Passo
                 </Button>
