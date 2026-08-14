@@ -427,7 +427,7 @@ export function DeliveryAddressSection({ clientAddress }: { clientAddress: any }
                   ? "bg-green-600 text-white hover:bg-green-700" 
                   : "bg-primary text-primary-foreground hover:shadow-lg"
               )}
-              onClick={validateAndConfirm}
+              onClick={() => validateAndConfirm(true)}
               disabled={isGeocoding}
             >
               {isGeocoding ? (
