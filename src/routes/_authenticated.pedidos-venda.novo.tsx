@@ -460,6 +460,7 @@ function NewOrderPage() {
           
           console.log("[EDIT FLOW] final state transition: step=items");
           setStepState("items");
+          setHydratedEditOrderNumber(orderNumFromUrl);
           toast.success(`Pedido ${orderNumFromUrl} carregado para edição.`);
         } else {
           const errMsg = result.error?.message || "Pedido não encontrado no ERP.";
