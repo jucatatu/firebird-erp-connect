@@ -5,8 +5,8 @@ export const Route = createFileRoute("/")({
     throw redirect({ to: "/pedidos-venda" });
   },
   component: () => (
-    <div>
-      Execute esta instrucao no projeto: # SPRINT 8.9.39.3 — CORRIGIR TELA VAZIA DO EDIT SEM REINTRODUZIR O LOOP DE NAVEGAÇÃO
+    <div style={{ padding: '20px', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+      {`Execute esta instrucao no projeto: # SPRINT 8.9.39.3 — CORRIGIR TELA VAZIA DO EDIT SEM REINTRODUZIR O LOOP DE NAVEGAÇÃO
 
 O source atual foi auditado após a Sprint 8.9.39.2.
 
@@ -49,7 +49,7 @@ O Wizard possui:
 
 const [step, setStepState] = useState("client");
 
-Portanto `step` é estado LOCAL e volta para:
+Portanto step é estado LOCAL e volta para:
 
 "client"
 
@@ -149,7 +149,7 @@ O GET ERP é a fonte autoritativa para abrir uma edição.
 4. CRIAR CONTROLE LOCAL DE HIDRATAÇÃO DA ROTA
 ==================================================
 
-Criar um controle LOCAL, não persistido, para saber qual `editParam`
+Criar um controle LOCAL, não persistido, para saber qual editParam
 foi hidratado nesta montagem do componente.
 
 Exemplo conceitual:
@@ -236,7 +236,7 @@ O Wizard passa a ser dono da navegação.
 
 Preservar a correção da Sprint 8.9.39.2:
 
-`step` NÃO deve voltar para as dependências do hydration effect.
+step NÃO deve voltar para as dependências do hydration effect.
 
 Mudança de etapa não é motivo para buscar novamente o pedido.
 
@@ -370,7 +370,7 @@ step === "items" && clientId && companyId
 
 Manter essa proteção.
 
-NÃO remover `companyId` apenas para fazer conteúdo aparecer.
+NÃO remover companyId apenas para fazer conteúdo aparecer.
 
 A correção correta é garantir que a hidratação traga:
 
@@ -525,10 +525,8 @@ confirmar que a Sprint 8.9.39.1 continua funcionando.
 
 BARRIL associado:
 PASS
-
 Cobertura:
 PASS
-
 Alterar quantidade:
 PASS
 
@@ -659,7 +657,7 @@ PASS
 
 
 NODE ALTERADO:
-NÃO
+NÃO`}
     </div>
   ),
 });
