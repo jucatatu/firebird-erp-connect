@@ -1068,7 +1068,9 @@ function NewOrderPage() {
         <div className="text-center space-y-2">
           <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
           <p className="text-sm text-muted-foreground max-w-[280px]">
-            {isHydrating ? (hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : "Sincronizando equipamentos com o catálogo..."}
+            {isHydrating ? 
+              (hydrationLoading || Number(editParam) !== hydratedEditOrderNumber ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística...") : 
+              "Sincronizando equipamentos com o catálogo..."}
           </p>
         </div>
       </div>
