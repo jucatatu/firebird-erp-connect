@@ -35,7 +35,7 @@ import { StatusBadge, STATUS_DESCRIPTION } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { OrderTimeline } from "@/components/order-timeline";
 import { toast } from "sonner";
-import { canEditErpOrder, getErpOrdersStatus, getErpOrderDetail } from "@/lib/erp-orders.functions";
+import { canEditErpOrder, getErpOrdersStatus, getErpOrderDetail, type ErpOrderStatus } from "@/lib/erp-orders.functions";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { useErpOrderDetail } from "@/hooks/use-erp";
 
@@ -95,7 +95,7 @@ function DraftDetailPage() {
     setNotes(typeof n === "string" ? n : "");
   }, [draftQ.data]);
 
-  const [erpStatus, setErpStatus] = useState<{ id: number; description: string | null } | null>(null);
+  const [erpStatus, setErpStatus] = useState<ErpOrderStatus | null>(null);
   const getStatusFn = useServerFn(getErpOrdersStatus);
   const navigate = useNavigate();
   const editErpOrder = useOrderFormStore((s) => s.editErpOrder);
@@ -109,10 +109,7 @@ function DraftDetailPage() {
           const res = await getStatusFn({ data: [Number(orderNum)] });
           console.log("[ORDER DETAIL STATUS] RESPONSE:", res);
           if (res.ok && res.data && res.data.length > 0) {
-            setErpStatus({ 
-              id: res.data[0].statusId, 
-              description: res.data[0].statusDescription 
-            });
+            setErpStatus(res.data[0]);
           }
         } catch (err) {
           console.error("[ORDER DETAIL STATUS] FETCH ERROR:", err);
@@ -123,11 +120,11 @@ function DraftDetailPage() {
   }, [draftQ.data?.erp_order_number, getStatusFn]);
 
   const draft = draftQ.data;
-  const erpStatusId = erpStatus?.id ?? (draft?.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
+  const erpStatusId = erpStatus?.statusId ?? (draft?.payload && typeof draft.payload === 'object' && 'statusId' in (draft.payload as any) 
     ? (draft.payload as any).statusId 
     : null);
 
-  const erpStatusDescription = erpStatus?.description || (draft?.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
+  const erpStatusDescription = erpStatus?.statusDescription || (draft?.payload && typeof draft.payload === 'object' && 'statusDescription' in (draft.payload as any) ? (draft.payload as any).statusDescription : null);
 
   const isOwner = draft?.created_by === user?.id;
   
@@ -136,7 +133,7 @@ function DraftDetailPage() {
   const canEdit = draft && (isOwner || isAdmin) && (
     draft.status === "draft" || 
     draft.status === "rejected" ||
-    (draft.status === "sent" && canEditErpOrder(erpStatusId))
+    (draft.status === "sent" && erpStatus && !erpStatus.deleted && erpStatus.exists && erpStatus.canEdit)
   );
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -237,18 +234,23 @@ function DraftDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <Card>
+          <Card className={erpStatus?.deleted ? "border-destructive/40 bg-destructive/5" : ""}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="flex flex-col gap-1">
                 <CardTitle className="text-base">Dados do pedido</CardTitle>
                 {erpStatusDescription && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase">
-                    ERP: {erpStatusDescription}
+                  <div className={`flex items-center gap-1.5 text-xs font-bold uppercase ${erpStatus?.deleted || !erpStatus?.exists ? "text-destructive" : "text-primary"}`}>
+                    ERP: {erpStatus?.exists === false ? "EXCLUÍDO (FÍSICO)" : erpStatusDescription}
                   </div>
                 )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {(erpStatus?.deleted || erpStatus?.exists === false) && (
+                <div className="mb-4 rounded-md bg-destructive/10 p-3 text-xs text-destructive border border-destructive/20 font-medium">
+                  Este pedido não existe mais no ERP e foi mantido no aplicativo apenas para histórico.
+                </div>
+              )}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground uppercase">Título</span>

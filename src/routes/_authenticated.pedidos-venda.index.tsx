@@ -78,24 +78,24 @@ function OrdersListPage() {
 
   const rows = useMemo(() => data ?? [], [data]);
 
-  const erpOrderIds = useMemo(() => 
-    rows.map(r => r.erp_order_id).filter((id): id is number => id !== null),
+  const erpOrderNumbers = useMemo(() => 
+    rows.map(r => r.erp_order_number).filter((num): num is number => num !== null),
   [rows]);
 
   const erpStatusQ = useQuery({
-    queryKey: ["erp-orders-status", erpOrderIds],
+    queryKey: ["erp-orders-status", erpOrderNumbers],
     queryFn: async () => {
-      const resp = await getErpOrdersStatus({ data: erpOrderIds });
+      const resp = await getErpOrdersStatus({ data: erpOrderNumbers });
       if (!resp.ok) throw new Error(resp.error?.message || "Erro ao buscar status ERP");
       return resp.data || [];
     },
-    enabled: erpOrderIds.length > 0,
+    enabled: erpOrderNumbers.length > 0,
     refetchInterval: 30000, // Refresh status every 30s
   });
 
   const statusMap = useMemo(() => {
     const map = new Map<number, ErpOrderStatus>();
-    (erpStatusQ.data || []).forEach((s: ErpOrderStatus) => map.set(s.orderId, s));
+    (erpStatusQ.data || []).forEach((s: ErpOrderStatus) => map.set(s.orderNumber, s));
     return map;
   }, [erpStatusQ.data]);
 
@@ -211,9 +211,24 @@ function OrdersListPage() {
                           {d.erp_order_number && (
                             <div className="flex flex-col gap-0.5">
                               <span className="text-[10px] font-bold text-muted-foreground/70 uppercase">ERP {d.erp_order_number}</span>
-                              {d.erp_order_id && statusMap.has(d.erp_order_id) && (
+                              {erpStatusQ.isError ? (
+                                <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
+                                  ERP: INDISPONÍVEL
+                                </Badge>
+                              ) : statusMap.has(d.erp_order_number!) ? (
+                                <Badge 
+                                  variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
+                                  className={`text-[9px] h-3.5 px-1 py-0 uppercase font-bold w-fit ${
+                                    !(statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists) 
+                                      ? "border-primary/20 bg-primary/5 text-primary" 
+                                      : "bg-destructive/10 text-destructive border-destructive/20"
+                                  }`}
+                                >
+                                  ERP: {statusMap.get(d.erp_order_number!)?.exists === false ? "EXCLUÍDO" : (statusMap.get(d.erp_order_number!)?.statusDescription || "...")}
+                                </Badge>
+                              ) : (
                                 <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
-                                  ERP: {statusMap.get(d.erp_order_id)?.statusDescription || "CARREGANDO..."}
+                                  ERP: CARREGANDO...
                                 </Badge>
                               )}
                             </div>
@@ -272,9 +287,24 @@ function OrdersListPage() {
                     <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground font-medium uppercase">
                       <div className="flex flex-col gap-1">
                         <span className="font-bold">{d.erp_order_number ? `ERP ${d.erp_order_number}` : 'Rascunho'}</span>
-                        {d.erp_order_id && statusMap.has(d.erp_order_id) && (
+                        {erpStatusQ.isError ? (
+                          <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0 border-muted text-muted-foreground uppercase font-bold w-fit">
+                            ERP: INDISPONÍVEL
+                          </Badge>
+                        ) : statusMap.has(d.erp_order_number!) ? (
+                          <Badge 
+                            variant={statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists ? "destructive" : "outline"}
+                            className={`text-[8px] h-3.5 px-1 py-0 uppercase font-bold w-fit ${
+                              !(statusMap.get(d.erp_order_number!)?.deleted || !statusMap.get(d.erp_order_number!)?.exists) 
+                                ? "border-primary/20 bg-primary/5 text-primary" 
+                                : "bg-destructive/10 text-destructive border-destructive/20"
+                            }`}
+                          >
+                            ERP: {statusMap.get(d.erp_order_number!)?.exists === false ? "EXCLUÍDO" : (statusMap.get(d.erp_order_number!)?.statusDescription || "...")}
+                          </Badge>
+                        ) : (
                           <Badge variant="outline" className="text-[8px] h-3.5 px-1 py-0 border-primary/20 bg-primary/5 text-primary uppercase font-bold w-fit">
-                            ERP: {statusMap.get(d.erp_order_id)?.statusDescription || "..."}
+                            ERP: ...
                           </Badge>
                         )}
                       </div>
