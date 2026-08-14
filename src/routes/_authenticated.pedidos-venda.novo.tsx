@@ -962,24 +962,16 @@ function NewOrderPage() {
     if (targetStep === "client") return true;
     if (targetStep === "items") return !!clientId;
     if (targetStep === "delivery") return !!clientId && items.length > 0 && isCoverageValid();
-    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true);
-    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && (deliver ? (!!deliveryAt && deliveryAddressConfirmed) : true) && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+    if (targetStep === "payment") return !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid();
+    if (targetStep === "review") return !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid() && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
     return false;
-
   };
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
       const nextStep = stepsOrder[currentStepIndex + 1];
-      if (nextStep && canNavigateTo(nextStep)) {
-        setStep(nextStep);
-      } else if (nextStep) {
-        if (nextStep === "delivery" && !isCoverageValid()) toast.error("Complete os itens e equipamentos antes de acessar Entrega");
-        else if (nextStep === "payment" && deliver && (!deliveryAt || !deliveryAddressConfirmed)) {
-          if (!deliveryAt) toast.error("Selecione a data de entrega");
-          else toast.error("Confirme o endereço de entrega antes de continuar.");
-        }
-        else if (nextStep === "review") toast.error("Selecione as opções de pagamento");
+      if (nextStep) {
+        setStep(nextStep); // setStep já contém a validação isLogisticsValid para 'payment'
       }
     },
     onSwipedRight: () => {
