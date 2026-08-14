@@ -351,6 +351,20 @@ function NewOrderPage() {
     repeatOrder, newOrderFromClient, editErpOrder
   } = useOrderFormStore();
 
+  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
+  const fetchPrice = useServerFn(resolveErpPrice);
+  const fetchOrderDetail = useServerFn(getErpOrderDetail);
+  const fetchClientDetail = useServerFn(getErpClientDetail);
+  
+  const [hydrationLoading, setHydrationLoading] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
+  const equipmentTypesQ = useErpEquipmentTypes({
+    q: "",
+    companyId: companyId as 1 | 3,
+    active: true,
+  });
+
   const isLogisticsValid = () => {
     if (deliver === null || deliver === undefined) return false;
     if (!deliveryAt) return false;
@@ -368,7 +382,6 @@ function NewOrderPage() {
   };
 
   const { edit: editParam } = Route.useSearch();
-
 
   const setStep = (newStep: typeof step) => {
     if (identityLocked && newStep === "client" && !editParam) {
@@ -397,14 +410,6 @@ function NewOrderPage() {
   };
   const [isResolvingRepeat, setIsResolvingRepeat] = useState(false);
 
-  const fetchPaymentOptions = useServerFn(getErpPaymentOptions);
-  const fetchPrice = useServerFn(resolveErpPrice);
-  const fetchOrderDetail = useServerFn(getErpOrderDetail);
-  const fetchClientDetail = useServerFn(getErpClientDetail);
-  
-  const [hydrationLoading, setHydrationLoading] = useState(false);
-  const [hydrationError, setHydrationError] = useState<string | null>(null);
-
   useEffect(() => {
     const hydrate = async () => {
       if (!editParam) return;
@@ -425,6 +430,7 @@ function NewOrderPage() {
         }
         return;
       }
+
 
       if (hydrationLoading) return;
 
