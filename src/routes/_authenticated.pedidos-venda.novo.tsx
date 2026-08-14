@@ -1387,8 +1387,8 @@ function NewOrderPage() {
                 // Regras de Navegação Sprint 8.9.23
                 if (s.id === "items") return !!companyId && !!clientId;
                 if (s.id === "delivery") return !!companyId && !!clientId && items.length > 0 && isCoverageValid();
-                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt;
-                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && !!deliveryAt && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
+                if (s.id === "payment") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid();
+                if (s.id === "review") return !!companyId && !!clientId && items.length > 0 && isCoverageValid() && isLogisticsValid() && !!paymentTermId && !!paymentMethodId && !!saleTypeId;
                 
                 return false;
               };
