@@ -1055,16 +1055,23 @@ function NewOrderPage() {
 
   // 2. RETURNS CONDICIONAIS (Gate de Hidratação Sprint 8.9.36.3/4)
   
-  if (editParam && (hydrationLoading || (erpOrderNumber !== Number(editParam)))) {
+  if (isHydrating) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground">
-          Carregando pedido ERP {editParam}...
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 p-8 animate-in fade-in duration-500">
+        <div className="relative">
+          <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+          <Loader2 className="h-12 w-12 animate-spin text-primary absolute inset-0" style={{ animationDirection: 'reverse', animationDuration: '2s' }} />
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-lg font-bold tracking-tight">Preparando Pedido ERP</h2>
+          <p className="text-sm text-muted-foreground max-w-[280px]">
+            {hydrationLoading ? `Buscando dados no Firebird (${editParam})...` : "Normalizando logística e equipamentos..."}
+          </p>
+        </div>
       </div>
     );
   }
+
 
   if (editParam && hydrationError) {
     return (
