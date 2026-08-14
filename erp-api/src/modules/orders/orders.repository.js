@@ -108,6 +108,25 @@ async function fetchOrderById(tx, orderId) {
 async function findStatusByNumbers(orderNumbers) {
   if (!orderNumbers || orderNumbers.length === 0) return [];
   const placeholders = orderNumbers.map(() => "?").join(", ");
+  // Sprint 8.9.40: Consultar DELETED sem filtrar por ele
+  const sql = `
+    SELECT 
+      ov.ID_ORDENS_VENDA, 
+      ov.N_PEDIDO,
+      ov.ID_STATUS, 
+      ov.DELETED,
+      s.DESCRICAO AS STATUS_DESCRICAO
+    FROM ORDENS_VENDA ov
+    LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
+    WHERE ov.N_PEDIDO IN (${placeholders})
+  `;
+  return firebird.executeQuery(sql, orderNumbers);
+}
+
+// LEGACY — remover após migração completa do frontend
+async function findStatusByIds(orderIds) {
+  if (!orderIds || orderIds.length === 0) return [];
+  const placeholders = orderIds.map(() => "?").join(", ");
   const sql = `
     SELECT 
       ov.ID_ORDENS_VENDA, 
@@ -116,9 +135,9 @@ async function findStatusByNumbers(orderNumbers) {
       s.DESCRICAO AS STATUS_DESCRICAO
     FROM ORDENS_VENDA ov
     LEFT JOIN STATUS s ON ov.ID_STATUS = s.ID_STATUS
-    WHERE ov.N_PEDIDO IN (${placeholders})
+    WHERE ov.ID_ORDENS_VENDA IN (${placeholders})
   `;
-  return firebird.executeQuery(sql, orderNumbers);
+  return firebird.executeQuery(sql, orderIds);
 }
 
 /**
@@ -202,6 +221,7 @@ module.exports = {
   fetchOrderById,
   fetchOrderByNumber,
   findStatusByNumbers,
+  findStatusByIds,
   fetchClientCompanyContext,
   fetchItemsByOrderId,
   fetchEquipmentsByOrderId,
