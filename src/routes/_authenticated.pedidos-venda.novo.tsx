@@ -479,7 +479,7 @@ function NewOrderPage() {
       }
     };
     hydrate();
-  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder, step]); // step adicionado para garantir correção se algo o resetar
+  }, [editParam, isEditing, erpOrderNumber, fetchOrderDetail, editErpOrder]); // Removido step das dependências para não travar navegação
 
   const [localPaymentOptions, setLocalPaymentOptions] = useState<{
 
