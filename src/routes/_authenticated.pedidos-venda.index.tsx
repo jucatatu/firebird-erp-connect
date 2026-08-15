@@ -248,7 +248,7 @@ function OrdersListPage() {
                       <td className="px-4 py-3 align-top max-w-[250px]">
                         <div className="space-y-2">
                           <div className="flex flex-col gap-0.5 text-[10px]">
-                            <span className="font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
+                            <span className="font-bold text-muted-foreground/70 uppercase tracking-widest mb-0.5">Produtos</span>
                             {getItemList(d.payload, 2).map((item, idx) => (
                               <div key={idx} className={`${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
                                 {item.text}
@@ -256,7 +256,7 @@ function OrdersListPage() {
                             ))}
                           </div>
                           <div className="flex flex-col gap-0.5 text-[10px]">
-                            <span className="font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
+                            <span className="font-bold text-muted-foreground/70 uppercase tracking-widest mb-0.5">Equipamentos</span>
                             {getEquipmentList(d.payload, 2).map((item, idx) => (
                               <div key={idx} className={`${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
                                 {item.text}
@@ -312,7 +312,7 @@ function OrdersListPage() {
                       {d.erp_order_number && (
                         <span className="text-xs font-bold text-foreground">ERP {d.erp_order_number}</span>
                       )}
-                      <OrderIdentifier id={d.id} className="text-[10px] opacity-40 font-mono" />
+                      <OrderIdentifier id={d.id} className="text-[10px] opacity-60 font-mono" />
                     </div>
 
                     {/* 3. Status ERP + Sincronização */}
@@ -353,7 +353,7 @@ function OrdersListPage() {
                     <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-2 mb-2">
                       {/* Bloco Produtos */}
                       <div className="rounded-lg border border-muted/30 bg-muted/5 p-1.5 flex flex-col gap-0.5">
-                        <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
+                        <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-0.5">Produtos</span>
                         {productList.length > 0 ? (
                           productList.map((item, idx) => (
                             <div key={idx} className={`text-[11px] leading-tight break-words ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
