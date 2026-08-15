@@ -56,10 +56,10 @@ function buildCreateClientProcedureParams(data) {
 function buildCreateContactParams(personId, data) {
   return [
     personId,
-    data.phone || null,
-    data.mobile,
-    data.email || null,
-    null // OUTRO
+    data.phone?.trim() || "",
+    data.mobile?.trim() || "",
+    data.email?.trim() || "",
+    ""
   ];
 }
 
