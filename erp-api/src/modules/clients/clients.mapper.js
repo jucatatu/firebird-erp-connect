@@ -77,10 +77,11 @@ function mapStatusFlags(row, schema) {
   const blocked = (blockedVal === null || blockedVal === undefined) && (blockedFinVal === null || blockedFinVal === undefined)
     ? null
     : (!!blockedVal || !!blockedFinVal);
-  if (blockedVal === undefined && blockedFinVal === undefined) {
-    // Para schema minimal do teste HTTP
+  if (blockedVal === undefined && blockedFinVal === undefined && row.ID_GRUPO_CLIENTE === undefined) {
+    // Para schema minimal dos testes unitários/HTTP
     return { active, blocked: null, blockType: null, blockReason: null };
   }
+
 
 
   const blockType = blockedFinVal ? "financial" : (blockedVal ? "commercial" : null);
@@ -103,7 +104,7 @@ function mapClientListItem(row, schema, contact = {}) {
     companyId: row.CLIENTE_ID_EMPRESA || 1,
     companyName: row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal",
     groupId: row.ID_GRUPO_CLIENTE === undefined ? null : row.ID_GRUPO_CLIENTE,
-    groupDescription: row.GRUPO_CLIENTE_DESCRICAO,
+    groupDescription: row.GRUPO_CLIENTE_DESCRICAO === undefined ? null : row.GRUPO_CLIENTE_DESCRICAO,
     city: row.CIDADE,
     ...flags,
   };
