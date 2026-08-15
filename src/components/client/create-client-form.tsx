@@ -21,13 +21,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, UserPlus, Building2, User, MapPin, Search, CheckCircle2, Phone, MessageSquare, Mail, CreditCard, Landmark, Briefcase, Info } from "lucide-react";
+import { Loader2, UserPlus, Building2, User, MapPin, Search, CheckCircle2, Phone, MessageSquare, Mail, CreditCard, Landmark, Briefcase, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs as TabsUI, TabsList as TabsListUI, TabsTrigger as TabsTriggerUI } from "@/components/ui/tabs";
 import { loadGoogleMapsLibraries } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
+import { isWithinCustomerServiceArea, CUSTOMER_SERVICE_AREA_CENTER, CUSTOMER_SERVICE_RADIUS_METERS } from "@/utils/geo-utils";
 
 const clientFormSchema = z.object({
+
   companyId: z.number(),
   personType: z.enum(["PF", "PJ"]),
   name: z.string().min(3, "Nome muito curto").max(100, "Nome muito longo"),
@@ -73,7 +75,10 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [sessionToken, setSessionToken] = useState<any>(null);
   const [addressQuery, setAddressQuery] = useState("");
+  const [addressValidationStatus, setAddressValidationStatus] = useState<"none" | "valid" | "outside" | "dirty" | "error" | "validating">("none");
+  const [validatedCoords, setValidatedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
@@ -143,11 +148,12 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
         const request = {
           input: addressQuery,
           includedRegionCodes: ["br"],
-          locationBias: {
-            center: { lat: -26.48, lng: -49.07 },
-            radius: 50000 // 50km de Jaraguá do Sul
+          locationRestriction: {
+            center: { lat: CUSTOMER_SERVICE_AREA_CENTER.lat, lng: CUSTOMER_SERVICE_AREA_CENTER.lng },
+            radius: CUSTOMER_SERVICE_RADIUS_METERS
           },
           sessionToken
+
         };
 
         const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
@@ -205,7 +211,22 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
       form.setValue("address.state", state.slice(0, 2).toUpperCase());
       form.setValue("address.zip", zip.replace(/\D/g, ""));
 
+      // Validar área (Sprint 8.9.42.2)
+      if (place.location) {
+        const lat = place.location.lat();
+        const lng = place.location.lng();
+        if (isWithinCustomerServiceArea(lat, lng)) {
+          setAddressValidationStatus("valid");
+          setValidatedCoords({ lat, lng });
+        } else {
+          setAddressValidationStatus("outside");
+          setValidatedCoords(null);
+          toast.error("Endereço fora da área de atendimento (50 km).");
+        }
+      }
+
       setAddressQuery(street);
+
       
       const { AutocompleteSessionToken } = (window as any).google.maps.places;
       if (AutocompleteSessionToken) setSessionToken(new AutocompleteSessionToken());
@@ -220,12 +241,61 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
   };
 
   const onSubmit = async (values: ClientFormValues) => {
+    // 1. Validar se o endereço está validado e dentro da área
+    let currentStatus = addressValidationStatus;
+    let coords = validatedCoords;
+
+    if (currentStatus === "dirty" || currentStatus === "none") {
+      setAddressValidationStatus("validating");
+      try {
+        const { Geocoder } = (window as any).google.maps;
+        const geocoder = new Geocoder();
+        const addressStr = `${values.address.street}, ${values.address.number}, ${values.address.district}, ${values.address.city}, ${values.address.state}, ${values.address.zip || ""}, Brasil`;
+        
+        const response = await geocoder.geocode({ address: addressStr });
+        if (response.results && response.results.length > 0) {
+          const location = response.results[0].geometry.location;
+          const lat = location.lat();
+          const lng = location.lng();
+          
+          if (isWithinCustomerServiceArea(lat, lng)) {
+            currentStatus = "valid";
+            coords = { lat, lng };
+            setAddressValidationStatus("valid");
+            setValidatedCoords(coords);
+          } else {
+            currentStatus = "outside";
+            setAddressValidationStatus("outside");
+            toast.error("Endereço fora da área de atendimento (50 km).");
+            return;
+          }
+        } else {
+          setAddressValidationStatus("error");
+          toast.error("Não foi possível validar este endereço geograficamente.");
+          return;
+        }
+      } catch (err) {
+        setAddressValidationStatus("error");
+        toast.error("Erro ao validar endereço. Tente novamente.");
+        return;
+      }
+    }
+
+    if (currentStatus !== "valid" || !coords) {
+      toast.error("O endereço deve estar dentro da área de atendimento permitida.");
+      return;
+    }
+
     try {
       const payload = {
         ...values,
         groupId: parseInt(values.groupId),
         paymentTermId: parseInt(values.paymentTermId),
         paymentMethodId: parseInt(values.paymentMethodId),
+        address: {
+          ...values.address,
+          validation: coords
+        }
       };
 
       const res = await createClient.mutateAsync(payload as any);
@@ -242,20 +312,10 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
     }
   };
 
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-h-[85vh] overflow-y-auto pr-2 custom-scrollbar">
-      <div className="flex items-center justify-between border-b pb-4 sticky top-0 bg-background z-10">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-primary" />
-            Novo Cliente ERP
-          </h2>
-          <p className="text-[10px] uppercase font-bold tracking-tight text-muted-foreground">O cadastro será realizado diretamente no Firebird.</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onCancel} className="h-8 text-xs">
-          Cancelar
-        </Button>
-      </div>
+    <div className="space-y-6 animate-in fade-in duration-500">
+
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -539,9 +599,30 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
 
           {/* SEÇÃO: ENDEREÇO */}
           <div className="space-y-4 pb-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary/80 flex items-center gap-2 border-l-2 border-primary pl-2">
-              <MapPin className="h-3.5 w-3.5" /> Endereço
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-primary/80 flex items-center gap-2 border-l-2 border-primary pl-2">
+                <MapPin className="h-3.5 w-3.5" /> Endereço
+              </h3>
+              {addressValidationStatus === "valid" && (
+                <div className="flex items-center gap-1.5 text-emerald-600 animate-in fade-in zoom-in duration-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-[10px] font-bold uppercase">Área de atendimento validada</span>
+                </div>
+              )}
+              {addressValidationStatus === "outside" && (
+                <div className="flex items-center gap-1.5 text-destructive animate-in shake duration-300">
+                  <AlertCircle className="h-4 w-4" />
+                  <span className="text-[10px] font-bold uppercase">Fora da área (50km)</span>
+                </div>
+              )}
+              {addressValidationStatus === "validating" && (
+                <div className="flex items-center gap-1.5 text-muted-foreground animate-pulse">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span className="text-[10px] font-bold uppercase">Validando área...</span>
+                </div>
+              )}
+            </div>
+
             
             <div className="relative space-y-2">
               <Label className="text-xs font-bold uppercase">Buscar endereço (Google Maps)</Label>
@@ -588,9 +669,18 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem className="col-span-full md:col-span-3">
                     <FormLabel className="text-xs font-bold uppercase">Logradouro *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Rua, Avenida, etc." {...field} className="h-10 text-sm" />
+                      <Input 
+                        placeholder="Rua, Avenida, etc." 
+                        {...field} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
                     </FormControl>
                     <FormMessage className="text-[10px]" />
+
                   </FormItem>
                 )}
               />
@@ -601,9 +691,19 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">Número *</FormLabel>
                     <FormControl>
-                      <Input id="client-addr-number" placeholder="123" {...field} className="h-10 text-sm" />
+                      <Input 
+                        id="client-addr-number" 
+                        placeholder="123" 
+                        {...field} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
                     </FormControl>
                     <FormMessage className="text-[10px]" />
+
                   </FormItem>
                 )}
               />
@@ -614,9 +714,18 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem className="col-span-full md:col-span-2">
                     <FormLabel className="text-xs font-bold uppercase">Bairro *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Centro" {...field} className="h-10 text-sm" />
+                      <Input 
+                        placeholder="Ex: Centro" 
+                        {...field} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
                     </FormControl>
                     <FormMessage className="text-[10px]" />
+
                   </FormItem>
                 )}
               />
@@ -627,9 +736,18 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem className="col-span-full md:col-span-1">
                     <FormLabel className="text-xs font-bold uppercase">Cidade *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: São Paulo" {...field} className="h-10 text-sm" />
+                      <Input 
+                        placeholder="Ex: São Paulo" 
+                        {...field} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
                     </FormControl>
                     <FormMessage className="text-[10px]" />
+
                   </FormItem>
                 )}
               />
@@ -640,7 +758,17 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">UF *</FormLabel>
                     <FormControl>
-                      <Input placeholder="SP" maxLength={2} {...field} className="h-10 text-sm" onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
+                      <Input 
+                        placeholder="SP" 
+                        maxLength={2} 
+                        {...field} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e.target.value.toUpperCase());
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
+
                     </FormControl>
                     <FormMessage className="text-[10px]" />
                   </FormItem>
@@ -653,7 +781,17 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                   <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">CEP</FormLabel>
                     <FormControl>
-                      <Input placeholder="00000-000" {...field} value={field.value || ""} className="h-10 text-sm" />
+                      <Input 
+                        placeholder="00000-000" 
+                        {...field} 
+                        value={field.value || ""} 
+                        className="h-10 text-sm" 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (addressValidationStatus !== "none") setAddressValidationStatus("dirty");
+                        }}
+                      />
+
                     </FormControl>
                     <FormMessage className="text-[10px]" />
                   </FormItem>
@@ -675,7 +813,7 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 sticky bottom-0 bg-background pb-2 border-t mt-auto">
+          <div className="flex gap-3 pt-6 pb-2 border-t mt-auto">
             <Button 
               type="submit" 
               className="flex-1 font-bold h-12 text-base shadow-lg shadow-primary/20" 
@@ -691,6 +829,7 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
               )}
             </Button>
           </div>
+
         </form>
       </Form>
     </div>
