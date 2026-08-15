@@ -96,16 +96,17 @@ function mapClientListItem(row, schema, contact = {}) {
   const doc = row.CPF_CNPJ || row.CPF || row.CNPJ;
   
   return {
-    id: row.ID_CLIENTE,
-    name: row.CLIENTE_NOME,
-    tradeName: row.CLIENTE_APELIDO,
+    id: row.ID_CLIENTE === undefined ? null : row.ID_CLIENTE,
+    name: row.CLIENTE_NOME === undefined ? null : row.CLIENTE_NOME,
+    tradeName: row.CLIENTE_APELIDO === undefined ? null : row.CLIENTE_APELIDO,
     documentMasked: doc ? maskDocument(doc) : null,
+
     phoneMasked: contact.phone ? maskPhone(contact.phone) : null,
     companyId: row.CLIENTE_ID_EMPRESA || 1,
     companyName: row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal",
     groupId: row.ID_GRUPO_CLIENTE === undefined ? null : row.ID_GRUPO_CLIENTE,
     groupDescription: row.GRUPO_CLIENTE_DESCRICAO === undefined ? null : row.GRUPO_CLIENTE_DESCRICAO,
-    city: row.CIDADE,
+    city: row.CIDADE === undefined ? null : row.CIDADE,
     ...flags,
   };
 }
