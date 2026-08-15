@@ -494,6 +494,81 @@ export interface ErpOrderStatus {
 }
 
 
+
+export const getErpCustomerGroups = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: "/api/v1/customer-groups"
+    }) as Promise<ErpResponse<{ groups: Array<{ id: number; description: string }> }>>;
+  });
+
+export interface CreateClientInput {
+  companyId: number;
+  personType: "PF" | "PJ";
+  name: string;
+  tradeName?: string | null;
+  document: string;
+  mobile: string;
+  phone?: string | null;
+  email?: string | null;
+  groupId: number;
+  paymentTermId: number;
+  paymentMethodId: number;
+  address: {
+    state: string;
+    city: string;
+    district: string;
+    street: string;
+    number: string;
+    zip?: string | null;
+    complement?: string | null;
+  };
+}
+
+export const createErpClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: CreateClientInput) => d)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { callErp } = await import("./erp.server");
+    const { userId } = context;
+
+    // 1. Validar acesso à empresa
+    const { data: userCompanies, error: ucaErr } = await supabaseAdmin
+      .from("user_company_access")
+      .select("company_id")
+      .eq("user_id", userId);
+    
+    if (ucaErr || !userCompanies || !userCompanies.some((c: any) => c.company_id === data.companyId)) {
+      return {
+        ok: false,
+        status: 403,
+        data: null,
+        error: { code: "NO_COMPANY_ACCESS", message: "Sem permissão para esta empresa.", retryable: false }
+      };
+    }
+
+    // 2. Carregar erp_seller_id
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("erp_seller_id")
+      .eq("id", userId)
+      .single();
+    
+    if (!profile?.erp_seller_id) {
+      return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado no ERP.", retryable: false } };
+    }
+
+    // 3. Chamar Node
+    return callErp({
+      method: "POST",
+      path: "/api/v1/clients",
+      body: { ...data, sellerId: profile.erp_seller_id } as any
+    }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number }>>;
+  });
+
 export const getErpOrdersStatus = createServerFn({ method: "GET" })
   .inputValidator((numbers: number[]) => z.array(z.number()).parse(numbers))
   .handler(async ({ data: orderNumbers }) => {

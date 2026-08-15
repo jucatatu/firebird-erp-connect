@@ -232,3 +232,21 @@ export function useErpOrderDetail(orderNumber: number | null) {
   });
 }
 
+/** GET /api/v1/customer-groups — lista de grupos de clientes. */
+export function useErpCustomerGroups() {
+  const fn = useServerFn(getErpCustomerGroups);
+  return useQuery({
+    queryKey: ["erp", "customer-groups"],
+    queryFn: () => fn(),
+    staleTime: 3600_000,
+  });
+}
+
+/** POST /api/v1/clients — cadastra novo cliente no ERP. */
+export function useCreateErpClient() {
+  const fn = useServerFn(createErpClient);
+  return useMutation({
+    mutationFn: (data: Parameters<typeof fn>[0]["data"]) => fn({ data }),
+  });
+}
+
