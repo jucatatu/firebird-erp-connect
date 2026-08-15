@@ -20,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/status-badge";
 import { OrderIdentifier, companyLabel } from "@/components/order-identifier";
 import { EmptyState } from "@/components/empty-state";
-import { PlusCircle, Search, Inbox, Filter } from "lucide-react";
+import { PlusCircle, Search, Inbox, Filter, Truck, Package } from "lucide-react";
 import { useOrderFormStore } from "@/hooks/use-order-form";
 import { getItemList, getEquipmentList, getLogisticsSummary } from "@/lib/order-summary";
 import { getErpOrdersStatus, type ErpOrderStatus } from "@/lib/erp-orders.functions";
