@@ -179,5 +179,6 @@ module.exports = {
   buildQPatterns,
   exactLikePattern,
   mapName,
-  resolveCompany
+  resolveCompany,
+  sharedBuildQPatterns: buildQPatterns
 };
