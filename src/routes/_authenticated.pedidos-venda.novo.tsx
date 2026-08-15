@@ -1460,7 +1460,24 @@ function NewOrderPage() {
 
       {(step === "client" && !identityLocked) && (
         <Card className="shadow-none border-none sm:border">
-          <CardHeader className="pb-2"><CardTitle className="text-xl font-bold flex items-center gap-2"><UserIcon className="h-5 w-5 text-primary" /> Identificação</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <UserIcon className="h-5 w-5 text-primary" /> Identificação
+              </CardTitle>
+              {companyId && !showCreateClient && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-1 font-bold text-primary border-primary/20 hover:bg-primary/5"
+                  onClick={() => setShowCreateClient(true)}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Novo Cliente
+                </Button>
+              )}
+            </div>
+          </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <Label>Empresa</Label>
@@ -1485,21 +1502,33 @@ function NewOrderPage() {
 
             <Separator />
 
-            <div className="space-y-4">
-              <Label className="text-base font-bold flex items-center gap-2">
-                <Search className="h-4 w-4" /> Buscar cliente
-              </Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
-                  className="pl-9 h-12 text-base"
-                  value={clientSearch} 
-                  onChange={(e) => setClientSearch(e.target.value)} 
-                  disabled={!companyId}
-                />
+            {showCreateClient ? (
+              <CreateClientForm 
+                companyId={companyId!} 
+                onCancel={() => setShowCreateClient(false)}
+                onSuccess={(id, name) => {
+                  setClient(id, name);
+                  setShowCreateClient(false);
+                  setStep("items");
+                }}
+              />
+            ) : (
+              <div className="space-y-4">
+                <Label className="text-base font-bold flex items-center gap-2">
+                  <Search className="h-4 w-4" /> Buscar cliente
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input 
+                    placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
+                    className="pl-9 h-12 text-base"
+                    value={clientSearch} 
+                    onChange={(e) => setClientSearch(e.target.value)} 
+                    disabled={!companyId}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {!showCreateClient && (
               <div className="space-y-6">
