@@ -11,6 +11,28 @@ export const CUSTOMER_SERVICE_AREA_CENTER = {
 export const CUSTOMER_SERVICE_RADIUS_METERS = 50000; // 50 km
 
 /**
+ * Retorna os limites (Bounding Box) aproximados da área de atendimento
+ * para uso em locationRestriction do Google Places.
+ */
+export function getCustomerServiceAreaBounds() {
+  const center = CUSTOMER_SERVICE_AREA_CENTER;
+  const radius = CUSTOMER_SERVICE_RADIUS_METERS;
+  
+  // Aproximação: 1 grau de latitude ~ 111.32 km
+  // Usamos uma margem de segurança de 20% para o bounding box
+  const degreePerMeter = 1 / 111320;
+  const margin = 1.2;
+  const delta = (radius * degreePerMeter) * margin;
+
+  return {
+    north: center.lat + delta,
+    south: center.lat - delta,
+    east: center.lng + delta,
+    west: center.lng - delta
+  };
+}
+
+/**
  * Calcula a distância geodésica entre dois pontos usando a fórmula de Haversine.
  * Retorna a distância em metros.
  */

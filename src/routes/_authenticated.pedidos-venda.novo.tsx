@@ -1396,6 +1396,8 @@ function NewOrderPage() {
                 ) : (
                   <CreateClientForm 
                     companyId={companyId!} 
+                    allowedCompanyIds={myCompanies.data || []}
+                    onCompanyChange={(id) => setCompany(id)}
                     onCancel={() => setShowCreateClient(false)}
                     onSuccess={(id: number, name: string) => {
                       setCreatedClientInfo({ id, name });
