@@ -1781,6 +1781,7 @@ function NewOrderPage() {
                 </div>
               </div>
             )}
+
           </CardContent>
         </Card>
       )}
