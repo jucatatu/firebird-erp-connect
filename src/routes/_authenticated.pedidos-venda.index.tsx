@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/")({
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
     page: search.page ? Number(search.page) : undefined,
-  }),
+  }) as const,
   component: OrdersListPage,
 });
 
