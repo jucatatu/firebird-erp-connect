@@ -5,11 +5,20 @@ import { formatDateOnly } from "@/utils/date-utils";
  * Helper para simplificar descrições de equipamentos somente para exibição.
  * Remove padrões de vazão como "30L/H", "30 L/H", "60L/H" etc.
  * Preserva o litragem do barril (ex: "BARRIL 10L").
+ * Remove "(CHOPP)" se presente.
  */
 function simplifyDescription(desc: string): string {
   if (!desc) return "";
+  
+  let simplified = desc;
+  
   // Remove padrões de vazão: 30L/H, 30 L/H, 60l/h etc.
-  return desc.replace(/\s?\d+\s?L\/H/gi, '').trim();
+  simplified = simplified.replace(/\s?\d+\s?L\/H/gi, '');
+  
+  // Remove "(CHOPP)" - case insensitive
+  simplified = simplified.replace(/\(CHOPP\)/gi, '');
+  
+  return simplified.trim();
 }
 
 /**
@@ -79,14 +88,13 @@ export function getEquipmentsSummary(payload: any, limit: number = 3): string {
 }
 
 /**
- * Resumo logístico compacto
+ * Resumo logístico compacto (sem emoji, apenas para uso em texto se necessário)
  */
 export function getLogisticsSummary(payload: any): string {
   const isDelivery = payload?.deliver === true;
   const date = payload?.deliveryAt;
   const typeLabel = isDelivery ? "Entrega" : "Retirada";
-  const icon = isDelivery ? "🚚" : "📦";
   
-  if (!date) return `${icon} ${typeLabel}`;
-  return `${icon} ${typeLabel} • ${formatDateOnly(date)}`;
+  if (!date) return typeLabel;
+  return `${typeLabel} • ${formatDateOnly(date)}`;
 }
