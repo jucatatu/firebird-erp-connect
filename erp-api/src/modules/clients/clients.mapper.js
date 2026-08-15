@@ -1,6 +1,6 @@
 "use strict";
 
-const { pick, toNullableString } = require("../operations/operations.mapper");
+const { pick, toNullableString, toNullableInt } = require("../operations/operations.mapper");
 const { accentInsensitiveSqlExpression, exactLikePattern } = require("../../shared/search/like-pattern");
 const { maskDocument, documentType, maskPhone } = require("../../shared/utils/mask");
 
@@ -152,6 +152,22 @@ function buildQPatterns(q) {
   return [exactLikePattern(normalized)];
 }
 
+function mapName(row) {
+  const nome = toNullableString(pick(row, "CLIENTE_NOME"));
+  const apelido = toNullableString(pick(row, "CLIENTE_APELIDO"));
+  return nome || apelido || "";
+}
+
+function resolveCompany(row, schema) {
+  const explicit = toNullableInt(pick(row, "CLIENTE_ID_EMPRESA"));
+  if (explicit === 1 || explicit === 3) return explicit;
+  
+  const groupDesc = toNullableString(row.GRUPO_CLIENTE_DESCRICAO);
+  if (groupDesc && /GROTT/i.test(groupDesc)) return 3;
+  
+  return 1;
+}
+
 module.exports = {
   buildCreateClientProcedureParams,
   buildCreateContactParams,
@@ -161,5 +177,7 @@ module.exports = {
   mapLastOrderAddress,
   mapRegisteredAddress,
   buildQPatterns,
-  exactLikePattern
+  exactLikePattern,
+  mapName,
+  resolveCompany
 };
