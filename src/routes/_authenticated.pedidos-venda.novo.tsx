@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon, UserPlus } from "lucide-react";
+import { CreateClientForm } from "@/components/client/create-client-form";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, getErpClientDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
@@ -339,6 +340,7 @@ function NewOrderPage() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [showCreateClient, setShowCreateClient] = useState(false);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
@@ -1459,7 +1461,24 @@ function NewOrderPage() {
 
       {(step === "client" && !identityLocked) && (
         <Card className="shadow-none border-none sm:border">
-          <CardHeader className="pb-2"><CardTitle className="text-xl font-bold flex items-center gap-2"><UserIcon className="h-5 w-5 text-primary" /> Identificação</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <UserIcon className="h-5 w-5 text-primary" /> Identificação
+              </CardTitle>
+              {companyId && !showCreateClient && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-1 font-bold text-primary border-primary/20 hover:bg-primary/5"
+                  onClick={() => setShowCreateClient(true)}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Novo Cliente
+                </Button>
+              )}
+            </div>
+          </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <Label>Empresa</Label>
@@ -1484,23 +1503,36 @@ function NewOrderPage() {
 
             <Separator />
 
-            <div className="space-y-4">
-              <Label className="text-base font-bold flex items-center gap-2">
-                <Search className="h-4 w-4" /> Buscar cliente
-              </Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input 
-                  placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
-                  className="pl-9 h-12 text-base"
-                  value={clientSearch} 
-                  onChange={(e) => setClientSearch(e.target.value)} 
-                  disabled={!companyId}
-                />
+            {showCreateClient ? (
+              <CreateClientForm 
+                companyId={companyId!} 
+                onCancel={() => setShowCreateClient(false)}
+                onSuccess={(id: number, name: string) => {
+                  setClient(id, name);
+                  setShowCreateClient(false);
+                  setStep("items");
+                }}
+              />
+            ) : (
+              <div className="space-y-4">
+                <Label className="text-base font-bold flex items-center gap-2">
+                  <Search className="h-4 w-4" /> Buscar cliente
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input 
+                    placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
+                    className="pl-9 h-12 text-base"
+                    value={clientSearch} 
+                    onChange={(e) => setClientSearch(e.target.value)} 
+                    disabled={!companyId}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="space-y-6">
+            {!showCreateClient && (
+              <div className="space-y-6">
               {/* RESULTADOS DA BUSCA (Prioridade quando há texto) */}
               {debouncedSearch.length >= 3 && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -1690,7 +1722,8 @@ function NewOrderPage() {
                   )}
                 </div>
               </div>
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

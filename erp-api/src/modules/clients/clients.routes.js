@@ -9,5 +9,6 @@ const router = Router();
 // Somente leitura. HMAC obrigatório (mesmo bypass local já existente).
 router.get("/", authMiddleware, controller.listClients);
 router.get("/:clientId", authMiddleware, controller.getClient);
+router.post("/", authMiddleware, controller.createClient);
 
 module.exports = router;

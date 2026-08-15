@@ -10,8 +10,10 @@ const LIMITS = Object.freeze({
   DOCUMENT_MAX_DIGITS: 14,
   PHONE_MIN_DIGITS: 4,
   PHONE_MAX_DIGITS: 15,
-  CITY_MIN: 3,
+  CITY_MIN: 2,
   CITY_MAX: 60,
+  NAME_MIN: 3,
+  NAME_MAX: 100,
   LIMIT_DEFAULT: 20,
   LIMIT_MAX: 50,
   CLIENT_ID_MAX: 2147483647,
@@ -37,13 +39,11 @@ function single(value, field, errors) {
 }
 
 function digitsOnly(value) {
-  return String(value).replace(/\D+/g, "");
+  return value === null || value === undefined ? "" : String(value).replace(/\D+/g, "");
 }
 
 /**
  * Valida GET /api/v1/clients.
- * Contrato: pelo menos um filtro de busca (q, document, phone, city) é
- * obrigatório — exceto em continuação explícita por cursor.
  */
 function validateSearchQuery(query) {
   const errors = [];
@@ -182,4 +182,68 @@ function validateClientId(raw) {
   return n;
 }
 
-module.exports = { LIMITS, validateSearchQuery, validateClientId, digitsOnly };
+/**
+ * Valida POST /api/v1/clients.
+ */
+function validateCreateClient(body) {
+  const errors = [];
+  
+  if (!ALLOWED_COMPANY_IDS.includes(body.companyId)) {
+    errors.push({ field: "companyId", message: "ID de empresa inválido." });
+  }
+
+  if (body.personType !== "PF" && body.personType !== "PJ") {
+    errors.push({ field: "personType", message: "Tipo de pessoa deve ser PF ou PJ." });
+  }
+
+  if (!body.name || body.name.trim().length < LIMITS.NAME_MIN) {
+    errors.push({ field: "name", message: `Nome deve ter no mínimo ${LIMITS.NAME_MIN} caracteres.` });
+  }
+
+  const doc = digitsOnly(body.document);
+  if (body.personType === "PF" && doc.length !== 11) {
+    errors.push({ field: "document", message: "CPF deve conter exatamente 11 dígitos." });
+  } else if (body.personType === "PJ" && doc.length !== 14) {
+    errors.push({ field: "document", message: "CNPJ deve conter exatamente 14 dígitos." });
+  }
+
+  if (!body.mobile || digitsOnly(body.mobile).length < 10) {
+    errors.push({ field: "mobile", message: "WhatsApp/Celular inválido." });
+  }
+
+  if (!body.groupId || !Number.isInteger(body.groupId)) {
+    errors.push({ field: "groupId", message: "Grupo de cliente obrigatório." });
+  }
+
+  if (!body.paymentTermId || !Number.isInteger(body.paymentTermId)) {
+    errors.push({ field: "paymentTermId", message: "Condição de pagamento obrigatória." });
+  }
+
+  if (!body.paymentMethodId || !Number.isInteger(body.paymentMethodId)) {
+    errors.push({ field: "paymentMethodId", message: "Forma de pagamento obrigatória." });
+  }
+
+  const addr = body.address || {};
+  if (!addr.state || addr.state.length !== 2) errors.push({ field: "address.state", message: "UF obrigatória (2 letras)." });
+  if (!addr.city || addr.city.trim().length < 2) errors.push({ field: "address.city", message: "Cidade obrigatória." });
+  if (!addr.district || addr.district.trim().length < 2) errors.push({ field: "address.district", message: "Bairro obrigatório." });
+  if (!addr.street || addr.street.trim().length < 2) errors.push({ field: "address.street", message: "Rua obrigatória." });
+  if (!addr.number || addr.number.trim().length === 0) errors.push({ field: "address.number", message: "Número obrigatório." });
+
+  if (errors.length > 0) throw validationError(errors);
+
+  return {
+    ...body,
+    document: doc,
+    mobile: digitsOnly(body.mobile),
+    phone: digitsOnly(body.phone) || null,
+  };
+}
+
+module.exports = { 
+  LIMITS, 
+  validateSearchQuery, 
+  validateClientId, 
+  validateCreateClient,
+  digitsOnly 
+};

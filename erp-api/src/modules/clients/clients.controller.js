@@ -1,20 +1,45 @@
 "use strict";
 
-const { asyncHandler } = require("../../shared/utils/async-handler");
-const { success } = require("../../shared/http/response");
-const { validateSearchQuery, validateClientId } = require("./clients.validator");
 const service = require("./clients.service");
+const validator = require("./clients.validator");
 
-const listClients = asyncHandler(async (req, res) => {
-  const input = validateSearchQuery(req.query);
-  const data = await service.searchClients(input);
-  return success(res, data);
-});
+async function listClients(req, res, next) {
+  try {
+    const input = validator.validateSearchQuery(req.query);
+    const result = await service.searchClients(input);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 
-const getClient = asyncHandler(async (req, res) => {
-  const clientId = validateClientId(req.params.clientId);
-  const data = await service.getClientById(clientId);
-  return success(res, data);
-});
+async function getClient(req, res, next) {
+  try {
+    const clientId = validator.validateClientId(req.params.clientId);
+    const result = await service.getClientById(clientId);
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 
-module.exports = { listClients, getClient };
+async function createClient(req, res, next) {
+  try {
+    const data = validator.validateCreateClient(req.body);
+    const result = await service.createClient(data);
+    res.status(201).json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listClients, getClient, createClient };
