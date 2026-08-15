@@ -300,7 +300,7 @@ function OrdersListPage() {
                   <Link
                     to="/pedidos-venda/$draftId"
                     params={{ draftId: d.id }}
-                    className="block rounded-xl border bg-card p-4 shadow-sm active:scale-[0.98] transition-all"
+                    className="block rounded-xl border bg-card p-3 shadow-sm active:scale-[0.98] transition-all"
                   >
                     {/* 1. Cliente */}
                     <div className="text-lg font-bold text-foreground whitespace-pre-line leading-tight mb-1">
@@ -308,7 +308,7 @@ function OrdersListPage() {
                     </div>
                     
                     {/* 2. ERP + Identificador */}
-                    <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-4 mb-2">
                       {d.erp_order_number && (
                         <span className="text-xs font-bold text-foreground">ERP {d.erp_order_number}</span>
                       )}
@@ -316,7 +316,7 @@ function OrdersListPage() {
                     </div>
 
                     {/* 3. Status ERP + Sincronização */}
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       {d.erp_order_number && (
                         erpStatusQ.isError ? (
                           <Badge variant="secondary" className="text-[10px] h-5 px-2 py-0 border-muted text-muted-foreground uppercase font-bold">
@@ -343,42 +343,51 @@ function OrdersListPage() {
                     </div>
 
                     {/* 4. Empresa + Data */}
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase mb-3">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase mb-2">
                       <span>{companyLabel(d.company_id)}</span>
                       <span>•</span>
                       <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                     </div>
 
-                    {/* 5. Blocos de Conteúdo */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    {/* 5. Blocos de Conteúdo - Lado a Lado no Mobile */}
+                    <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-2 mb-2">
                       {/* Bloco Produtos */}
-                      {productList.length > 0 && (
-                        <div className="rounded-lg border border-muted/30 bg-muted/5 p-2 flex flex-col gap-1">
-                          <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
-                          {productList.map((item, idx) => (
-                            <div key={idx} className={`text-[11px] leading-tight ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                      <div className="rounded-lg border border-muted/30 bg-muted/5 p-1.5 flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Produtos</span>
+                        {productList.length > 0 ? (
+                          productList.map((item, idx) => (
+                            <div key={idx} className={`text-[11px] leading-tight break-words ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
                               {item.text}
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground/40 italic">Nenhum</span>
+                        )}
+                      </div>
 
                       {/* Bloco Equipamentos */}
-                      {equipmentList.length > 0 && (
-                        <div className="rounded-lg border border-muted/30 bg-muted/5 p-2 flex flex-col gap-1">
-                          <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
-                          {equipmentList.map((item, idx) => (
-                            <div key={idx} className={`text-[11px] leading-tight ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
+                      <div className="rounded-lg border border-muted/30 bg-muted/5 p-1.5 flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
+                        {equipmentList.length > 0 ? (
+                          equipmentList.map((item, idx) => (
+                            <div key={idx} className={`text-[11px] leading-tight break-words ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
                               {item.text}
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground/40 italic">Nenhum</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* 6. Logística Rodapé */}
-                    <div className="text-[10px] font-bold text-muted-foreground/80 uppercase">
-                      {getLogisticsSummary(d.payload)}
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/80 uppercase">
+                      {d.payload?.deliver === true ? (
+                        <Truck className="h-3 w-3" />
+                      ) : (
+                        <Package className="h-3 w-3" />
+                      )}
+                      <span>{getLogisticsSummary(d.payload)}</span>
                     </div>
                   </Link>
                 </li>
