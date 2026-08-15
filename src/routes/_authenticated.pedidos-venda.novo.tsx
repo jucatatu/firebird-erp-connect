@@ -1783,6 +1783,10 @@ function NewOrderPage() {
         </Card>
       )}
 
+          </CardContent>
+        </Card>
+      )}
+
 
 
 
