@@ -226,7 +226,7 @@ function DraftDetailPage() {
         crumbs={[{ label: "Pedidos de venda", to: "/pedidos-venda" }, { label: "Detalhe" }]}
         actions={
           <div className="flex items-center gap-2">
-            <OrderIdentifier id={draft.id} />
+            <OrderIdentifier id={draft.id} appOrderNumber={draft.app_order_number} />
             <StatusBadge status={draft.status} size="md" />
           </div>
         }
