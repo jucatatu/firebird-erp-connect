@@ -507,6 +507,14 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                 )}
               />
             </div>
+            
+            {/* SPRINT 8.9.42.2.2: Vendedor Automático */}
+            <div className="mt-4 col-span-full space-y-2">
+              <Label className="text-xs font-bold uppercase">Vendedor</Label>
+              <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground italic">
+                {profileQ.data?.full_name ? `${profileQ.data.full_name} / automático` : "Automático pelo usuário logado"}
+              </div>
+            </div>
           </div>
 
           {/* SEÇÃO: FINANCEIRO */}
