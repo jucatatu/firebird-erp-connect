@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CreateClientForm } from '../components/client/create-client-form';
-import { render, screen, fireEvent } from '@testing-library/react';
+// import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 // Mocking hooks and libraries
