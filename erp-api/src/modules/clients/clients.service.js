@@ -9,24 +9,23 @@ const {
   toNullableInt,
   toNullableString,
 } = require("../operations/operations.mapper");
-const { LIMITS } = require("./clients.validator");
+const { LIMITS, digitsOnly } = require("./clients.validator");
+const { maskDocument } = require("../../shared/utils/mask");
 
 function queryFailed(err, context) {
-  // Nunca propaga SQL, stack ou mensagem bruta do driver.
   logger.error(
-    { code: err && err.code, context },
-    "falha ao consultar clientes no ERP",
+    { code: err && err.code, context, err: err.message },
+    "falha na operação de clientes no ERP",
   );
   if (err && err.name === "AppError") return err;
   return new AppError({
-    message: "Não foi possível consultar clientes no ERP.",
+    message: "Não foi possível realizar a operação no ERP.",
     statusCode: 500,
-    code: "CLIENT_QUERY_FAILED",
+    code: "CLIENT_OPERATION_FAILED",
     retryable: true,
   });
 }
 
-/** Telefones prioritários (CELULAR → FONE) em UMA consulta em lote. */
 async function loadPhones(clientIds) {
   if (clientIds.length === 0) return new Map();
   const rows = (await repository.findPhonesByClientIds(clientIds)) || [];
@@ -40,7 +39,6 @@ async function loadPhones(clientIds) {
   return byClient;
 }
 
-/** Endereço do último pedido em UMA consulta em lote (fallback). */
 async function loadLastOrderAddresses(clientIds) {
   if (clientIds.length === 0) return new Map();
   const rows = (await repository.findLastOrderAddressByClientIds(clientIds)) || [];
@@ -53,14 +51,6 @@ async function loadLastOrderAddresses(clientIds) {
   return byClient;
 }
 
-/**
- * Busca paginada de clientes.
- *
- * Paginação: keyset determinística por ID_CLIENTE ASC. `nextCursor` é o
- * maior ID_CLIENTE varrido nesta página (não o último item exibido), de
- * modo que o filtro pós-resolução por companyId nunca causa loop nem
- * salto de registros.
- */
 async function searchClients(input) {
   try {
     const clientIdFilter = input.phone
@@ -70,10 +60,10 @@ async function searchClients(input) {
       : null;
 
     const { rows, schema } = await repository.searchClients({
-      qPatterns: input.q ? mapper.buildQPatterns(input.q) : null,
+      qPatterns: input.q ? mapper.sharedBuildQPatterns(input.q) : null,
       qRaw: input.q,
       documentDigits: input.document,
-      cityPattern: input.city ? mapper.exactLikePattern(input.city) : null,
+      cityPattern: input.city ? mapper.sharedBuildQPatterns(input.city)[0] : null,
       clientIdFilter,
       companyId: input.companyId,
       limit: input.limit,
@@ -89,12 +79,9 @@ async function searchClients(input) {
       if (maxScannedId === null || id > maxScannedId) maxScannedId = id;
     }
 
-    const needsFallbackAddress =
-      !schema.client.cityId && !schema.client.streetId && !schema.client.districtId;
-
     const [phones, fallbackAddresses] = await Promise.all([
       loadPhones(ids),
-      needsFallbackAddress ? loadLastOrderAddresses(ids) : Promise.resolve(new Map()),
+      loadLastOrderAddresses(ids),
     ]);
 
     let clients = rows.map((row) => {
@@ -107,15 +94,8 @@ async function searchClients(input) {
       });
     });
 
-    // O companyId já foi filtrado no SQL via repository para garantir atomicidade com ROWS.
-    // Mantemos como defesa sem custo se o repository devolveu corretamente.
     if (input.companyId !== null && input.companyId !== undefined) {
       clients = clients.filter((c) => c.companyId === input.companyId);
-    }
-    // Filtro de cidade quando o cadastro não tem cidade estruturada.
-    if (input.city && needsFallbackAddress) {
-      const needle = input.city.toUpperCase();
-      clients = clients.filter((c) => (c.city || "").toUpperCase().includes(needle));
     }
 
     const hasMore = rows.length === input.limit;
@@ -155,7 +135,7 @@ async function getClientById(clientId) {
     const registered = mapper.mapRegisteredAddress(row, schema);
     const [phones, fallback] = await Promise.all([
       loadPhones([clientId]),
-      registered ? Promise.resolve(new Map()) : loadLastOrderAddresses([clientId]),
+      loadLastOrderAddresses([clientId]),
     ]);
     return mapper.mapClientDetail(row, schema, {
       phone: phones.get(clientId) || null,
@@ -166,4 +146,44 @@ async function getClientById(clientId) {
   }
 }
 
-module.exports = { searchClients, getClientById };
+/**
+ * Criação de novo cliente com validação de duplicidade.
+ */
+async function createClient(data) {
+  try {
+    // 1. Validar Duplicidade
+    const existing = await repository.findClientByDocument(data.document);
+    if (existing) {
+      const schema = await repository.getSchema();
+      throw new AppError({
+        message: "Este CPF/CNPJ já possui cadastro no ERP.",
+        statusCode: 409,
+        code: "CLIENT_ALREADY_EXISTS",
+        retryable: false,
+        details: {
+          clientId: pick(existing, "ID_CLIENTE"),
+          name: mapper.mapName(existing),
+          tradeName: toNullableString(pick(existing, "CLIENTE_APELIDO")),
+          document: maskDocument(data.document),
+          companyId: mapper.resolveCompany(existing, schema)
+        },
+        exposeDetails: true
+      });
+    }
+
+    // 2. Mapear Parâmetros
+    const clientParams = mapper.buildCreateClientProcedureParams(data);
+    const contactParams = mapper.buildCreateContactParams(null, data);
+
+    // 3. Executar Transação
+    const { clientId, personId } = await repository.createClientTransaction(clientParams, contactParams);
+
+    // 4. Retornar Detalhe do Novo Cliente
+    return await getClientById(clientId);
+  } catch (err) {
+    if (err.name === "AppError") throw err;
+    throw queryFailed(err, "create");
+  }
+}
+
+module.exports = { searchClients, getClientById, createClient };
