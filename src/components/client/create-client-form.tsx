@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/form";
 import { Loader2, UserPlus, Building2, User, MapPin, Search, CheckCircle2, Phone, MessageSquare, Mail, CreditCard, Landmark, Briefcase, Info } from "lucide-react";
 import { toast } from "sonner";
-import { Tabs, TabsList, TabsTrigger } from "@/tabs-fix"; // Assuming generic Tabs is safe or using original imports
 import { Tabs as TabsUI, TabsList as TabsListUI, TabsTrigger as TabsTriggerUI } from "@/components/ui/tabs";
 import { loadGoogleMapsLibraries } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
