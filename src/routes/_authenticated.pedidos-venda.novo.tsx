@@ -1793,6 +1793,7 @@ function NewOrderPage() {
 
 
 
+
       {step === "items" && clientId && companyId && (
         <div className="grid gap-6 md:grid-cols-4">
           <div className="md:col-span-3 space-y-6">
