@@ -1791,15 +1791,6 @@ function NewOrderPage() {
 
 
 
-        </Card>
-      )}
-
-
-
-
-
-
-
 
       {step === "items" && clientId && companyId && (
         <div className="grid gap-6 md:grid-cols-4">
