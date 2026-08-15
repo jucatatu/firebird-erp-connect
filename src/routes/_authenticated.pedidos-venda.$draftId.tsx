@@ -171,7 +171,7 @@ function DraftDetailPage() {
       <div className="rounded-md border p-6 text-center">
         <p className="text-sm">Pedido não encontrado.</p>
         <Button asChild size="sm" variant="outline" className="mt-3">
-          <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar</Link>
+          <Link to="/pedidos-venda" search={{ status: "all", page: undefined }}>Voltar</Link>
         </Button>
       </div>
     );
@@ -226,7 +226,7 @@ function DraftDetailPage() {
         crumbs={[{ label: "Pedidos de venda", to: "/pedidos-venda" }, { label: "Detalhe" }]}
         actions={
           <div className="flex items-center gap-2">
-            <OrderIdentifier id={draft.id} />
+            <OrderIdentifier id={draft.id} appOrderNumber={draft.app_order_number} />
             <StatusBadge status={draft.status} size="md" />
           </div>
         }
@@ -413,7 +413,7 @@ function DraftDetailPage() {
                 className="w-full"
                 variant="outline"
               >
-                <Link to="/pedidos-venda" search={{ status: "all" }}>Voltar à lista</Link>
+                <Link to="/pedidos-venda" search={{ status: "all", page: undefined }}>Voltar à lista</Link>
               </Button>
             </CardContent>
           </Card>

@@ -131,7 +131,7 @@ function ApprovalsPage() {
                   <CardContent className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <OrderIdentifier id={d.id} />
+                        <OrderIdentifier id={d.id} appOrderNumber={d.app_order_number} />
                         <StatusBadge status={d.status} />
                         <span className="text-xs text-muted-foreground">
                           · {companyLabel(d.company_id)}

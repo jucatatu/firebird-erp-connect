@@ -1109,7 +1109,7 @@ function NewOrderPage() {
           <Button variant="outline" onClick={() => window.location.reload()}>
             <RefreshCcw className="h-4 w-4 mr-2" /> Tentar novamente
           </Button>
-          <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all" } })}>
+          <Button onClick={() => navigate({ to: "/pedidos-venda", search: { status: "all", page: undefined } })}>
             Voltar para Pedidos
           </Button>
         </div>
@@ -1368,7 +1368,7 @@ function NewOrderPage() {
               onClick={() => {
                 if (window.confirm(isEditing ? "Deseja cancelar a edição? As alterações não salvas serão perdidas." : "Deseja cancelar o pedido atual?")) {
                   reset();
-                  navigate({ to: "/pedidos-venda", search: { status: "all" } });
+                  navigate({ to: "/pedidos-venda", search: { status: "all", page: undefined } });
                 }
               }}
             >

@@ -13,6 +13,7 @@ export type OrderDraftStatus =
 
 export interface OrderDraftRow {
   id: string;
+  app_order_number: number;
   created_by: string;
   updated_by: string;
   status: OrderDraftStatus;
@@ -256,6 +257,52 @@ export function useDraftStats(scope: {
         result[s] = count ?? 0;
       }
       return result;
+    },
+  });
+}
+
+export function usePaginatedOrderDrafts(filters: {
+  status?: OrderDraftStatus | "all";
+  companyId?: 1 | 3 | "all";
+  mineOnly?: boolean;
+  myUserId?: string | null;
+  search?: string;
+  page: number;
+  pageSize: number;
+}) {
+  return useQuery({
+    queryKey: ["order_drafts_paginated", filters],
+    queryFn: async () => {
+      const { page, pageSize } = filters;
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = supabase
+        .from("order_drafts")
+        .select("*", { count: "exact" })
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+
+      if (filters.status && filters.status !== "all") q = q.eq("status", filters.status);
+      if (filters.companyId && filters.companyId !== "all") q = q.eq("company_id", filters.companyId);
+      if (filters.mineOnly && filters.myUserId) q = q.eq("created_by", filters.myUserId);
+      
+      if (filters.search && filters.search.trim()) {
+        const s = `%${filters.search.trim()}%`;
+        q = q.or(`title.ilike.${s},customer_name_snapshot.ilike.${s}`);
+      }
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+
+      return {
+        rows: (data as unknown as OrderDraftRow[]) || [],
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      };
     },
   });
 }

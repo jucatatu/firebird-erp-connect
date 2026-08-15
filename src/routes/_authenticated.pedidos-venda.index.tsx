@@ -1,9 +1,10 @@
+import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, primaryRole } from "@/hooks/use-auth";
-import { useOrderDrafts, type OrderDraftStatus } from "@/hooks/use-drafts";
+import { useOrderDrafts, usePaginatedOrderDrafts, type OrderDraftStatus } from "@/hooks/use-drafts";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,8 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/")({
   }),
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
-  }),
+    page: search.page ? Number(search.page) : undefined,
+  }) as const,
   component: OrdersListPage,
 });
 
@@ -55,6 +57,8 @@ const TABS: { key: StatusFilter; label: string }[] = [
 function OrdersListPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const page = search.page || 1;
+  const PAGE_SIZE = 10;
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -68,15 +72,19 @@ function OrdersListPage() {
 
   const status: StatusFilter = search.status ?? "all";
 
-  const { data, isLoading, isError } = useOrderDrafts({
+  const paginatedQ = usePaginatedOrderDrafts({
     status,
     companyId: company === "all" ? "all" : (Number(company) as 1 | 3),
     mineOnly: role === "vendedor",
     myUserId: user?.id ?? null,
     search: query,
+    page,
+    pageSize: PAGE_SIZE,
   });
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const { rows, total, totalPages } = paginatedQ.data || { rows: [], total: 0, totalPages: 0 };
+  const isLoading = paginatedQ.isLoading;
+  const isError = paginatedQ.isError;
 
   const erpOrderNumbers = useMemo(() => 
     rows.map(r => r.erp_order_number).filter((num): num is number => num !== null),
@@ -121,14 +129,20 @@ function OrdersListPage() {
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                navigate({ search: { ...search, page: 1 } });
+              }}
               placeholder="Buscar por título ou cliente"
               className="pl-8"
             />
           </div>
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={company} onValueChange={(v) => setCompany(v as "all" | "1" | "3")}>
+            <Select value={company} onValueChange={(v) => {
+              setCompany(v as "all" | "1" | "3");
+              navigate({ search: { ...search, page: 1 } });
+            }}>
               <SelectTrigger className="w-36">
                 <SelectValue />
               </SelectTrigger>
@@ -144,7 +158,7 @@ function OrdersListPage() {
 
       <Tabs
         value={status}
-        onValueChange={(v) => navigate({ search: { status: v as StatusFilter } })}
+        onValueChange={(v) => navigate({ search: { ...search, status: v as StatusFilter, page: 1 } })}
       >
         <TabsList className="mb-4 flex w-full flex-wrap justify-start gap-1 bg-transparent p-0">
           {TABS.map((t) => (
@@ -241,7 +255,7 @@ function OrdersListPage() {
                             </div>
                           </div>
                           <div className="mt-2">
-                            <OrderIdentifier id={d.id} className="text-[10px] opacity-60" />
+                            <OrderIdentifier id={d.id} appOrderNumber={d.app_order_number} className="text-[10px] opacity-60" />
                           </div>
                         </Link>
                       </td>
@@ -312,7 +326,7 @@ function OrdersListPage() {
                       {d.erp_order_number && (
                         <span className="text-xs font-bold text-foreground">ERP {d.erp_order_number}</span>
                       )}
-                      <OrderIdentifier id={d.id} className="text-[10px] opacity-60 font-mono" />
+                      <OrderIdentifier id={d.id} appOrderNumber={d.app_order_number} className="text-[10px] opacity-60 font-mono" />
                     </div>
 
                     {/* 3. Status ERP + Sincronização */}
@@ -394,6 +408,58 @@ function OrdersListPage() {
               );
             })}
           </ul>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex flex-col items-center gap-4 border-t pt-4 sm:flex-row sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                Exibindo <span className="font-medium">{(page - 1) * PAGE_SIZE + 1}</span> a{" "}
+                <span className="font-medium">{Math.min(page * PAGE_SIZE, total)}</span> de{" "}
+                <span className="font-medium">{total}</span> pedidos
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate({ search: { ...search, page: page - 1 } })}
+                  disabled={page <= 1}
+                  className="h-8 px-2"
+                >
+                  Anterior
+                </Button>
+                
+                <div className="flex items-center gap-1 px-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1))
+                    .map((p, i, arr) => (
+                      <React.Fragment key={p}>
+                        {i > 0 && arr[i - 1] !== p - 1 && (
+                          <span className="text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={page === p ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => navigate({ search: { ...search, page: p } })}
+                          className={`h-8 w-8 p-0 text-xs ${page === p ? "pointer-events-none" : ""}`}
+                        >
+                          {p}
+                        </Button>
+                      </React.Fragment>
+                    ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate({ search: { ...search, page: page + 1 } })}
+                  disabled={page >= totalPages}
+                  className="h-8 px-2"
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
