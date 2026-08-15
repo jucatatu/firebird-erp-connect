@@ -1,6 +1,7 @@
 "use strict";
 
 const { pick, toNullableString } = require("../operations/operations.mapper");
+const { accentInsensitiveSqlExpression, exactLikePattern } = require("../../shared/search/like-pattern");
 const { maskDocument, documentType, maskPhone } = require("../../shared/utils/mask");
 
 /**
@@ -62,7 +63,103 @@ function buildCreateContactParams(personId, data) {
   ];
 }
 
+function mapStatusFlags(row, schema) {
+  const c = schema.client;
+  const activeVal = row.CLIENTE_ATIVO;
+  const blockedVal = row.CLIENTE_BLOQUEADO;
+  const blockedFinVal = row.CLIENTE_BLOQUEADO_FIN;
+
+  let active = activeVal === null || activeVal === undefined ? null : !!activeVal;
+  if (c.active === "INATIVO" && active !== null) {
+    active = !active;
+  }
+
+  const blocked = !!blockedVal || !!blockedFinVal;
+  const blockType = blockedFinVal ? "financial" : (blockedVal ? "commercial" : null);
+  const blockReason = toNullableString(row.CLIENTE_MOTIVO_BLOQUEIO)?.replace(/\n/g, " ") || null;
+
+  return { active, blocked, blockType, blockReason };
+}
+
+function mapClientListItem(row, schema, contact = {}) {
+  const flags = mapStatusFlags(row, schema);
+  const doc = row.CPF_CNPJ || row.CPF || row.CNPJ;
+  
+  return {
+    id: row.ID_CLIENTE,
+    name: row.CLIENTE_NOME,
+    tradeName: row.CLIENTE_APELIDO,
+    documentMasked: doc ? maskDocument(doc) : null,
+    phoneMasked: contact.phone ? maskPhone(contact.phone) : null,
+    companyId: row.CLIENTE_ID_EMPRESA || 1,
+    companyName: row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal",
+    groupId: row.ID_GRUPO_CLIENTE,
+    groupDescription: row.GRUPO_CLIENTE_DESCRICAO,
+    city: row.CIDADE,
+    ...flags,
+  };
+}
+
+function mapClientDetail(row, schema, contact = {}) {
+  const base = mapClientListItem(row, schema, contact);
+  return {
+    ...base,
+    address: {
+      street: row.RUA,
+      number: row.NUMERO,
+      complement: row.COMPLEMENTO,
+      district: row.BAIRRO,
+      city: row.CIDADE,
+      state: row.UF,
+      zip: row.CEP,
+    }
+  };
+}
+
+function mapLastOrderAddress(row) {
+  if (!row) return null;
+  return {
+    origin: "last_order",
+    street: row.RUA,
+    number: row.NUMERO,
+    complement: row.COMPLEMENTO,
+    district: row.BAIRRO,
+    city: row.CIDADE,
+    state: row.UF,
+    orderId: row.ID_ORDENS_VENDA,
+    orderNumber: row.N_PEDIDO,
+  };
+}
+
+function mapRegisteredAddress(row, schema) {
+  if (!row) return null;
+  return {
+    origin: "registered",
+    street: row.RUA,
+    number: row.NUMERO,
+    complement: row.COMPLEMENTO,
+    district: row.BAIRRO,
+    city: row.CIDADE,
+    state: row.UF,
+    zip: row.CEP,
+  };
+}
+
+function buildQPatterns(q) {
+  if (!q) return [];
+  // Remove acentos e converte para uppercase para busca case-insensitive no Firebird
+  const normalized = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  return [exactLikePattern(normalized)];
+}
+
 module.exports = {
   buildCreateClientProcedureParams,
-  buildCreateContactParams
+  buildCreateContactParams,
+  mapClientListItem,
+  mapClientDetail,
+  mapStatusFlags,
+  mapLastOrderAddress,
+  mapRegisteredAddress,
+  buildQPatterns,
+  exactLikePattern
 };
