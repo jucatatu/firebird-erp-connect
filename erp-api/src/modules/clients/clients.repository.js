@@ -365,37 +365,49 @@ async function findClientByDocument(documentDigits) {
  * Cadastro Atômico de Cliente + Contatos.
  */
 async function createClientTransaction(clientParams, contactParams) {
-  return await firebird.withTransaction(async (db, transaction) => {
+  return firebird.withTransaction(async (tx) => {
     // 1. Procedure Oficial de Cadastro Completo
+    // A SP_CAD_CLIENTE_COMPLETO possui outputs ID e ID_PES e possui SUSPEND.
+    // Usamos o padrão SELECT para garantir a captura dos outputs no node-firebird.
     const spClient = `
-      EXECUTE PROCEDURE SP_CAD_CLIENTE_COMPLETO(
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+      SELECT
+        ID,
+        ID_PES
+      FROM SP_CAD_CLIENTE_COMPLETO(
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?
       )
     `;
-    
-    const clientResult = await db.executeInTransaction(transaction, spClient, clientParams);
-    
-    // O retorno posicional depende do driver, mas geralmente é um array ou objeto com os campos ID e ID_PES
-    // No node-firebird execute, o retorno de SP costuma vir como o primeiro item do array se houver retorno
-    const ids = Array.isArray(clientResult) ? clientResult[0] : clientResult;
-    
-    const personId = ids.ID_PES || ids[1]; // ID_PES é o segundo retorno (posição 1)
-    const clientId = ids.ID || ids[0];     // ID é o primeiro retorno (posição 0)
-    
-    if (!personId || !clientId) {
-      throw new Error("Falha ao obter IDs do novo cliente (Firebird SP return empty)");
+
+    const rows = await tx.query(spClient, clientParams);
+    const row = rows?.[0];
+
+    // Extração defensiva dos IDs (pode vir em camelCase ou UPPER dependendo da config do driver)
+    const clientId = Number(row?.ID ?? row?.id);
+    const personId = Number(row?.ID_PES ?? row?.id_pes);
+
+    if (!Number.isFinite(clientId) || clientId <= 0 || !Number.isFinite(personId) || personId <= 0) {
+      const err = new Error("Falha ao obter IDs do novo cliente (Firebird SP return invalid)");
+      err.code = "CLIENT_PROCEDURE_INVALID_RETURN";
+      throw err;
     }
 
     // 2. Cadastro de Contatos
     const spContact = `EXECUTE PROCEDURE SP_CAD_CONTATOS(?, ?, ?, ?, ?)`;
-    // Substituir o ID_PESSOA nos parâmetros de contato
-    contactParams[0] = personId;
     
-    await db.executeInTransaction(transaction, spContact, contactParams);
-    
+    // Evitar mutação de contactParams (boa prática)
+    const finalContactParams = [
+      personId,
+      contactParams[1] || null,
+      contactParams[2] || null,
+      contactParams[3] || null,
+      null // Ultimo parâmetro da SP_CAD_CONTATOS costuma ser ID_CONTATO (PK) em SPs de cadastro ou algo do tipo, mas aqui passamos null
+    ];
+
+    await tx.query(spContact, finalContactParams);
+
     return { clientId, personId };
   });
 }

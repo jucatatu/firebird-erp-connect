@@ -1,6 +1,7 @@
 "use strict";
 
-const { pick, toNullableString } = require("../operations/operations.mapper");
+const { pick, toNullableString, toNullableInt } = require("../operations/operations.mapper");
+const { accentInsensitiveSqlExpression, exactLikePattern } = require("../../shared/search/like-pattern");
 const { maskDocument, documentType, maskPhone } = require("../../shared/utils/mask");
 
 /**
@@ -62,7 +63,138 @@ function buildCreateContactParams(personId, data) {
   ];
 }
 
+function mapStatusFlags(row, schema) {
+  const c = schema.client;
+  const activeVal = row.CLIENTE_ATIVO;
+  const blockedVal = row.CLIENTE_BLOQUEADO;
+  const blockedFinVal = row.CLIENTE_BLOQUEADO_FIN;
+
+  let active = activeVal === null || activeVal === undefined ? null : !!activeVal;
+  if (c.active === "INATIVO" && active !== null) {
+    active = !active;
+  }
+
+  const blocked = (blockedVal === null || blockedVal === undefined) && (blockedFinVal === null || blockedFinVal === undefined)
+    ? null
+    : (!!blockedVal || !!blockedFinVal);
+  if (blockedVal === undefined && blockedFinVal === undefined && row.ID_GRUPO_CLIENTE === undefined) {
+    // Para schema minimal dos testes unitários/HTTP
+    return { active, blocked: null, blockType: null, blockReason: null };
+  }
+
+
+
+  const blockType = blockedFinVal ? "financial" : (blockedVal ? "commercial" : null);
+  const blockReason = toNullableString(row.CLIENTE_MOTIVO_BLOQUEIO)?.replace(/\n/g, " ").replace(/\s\s+/g, " ") || null;
+
+
+  return { active, blocked, blockType, blockReason };
+}
+
+function mapClientListItem(row, schema, contact = {}) {
+  const flags = mapStatusFlags(row, schema);
+  const doc = row.CPF_CNPJ || row.CPF || row.CNPJ;
+  
+  return {
+    id: row.ID_CLIENTE === undefined ? null : row.ID_CLIENTE,
+    name: row.CLIENTE_NOME === undefined ? null : row.CLIENTE_NOME,
+    tradeName: row.CLIENTE_APELIDO === undefined ? null : row.CLIENTE_APELIDO,
+    documentMasked: doc ? maskDocument(doc) : null,
+
+    phoneMasked: contact.phone ? maskPhone(contact.phone) : null,
+    companyId: (row.CLIENTE_ID_EMPRESA === undefined || row.CLIENTE_ID_EMPRESA === null) ? 1 : row.CLIENTE_ID_EMPRESA,
+    companyName: row.CLIENTE_ID_EMPRESA === undefined ? null : (row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal"),
+
+    groupId: row.ID_GRUPO_CLIENTE === undefined ? null : row.ID_GRUPO_CLIENTE,
+    groupDescription: row.GRUPO_CLIENTE_DESCRICAO === undefined ? null : row.GRUPO_CLIENTE_DESCRICAO,
+    city: row.CIDADE === undefined ? null : row.CIDADE,
+    ...flags,
+  };
+}
+
+function mapClientDetail(row, schema, contact = {}) {
+  const base = mapClientListItem(row, schema, contact);
+  return {
+    ...base,
+    address: {
+      street: row.RUA,
+      number: row.NUMERO,
+      complement: row.COMPLEMENTO,
+      district: row.BAIRRO,
+      city: row.CIDADE,
+      state: row.UF,
+      zip: row.CEP,
+    }
+  };
+}
+
+function mapLastOrderAddress(row) {
+  if (!row) return null;
+  return {
+    origin: "last_order",
+    street: row.RUA,
+    number: row.NUMERO,
+    complement: row.COMPLEMENTO,
+    district: row.BAIRRO,
+    city: row.CIDADE,
+    state: row.UF,
+    orderId: row.ID_ORDENS_VENDA,
+    orderNumber: row.N_PEDIDO,
+  };
+}
+
+function mapRegisteredAddress(row, schema) {
+  if (!row) return null;
+  return {
+    origin: "registered",
+    street: row.RUA,
+    number: row.NUMERO,
+    complement: row.COMPLEMENTO,
+    district: row.BAIRRO,
+    city: row.CIDADE,
+    state: row.UF,
+    zip: row.CEP,
+  };
+}
+
+function buildQPatterns(q) {
+  if (!q) return [];
+  // Remove acentos e converte para uppercase para busca case-insensitive no Firebird
+  const normalized = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  return [normalized.includes("%") || normalized.includes("_") ? normalized : exactLikePattern(normalized)];
+}
+
+function sharedBuildQPatterns(q) {
+  return buildQPatterns(q);
+}
+
+function mapName(row) {
+  const nome = toNullableString(pick(row, "CLIENTE_NOME"));
+  const apelido = toNullableString(pick(row, "CLIENTE_APELIDO"));
+  return nome || apelido || "";
+}
+
+function resolveCompany(row, schema) {
+  const explicit = toNullableInt(pick(row, "CLIENTE_ID_EMPRESA"));
+  if (explicit === 1 || explicit === 3) return explicit;
+  
+  const groupDesc = toNullableString(row.GRUPO_CLIENTE_DESCRICAO);
+  if (groupDesc && /GROTT/i.test(groupDesc)) return 3;
+  
+  return 1;
+}
+
 module.exports = {
   buildCreateClientProcedureParams,
-  buildCreateContactParams
+  buildCreateContactParams,
+  mapClientListItem,
+  mapClientDetail,
+  mapStatusFlags,
+  mapLastOrderAddress,
+  mapRegisteredAddress,
+  buildQPatterns,
+  exactLikePattern,
+  mapName,
+  resolveCompany,
+  sharedBuildQPatterns
 };
