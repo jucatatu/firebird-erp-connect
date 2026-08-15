@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateErpClient, useErpCustomerGroups } from "@/hooks/use-erp";
+import { useCreateErpClient, useErpCustomerGroups, useErpPaymentOptions } from "@/hooks/use-erp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,9 +21,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, UserPlus, Building2, User } from "lucide-react";
+import { Loader2, UserPlus, Building2, User, MapPin, Search, CheckCircle2, Phone, MessageSquare, Mail, CreditCard, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { loadGoogleMapsLibraries } from "@/lib/google-maps";
+import { cn } from "@/lib/utils";
 
 const clientFormSchema = z.object({
   companyId: z.number(),
