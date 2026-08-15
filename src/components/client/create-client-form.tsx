@@ -63,6 +63,8 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
   const createClient = useCreateErpClient();
   const groupsQ = useErpCustomerGroups();
   const paymentOptionsQ = useErpPaymentOptions();
+  const { user } = useAuthSession();
+  const profileQ = useMyProfile(user);
 
   // Google Maps state
   const [isMapsLoaded, setIsMapsLoaded] = useState(false);
