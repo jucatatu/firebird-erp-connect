@@ -84,7 +84,8 @@ function mapStatusFlags(row, schema) {
 
 
   const blockType = blockedFinVal ? "financial" : (blockedVal ? "commercial" : null);
-  const blockReason = toNullableString(row.CLIENTE_MOTIVO_BLOQUEIO)?.replace(/\n/g, " ") || null;
+  const blockReason = toNullableString(row.CLIENTE_MOTIVO_BLOQUEIO)?.replace(/\n/g, " ").replace(/\s\s+/g, " ") || null;
+
 
   return { active, blocked, blockType, blockReason };
 }
@@ -101,7 +102,7 @@ function mapClientListItem(row, schema, contact = {}) {
     phoneMasked: contact.phone ? maskPhone(contact.phone) : null,
     companyId: row.CLIENTE_ID_EMPRESA || 1,
     companyName: row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal",
-    groupId: row.ID_GRUPO_CLIENTE,
+    groupId: row.ID_GRUPO_CLIENTE === undefined ? null : row.ID_GRUPO_CLIENTE,
     groupDescription: row.GRUPO_CLIENTE_DESCRICAO,
     city: row.CIDADE,
     ...flags,
