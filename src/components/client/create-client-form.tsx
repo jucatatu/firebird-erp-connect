@@ -253,7 +253,7 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
     if (currentStatus === "dirty" || currentStatus === "none") {
       setAddressValidationStatus("validating");
       try {
-        const { Geocoder } = (window as any).google.maps;
+        const { Geocoder } = await (window as any).google.maps.importLibrary("geocoding");
         const geocoder = new Geocoder();
         const addressStr = `${values.address.street}, ${values.address.number}, ${values.address.district}, ${values.address.city}, ${values.address.state}, ${values.address.zip || ""}, Brasil`;
         
