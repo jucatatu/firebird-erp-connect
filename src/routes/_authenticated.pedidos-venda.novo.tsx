@@ -1467,17 +1467,6 @@ function NewOrderPage() {
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 <UserIcon className="h-5 w-5 text-primary" /> Identificação
               </CardTitle>
-              {companyId && !showCreateClient && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 gap-1 font-bold text-primary border-primary/20 hover:bg-primary/5"
-                  onClick={() => setShowCreateClient(true)}
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Novo Cliente
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
