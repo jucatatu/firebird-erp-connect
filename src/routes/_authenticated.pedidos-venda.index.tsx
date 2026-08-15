@@ -367,7 +367,7 @@ function OrdersListPage() {
 
                       {/* Bloco Equipamentos */}
                       <div className="rounded-lg border border-muted/30 bg-muted/5 p-1.5 flex flex-col gap-0.5">
-                        <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-0.5">Equipamentos</span>
+                        <span className="text-[9px] font-bold text-muted-foreground/70 uppercase tracking-widest mb-0.5">Equipamentos</span>
                         {equipmentList.length > 0 ? (
                           equipmentList.map((item, idx) => (
                             <div key={idx} className={`text-[11px] leading-tight break-words ${item.isMain ? 'text-foreground/90 font-medium' : 'text-muted-foreground italic'}`}>
