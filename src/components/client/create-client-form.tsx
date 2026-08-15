@@ -61,6 +61,16 @@ interface CreateClientFormProps {
 export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClientFormProps) {
   const createClient = useCreateErpClient();
   const groupsQ = useErpCustomerGroups();
+  const paymentOptionsQ = useErpPaymentOptions();
+
+  // Google Maps state
+  const [isMapsLoaded, setIsMapsLoaded] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [sessionToken, setSessionToken] = useState<any>(null);
+  const [addressQuery, setAddressQuery] = useState("");
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
@@ -74,6 +84,8 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
       phone: "",
       email: "",
       groupId: "",
+      paymentTermId: "",
+      paymentMethodId: "",
       address: {
         zip: "",
         state: "",
@@ -86,14 +98,131 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
     },
   });
 
+  // Load Google Maps
+  useEffect(() => {
+    const initMaps = async () => {
+      try {
+        await loadGoogleMapsLibraries();
+        setIsMapsLoaded(true);
+        const { AutocompleteSessionToken } = (window as any).google.maps.places;
+        if (AutocompleteSessionToken) {
+          setSessionToken(new AutocompleteSessionToken());
+        }
+      } catch (err) {
+        console.error("Erro ao carregar Google Maps:", err);
+      }
+    };
+    initMaps();
+  }, []);
+
+  // Click outside suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced address search
+  useEffect(() => {
+    if (!addressQuery || addressQuery.length < 3 || !isMapsLoaded || !showSuggestions) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const { AutocompleteSuggestion } = (window as any).google.maps.places;
+        const request = {
+          input: addressQuery,
+          includedRegionCodes: ["br"],
+          locationBias: {
+            center: { lat: -26.48, lng: -49.07 },
+            radius: 50000 // 50km
+          },
+          sessionToken
+        };
+
+        const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+        
+        const normalized = (results || [])
+          .map((suggestion: any) => {
+            const prediction = suggestion.placePrediction;
+            if (!prediction) return null;
+            return {
+              prediction,
+              primaryText: prediction.mainText?.text || prediction.text?.text || "",
+              secondaryText: prediction.secondaryText?.text || "",
+              fullText: prediction.text?.text || "",
+            };
+          })
+          .filter(Boolean);
+
+        setSuggestions(normalized);
+      } catch (err) {
+        console.error("[PLACES] error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [addressQuery, isMapsLoaded, showSuggestions, sessionToken]);
+
+  const handleSelectPrediction = async (suggestion: any) => {
+    setShowSuggestions(false);
+    try {
+      const prediction = suggestion.prediction;
+      const place = prediction.toPlace();
+      await place.fetchFields({
+        fields: ["addressComponents", "formattedAddress", "location", "id", "displayName"]
+      });
+
+      const components = place.addressComponents;
+      const getComp = (types: string[], useShort = false) => {
+        const comp = components?.find((c: any) => types.some(t => c.types.includes(t)));
+        return useShort ? comp?.shortText : comp?.longText;
+      };
+
+      const street = getComp(["route"]) || place.displayName?.text || "";
+      const number = getComp(["street_number"]) || "";
+      const district = getComp(["neighborhood", "sublocality", "sublocality_level_1"]) || "";
+      const city = getComp(["locality", "administrative_area_level_2"]) || "";
+      const state = getComp(["administrative_area_level_1"], true) || ""; 
+      const zip = getComp(["postal_code"]) || "";
+
+      form.setValue("address.street", street);
+      form.setValue("address.number", number);
+      form.setValue("address.district", district);
+      form.setValue("address.city", city);
+      form.setValue("address.state", state.slice(0, 2).toUpperCase());
+      form.setValue("address.zip", zip.replace(/\D/g, ""));
+
+      setAddressQuery(street);
+      
+      const { AutocompleteSessionToken } = (window as any).google.maps.places;
+      if (AutocompleteSessionToken) setSessionToken(new AutocompleteSessionToken());
+
+      if (!number) {
+        toast.info("Por favor, informe o número do endereço.");
+        setTimeout(() => document.getElementById("client-addr-number")?.focus(), 150);
+      }
+    } catch (err) {
+      toast.error("Erro ao processar endereço selecionado.");
+    }
+  };
+
   const onSubmit = async (values: ClientFormValues) => {
     try {
       const payload = {
         ...values,
         groupId: parseInt(values.groupId),
-        // Defaults obrigatórios para a SP no Node
-        paymentTermId: 1, // À VISTA (ajustável no wizard depois)
-        paymentMethodId: 1, // DINHEIRO
+        paymentTermId: parseInt(values.paymentTermId),
+        paymentMethodId: parseInt(values.paymentMethodId),
       };
 
       const res = await createClient.mutateAsync(payload as any);
@@ -104,10 +233,6 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
       } else {
         const errorMsg = res.error?.message || "Erro ao cadastrar cliente.";
         toast.error(errorMsg);
-        if (res.status === 409) {
-           // Se duplicado, poderíamos sugerir selecionar o existente,
-           // mas o toast já informa os detalhes se exposeDetails for true.
-        }
       }
     } catch (err) {
       toast.error("Erro de conexão com o servidor.");
