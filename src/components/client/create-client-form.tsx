@@ -163,8 +163,8 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
 
         const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
         
-        const normalized = (results || [])
-          .map((suggestion: any) => {
+        if (results && results.length > 0) {
+          const normalized = results.map((suggestion: any) => {
             const prediction = suggestion.placePrediction;
             if (!prediction) return null;
             return {
@@ -173,12 +173,15 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
               secondaryText: prediction.secondaryText?.text || "",
               fullText: prediction.text?.text || "",
             };
-          })
-          .filter(Boolean);
-
-        setSuggestions(normalized);
+          }).filter(Boolean);
+          setSuggestions(normalized);
+        } else {
+          setSuggestions([]);
+        }
       } catch (err) {
         console.error("[PLACES] error:", err);
+        toast.error("Não foi possível pesquisar endereços no Google Maps. Tente novamente.");
+      } finally {
       } finally {
         setIsSearching(false);
       }
