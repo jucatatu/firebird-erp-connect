@@ -1504,14 +1504,46 @@ function NewOrderPage() {
 
             <Separator />
 
-            {showCreateClient ? (
+            {createdClientInfo ? (
+              <div className="p-6 border-2 border-dashed border-green-200 bg-green-50 rounded-2xl flex flex-col items-center text-center gap-4 animate-in zoom-in-95 duration-500">
+                <div className="h-16 w-16 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                  <CheckCircle2 className="h-8 w-8 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-green-800 uppercase tracking-tight">✓ Cliente Cadastrado no ERP</h3>
+                  <p className="text-sm font-semibold text-green-700">{createdClientInfo.name}</p>
+                  <p className="text-[10px] font-bold text-green-600/80 uppercase">ERP ID: {createdClientInfo.id}</p>
+                </div>
+                
+                <div className="grid grid-cols-1 w-full gap-3 pt-2">
+                  <Button 
+                    className="h-12 font-bold text-base bg-green-600 hover:bg-green-700 shadow-md"
+                    onClick={() => {
+                      newOrderFromClient(createdClientInfo.id, createdClientInfo.name, companyId!);
+                      setStep("items");
+                      setCreatedClientInfo(null);
+                    }}
+                  >
+                    Gerar novo pedido para este cliente
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="h-10 text-green-700 hover:bg-green-100/50 font-bold text-xs"
+                    onClick={() => {
+                      setCreatedClientInfo(null);
+                      setShowCreateClient(false);
+                    }}
+                  >
+                    Voltar
+                  </Button>
+                </div>
+              </div>
+            ) : showCreateClient ? (
               <CreateClientForm 
                 companyId={companyId!} 
                 onCancel={() => setShowCreateClient(false)}
                 onSuccess={(id: number, name: string) => {
-                  setClient(id, name);
-                  setShowCreateClient(false);
-                  setStep("items");
+                  setCreatedClientInfo({ id, name });
                 }}
               />
             ) : (
