@@ -1538,20 +1538,31 @@ function NewOrderPage() {
                   </Button>
                 </div>
               </div>
-            ) : showCreateClient ? (
-              <CreateClientForm 
-                companyId={companyId!} 
-                onCancel={() => setShowCreateClient(false)}
-                onSuccess={(id: number, name: string) => {
-                  setCreatedClientInfo({ id, name });
-                }}
-              />
             ) : (
-              <div className="space-y-4">
-                <Label className="text-base font-bold flex items-center gap-2">
-                  <Search className="h-4 w-4" /> Buscar cliente
-                </Label>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+
+
+
+
+
+
+                  <Label className="text-base font-bold flex items-center gap-2">
+                    <Search className="h-4 w-4" /> Buscar cliente
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-[10px] font-bold uppercase gap-1.5 border border-primary/20 text-primary hover:bg-primary/5 rounded-full px-3"
+                    onClick={() => setShowCreateClient(true)}
+                    disabled={!companyId}
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    + Novo Cliente
+                  </Button>
+                </div>
                 <div className="relative">
+
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input 
                     placeholder={companyId ? "Digite nome, código ou documento..." : "Selecione a empresa primeiro"} 
@@ -1564,7 +1575,20 @@ function NewOrderPage() {
               </div>
             )}
 
+
+
+
+
+
+
+
+
+
+
+
             {!showCreateClient && (
+
+
               <div className="space-y-6">
               {/* RESULTADOS DA BUSCA (Prioridade quando há texto) */}
               {debouncedSearch.length >= 3 && (
@@ -1755,11 +1779,27 @@ function NewOrderPage() {
                   )}
                 </div>
               </div>
-              </div>
             )}
           </CardContent>
         </Card>
       )}
+
+
+
+
+
+
+
+
+        </Card>
+      )}
+
+
+
+
+
+
+
 
       {step === "items" && clientId && companyId && (
         <div className="grid gap-6 md:grid-cols-4">
@@ -1857,9 +1897,76 @@ function NewOrderPage() {
                      )}
                    </>
                  )}
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Sheet open={showCreateClient} onOpenChange={setShowCreateClient}>
+        <SheetContent side="right" className="w-full sm:max-w-xl p-0 h-[100dvh]">
+          <div className="h-full flex flex-col">
+            <SheetHeader className="p-4 border-b flex-row items-center justify-between space-y-0">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowCreateClient(false)}>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <SheetTitle className="text-base font-bold uppercase tracking-tight">Novo Cliente ERP</SheetTitle>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase">Cadastro realizado diretamente no ERP.</p>
+                </div>
+              </div>
+            </SheetHeader>
+            <ScrollArea className="flex-1">
+              <div className="p-4 sm:p-6">
+                {createdClientInfo ? (
+                  <div className="py-8 border-2 border-dashed border-green-200 bg-green-50 rounded-2xl flex flex-col items-center text-center gap-4 animate-in zoom-in-95 duration-500">
+                    <div className="h-16 w-16 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                      <CheckCircle2 className="h-8 w-8 text-white" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-bold text-green-800 uppercase tracking-tight">✓ Cliente Cadastrado no ERP</h3>
+                      <p className="text-sm font-semibold text-green-700">{createdClientInfo.name}</p>
+                      <p className="text-[10px] font-bold text-green-600/80 uppercase">ERP ID: {createdClientInfo.id}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 w-full gap-3 pt-2 px-6">
+                      <Button 
+                        className="h-12 font-bold text-base bg-green-600 hover:bg-green-700 shadow-md"
+                        onClick={() => {
+                          newOrderFromClient(createdClientInfo.id, createdClientInfo.name, companyId!);
+                          setStep("items");
+                          setCreatedClientInfo(null);
+                          setShowCreateClient(false);
+                        }}
+                      >
+                        Gerar novo pedido para este cliente
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="h-10 text-green-700 hover:bg-green-100/50 font-bold text-xs"
+                        onClick={() => {
+                          setCreatedClientInfo(null);
+                          setShowCreateClient(false);
+                        }}
+                      >
+                        Voltar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <CreateClientForm 
+                    companyId={companyId!} 
+                    onCancel={() => setShowCreateClient(false)}
+                    onSuccess={(id: number, name: string) => {
+                      setCreatedClientInfo({ id, name });
+                    }}
+                  />
+                )}
+              </div>
+            </ScrollArea>
           </div>
+        </SheetContent>
+      </Sheet>
+
           <div className="space-y-4">
             <Card className="md:sticky md:top-6 shadow-sm border-primary/10">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">

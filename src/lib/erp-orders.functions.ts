@@ -43,7 +43,12 @@ export interface ErpClient {
     city: string | null;
     state: string | null;
     zip: string | null;
+    validation?: {
+      lat: number;
+      lng: number;
+    } | null;
   } | null;
+
 }
 
 export interface ErpProduct {
@@ -524,8 +529,13 @@ export interface CreateClientInput {
     number: string;
     zip?: string | null;
     complement?: string | null;
+    validation?: {
+      lat: number;
+      lng: number;
+    } | null;
   };
 }
+
 
 export const createErpClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -534,6 +544,35 @@ export const createErpClient = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { callErp } = await import("./erp.server");
     const { userId } = context;
+
+    // 0. Validar área de atendimento (Regra Rígida 50km - Sprint 8.9.42.2)
+    if (data.address.validation) {
+      const { isWithinCustomerServiceArea } = await import("@/utils/geo-utils");
+      if (!isWithinCustomerServiceArea(data.address.validation.lat, data.address.validation.lng)) {
+        return {
+          ok: false,
+          status: 422,
+          data: null,
+          error: {
+            code: "ADDRESS_OUTSIDE_SERVICE_AREA",
+            message: "Endereço fora da área de atendimento (50 km de Jaraguá do Sul).",
+            retryable: false
+          }
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        status: 422,
+        data: null,
+        error: {
+          code: "LOCATION_VALIDATION_REQUIRED",
+          message: "A validação geográfica do endereço é obrigatória.",
+          retryable: false
+        }
+      };
+    }
+
 
     // 1. Validar acesso à empresa
     const { data: userCompanies, error: ucaErr } = await supabaseAdmin
