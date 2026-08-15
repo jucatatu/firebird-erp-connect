@@ -26,7 +26,12 @@ import { toast } from "sonner";
 import { Tabs as TabsUI, TabsList as TabsListUI, TabsTrigger as TabsTriggerUI } from "@/components/ui/tabs";
 import { loadGoogleMapsLibraries } from "@/lib/google-maps";
 import { cn } from "@/lib/utils";
-import { isWithinCustomerServiceArea, CUSTOMER_SERVICE_AREA_CENTER, CUSTOMER_SERVICE_RADIUS_METERS } from "@/utils/geo-utils";
+import { 
+  isWithinCustomerServiceArea, 
+  CUSTOMER_SERVICE_AREA_CENTER, 
+  CUSTOMER_SERVICE_RADIUS_METERS,
+  getCustomerServiceAreaBounds
+} from "@/utils/geo-utils";
 
 const clientFormSchema = z.object({
 
@@ -56,12 +61,14 @@ type ClientFormValues = z.infer<typeof clientFormSchema>;
 
 interface CreateClientFormProps {
   companyId: number;
+  allowedCompanyIds: number[];
+  onCompanyChange: (companyId: number) => void;
   onSuccess: (clientId: number, name: string) => void;
   onCancel: () => void;
 }
 
 import { useMyProfile, useAuthSession } from "@/hooks/use-auth";
-export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClientFormProps) {
+export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange, onSuccess, onCancel }: CreateClientFormProps) {
   const createClient = useCreateErpClient();
   const groupsQ = useErpCustomerGroups();
   const paymentOptionsQ = useErpPaymentOptions();
@@ -148,10 +155,8 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
         const request = {
           input: addressQuery,
           includedRegionCodes: ["br"],
-          locationRestriction: {
-            center: { lat: CUSTOMER_SERVICE_AREA_CENTER.lat, lng: CUSTOMER_SERVICE_AREA_CENTER.lng },
-            radius: CUSTOMER_SERVICE_RADIUS_METERS
-          },
+          locationRestriction: getCustomerServiceAreaBounds(),
+          origin: CUSTOMER_SERVICE_AREA_CENTER,
           sessionToken
 
         };
@@ -426,11 +431,23 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {groupsQ.data?.data?.groups.map((g) => (
-                          <SelectItem key={g.id} value={String(g.id)}>
-                            {g.description}
-                          </SelectItem>
-                        ))}
+                        {groupsQ.isLoading ? (
+                          <div className="flex items-center gap-2 p-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Carregando grupos...</span>
+                          </div>
+                        ) : groupsQ.isError || groupsQ.data?.ok === false ? (
+                          <div className="flex items-center gap-2 p-2 text-destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-xs">Não foi possível carregar os grupos de clientes do ERP.</span>
+                          </div>
+                        ) : (
+                          groupsQ.data?.data?.groups.map((g: any) => (
+                            <SelectItem key={g.id} value={String(g.id)}>
+                              {g.description}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage className="text-[10px]" />
@@ -439,10 +456,33 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
               />
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Empresa</Label>
-                <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground">
-                  {companyId === 3 ? "GROTT" : "GRAAL"}
-                </div>
+                <Label className="text-xs font-bold uppercase">Empresa *</Label>
+                {allowedCompanyIds.length > 1 ? (
+                  <div className="flex gap-2">
+                    {allowedCompanyIds.map((id) => (
+                      <Button
+                        key={id}
+                        type="button"
+                        variant={companyId === id ? "default" : "outline"}
+                        className={cn(
+                          "flex-1 h-10 text-xs font-bold",
+                          companyId === id && "bg-primary text-primary-foreground shadow-sm"
+                        )}
+                        onClick={() => {
+                          onCompanyChange(id);
+                          form.setValue("companyId", id, { shouldDirty: true, shouldValidate: true });
+                          form.setValue("groupId", ""); // Limpar grupo na troca de empresa
+                        }}
+                      >
+                        {id === 1 ? "GRAAL" : id === 3 ? "GROTT" : `Empresa ${id}`}
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground">
+                    {companyId === 3 ? "GROTT" : "GRAAL"}
+                  </div>
+                )}
               </div>
 
               <div className="col-span-full space-y-2">
