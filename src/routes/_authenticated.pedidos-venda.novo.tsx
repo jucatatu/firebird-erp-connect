@@ -1500,7 +1500,8 @@ function NewOrderPage() {
               </div>
             </div>
 
-            <div className="space-y-6">
+            {!showCreateClient && (
+              <div className="space-y-6">
               {/* RESULTADOS DA BUSCA (Prioridade quando há texto) */}
               {debouncedSearch.length >= 3 && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -1690,7 +1691,8 @@ function NewOrderPage() {
                   )}
                 </div>
               </div>
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
