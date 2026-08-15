@@ -1,5 +1,7 @@
 "use strict";
 
+require("./helpers/env");
+
 const { test, describe, beforeEach } = require("node:test");
 const assert = require("node:assert");
 const repository = require("../src/modules/clients/clients.repository");
