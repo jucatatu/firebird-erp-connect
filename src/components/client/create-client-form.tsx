@@ -326,7 +326,7 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
 
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 overflow-y-auto pb-8">
 
 
       <Form {...form}>
@@ -494,7 +494,20 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                             <span className="text-xs">Não foi possível carregar os grupos de clientes do ERP.</span>
                           </div>
                         ) : (
-                          groupsQ.data?.data?.groups.map((g: any) => (
+                          groupsQ.data?.data?.groups?.map((g: any) => (
+                            <SelectItem key={g.id} value={String(g.id)}>
+                              {g.description}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[10px]" />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
                             <SelectItem key={g.id} value={String(g.id)}>
                               {g.description}
                             </SelectItem>
@@ -732,6 +745,13 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                 />
                 {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
+              
+              {/* SPRINT 8.9.42.2.2: Feedback de erro na busca do Google */}
+              {isMapsLoaded && !isSearching && addressQuery.length >= 3 && suggestions.length === 0 && showSuggestions && (
+                <div className="text-[10px] text-muted-foreground italic px-1 animate-in fade-in">
+                  Nenhum endereço encontrado nesta área.
+                </div>
+              )}
 
               {showSuggestions && suggestions.length > 0 && (
                 <div 
