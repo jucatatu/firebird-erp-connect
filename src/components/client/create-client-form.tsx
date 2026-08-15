@@ -58,6 +58,7 @@ interface CreateClientFormProps {
   onCancel: () => void;
 }
 
+import { useMyProfile, useAuthSession } from "@/hooks/use-auth";
 export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClientFormProps) {
   const createClient = useCreateErpClient();
   const groupsQ = useErpCustomerGroups();
