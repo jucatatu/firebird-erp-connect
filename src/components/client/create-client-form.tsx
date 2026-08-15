@@ -388,7 +388,7 @@ export function CreateClientForm({ companyId, onSuccess, onCancel }: CreateClien
               <div className="col-span-full space-y-2">
                 <Label className="text-xs font-bold uppercase">Vendedor</Label>
                 <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground italic">
-                  Automático pelo usuário logado
+                  {profileQ.data?.full_name ? `${profileQ.data.full_name} / automático` : "Automático pelo usuário logado"}
                 </div>
               </div>
             </div>
