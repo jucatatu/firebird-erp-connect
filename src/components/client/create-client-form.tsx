@@ -508,56 +508,6 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
               />
             </div>
           </div>
-                            <SelectItem key={g.id} value={String(g.id)}>
-                              {g.description}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-[10px]" />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Empresa *</Label>
-                {allowedCompanyIds.length > 1 ? (
-                  <div className="flex gap-2">
-                    {allowedCompanyIds.map((id) => (
-                      <Button
-                        key={id}
-                        type="button"
-                        variant={companyId === id ? "default" : "outline"}
-                        className={cn(
-                          "flex-1 h-10 text-xs font-bold",
-                          companyId === id && "bg-primary text-primary-foreground shadow-sm"
-                        )}
-                        onClick={() => {
-                          onCompanyChange(id);
-                          form.setValue("companyId", id, { shouldDirty: true, shouldValidate: true });
-                          form.setValue("groupId", ""); // Limpar grupo na troca de empresa
-                        }}
-                      >
-                        {id === 1 ? "GRAAL" : id === 3 ? "GROTT" : `Empresa ${id}`}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground">
-                    {companyId === 3 ? "GROTT" : "GRAAL"}
-                  </div>
-                )}
-              </div>
-
-              <div className="col-span-full space-y-2">
-                <Label className="text-xs font-bold uppercase">Vendedor</Label>
-                <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground italic">
-                  {profileQ.data?.full_name ? `${profileQ.data.full_name} / automático` : "Automático pelo usuário logado"}
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* SEÇÃO: FINANCEIRO */}
           <div className="space-y-4">
