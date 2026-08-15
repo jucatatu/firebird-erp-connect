@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon } from "lucide-react";
+import { Search, Loader2, Plus, ShoppingCart, Truck, CreditCard, ChevronRight, ChevronLeft, Trash2, CheckCircle2, Send, RefreshCcw, AlertCircle, Pencil, History, User as UserIcon, UserPlus } from "lucide-react";
+import { CreateClientForm } from "@/components/client/create-client-form";
 import { useErpClients, useErpProducts, useErpEquipmentTypes, useErpPrice, useCreateErpOrder, useErpClientDetail } from "@/hooks/use-erp";
 import { getErpPaymentOptions, resolveErpPrice, getErpOrderDetail, getErpClientDetail, type CreateOrderInput, type PaymentOptionsPayload, updateErpOrder } from "@/lib/erp-orders.functions";
 import { useOrderFormStore, type OrderFormStore, type OrderEquipment } from "@/hooks/use-order-form";
@@ -1506,7 +1507,7 @@ function NewOrderPage() {
               <CreateClientForm 
                 companyId={companyId!} 
                 onCancel={() => setShowCreateClient(false)}
-                onSuccess={(id, name) => {
+                onSuccess={(id: number, name: string) => {
                   setClient(id, name);
                   setShowCreateClient(false);
                   setStep("items");
