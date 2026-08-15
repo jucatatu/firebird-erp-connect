@@ -102,8 +102,9 @@ function mapClientListItem(row, schema, contact = {}) {
     documentMasked: doc ? maskDocument(doc) : null,
 
     phoneMasked: contact.phone ? maskPhone(contact.phone) : null,
-    companyId: row.CLIENTE_ID_EMPRESA || 1,
-    companyName: row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal",
+    companyId: (row.CLIENTE_ID_EMPRESA === undefined || row.CLIENTE_ID_EMPRESA === null) ? 1 : row.CLIENTE_ID_EMPRESA,
+    companyName: row.CLIENTE_ID_EMPRESA === undefined ? null : (row.CLIENTE_ID_EMPRESA === 3 ? "Grott" : "Graal"),
+
     groupId: row.ID_GRUPO_CLIENTE === undefined ? null : row.ID_GRUPO_CLIENTE,
     groupDescription: row.GRUPO_CLIENTE_DESCRICAO === undefined ? null : row.GRUPO_CLIENTE_DESCRICAO,
     city: row.CIDADE === undefined ? null : row.CIDADE,
