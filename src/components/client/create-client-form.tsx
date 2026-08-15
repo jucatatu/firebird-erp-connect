@@ -118,6 +118,8 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
     const initMaps = async () => {
       try {
         await loadGoogleMapsLibraries();
+        // SPRINT 8.9.42.2.2: Garantir geocoding importado
+        await (window as any).google.maps.importLibrary("geocoding");
         setIsMapsLoaded(true);
         const { AutocompleteSessionToken } = (window as any).google?.maps?.places || {};
         if (AutocompleteSessionToken) {
@@ -152,13 +154,16 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
       setIsSearching(true);
       try {
         const { AutocompleteSuggestion } = (window as any).google.maps.places;
+        
+        // SPRINT 8.9.42.2.2: Usar LatLngBoundsLiteral para locationRestriction
+        const bounds = getCustomerServiceAreaBounds();
+        
         const request = {
           input: addressQuery,
           includedRegionCodes: ["br"],
-          locationRestriction: getCustomerServiceAreaBounds(),
+          locationRestriction: bounds,
           origin: CUSTOMER_SERVICE_AREA_CENTER,
           sessionToken
-
         };
 
         const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
@@ -211,12 +216,12 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
       const state = getComp(["administrative_area_level_1"], true) || ""; 
       const zip = getComp(["postal_code"]) || "";
 
-      form.setValue("address.street", street);
-      form.setValue("address.number", number);
-      form.setValue("address.district", district);
-      form.setValue("address.city", city);
-      form.setValue("address.state", state.slice(0, 2).toUpperCase());
-      form.setValue("address.zip", zip.replace(/\D/g, ""));
+      form.setValue("address.street", street, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.number", number, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.district", district, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.city", city, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.state", state.slice(0, 2).toUpperCase(), { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.zip", zip.replace(/\D/g, ""), { shouldValidate: true, shouldDirty: true });
 
       // Validar área (Sprint 8.9.42.2)
       if (place.location) {
@@ -321,7 +326,7 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
 
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 overflow-y-auto pb-8">
 
 
       <Form {...form}>
@@ -420,16 +425,61 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
               <Briefcase className="h-3.5 w-3.5" /> Comercial
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SPRINT 8.9.42.2.2: Empresa Editável */}
+              <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-bold uppercase">Empresa *</FormLabel>
+                    <TabsUI 
+                      value={String(field.value)} 
+                      onValueChange={(val) => {
+                        const newId = parseInt(val);
+                        field.onChange(newId);
+                        onCompanyChange(newId);
+                        // SPRINT 8.9.42.2.2: Limpar grupo ao trocar empresa
+                        form.setValue("groupId", "");
+                      }}
+                      className="w-full"
+                    >
+                      <TabsListUI className="grid w-full grid-cols-2 h-10 bg-muted/50">
+                        {allowedCompanyIds.includes(1) && (
+                          <TabsTriggerUI value="1" className="text-[10px] font-bold uppercase tracking-tighter">
+                            GRAAL (1)
+                          </TabsTriggerUI>
+                        )}
+                        {allowedCompanyIds.includes(3) && (
+                          <TabsTriggerUI value="3" className="text-[10px] font-bold uppercase tracking-tighter">
+                            GROTT (3)
+                          </TabsTriggerUI>
+                        )}
+                        {!allowedCompanyIds.includes(1) && !allowedCompanyIds.includes(3) && (
+                          <div className="flex items-center justify-center h-full px-2 text-[10px] text-muted-foreground uppercase font-bold">
+                            Sem acesso
+                          </div>
+                        )}
+                      </TabsListUI>
+                    </TabsUI>
+                    <FormMessage className="text-[10px]" />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="groupId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">Grupo de Cliente *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={groupsQ.isLoading}
+                    >
                       <FormControl>
                         <SelectTrigger className="h-10 text-sm">
-                          <SelectValue placeholder="Selecione o grupo" />
+                          <SelectValue placeholder={groupsQ.isLoading ? "Carregando grupos..." : "Selecione o grupo"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -444,7 +494,7 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                             <span className="text-xs">Não foi possível carregar os grupos de clientes do ERP.</span>
                           </div>
                         ) : (
-                          groupsQ.data?.data?.groups.map((g: any) => (
+                          groupsQ.data?.data?.groups?.map((g: any) => (
                             <SelectItem key={g.id} value={String(g.id)}>
                               {g.description}
                             </SelectItem>
@@ -456,42 +506,13 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                   </FormItem>
                 )}
               />
-
-              <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase">Empresa *</Label>
-                {allowedCompanyIds.length > 1 ? (
-                  <div className="flex gap-2">
-                    {allowedCompanyIds.map((id) => (
-                      <Button
-                        key={id}
-                        type="button"
-                        variant={companyId === id ? "default" : "outline"}
-                        className={cn(
-                          "flex-1 h-10 text-xs font-bold",
-                          companyId === id && "bg-primary text-primary-foreground shadow-sm"
-                        )}
-                        onClick={() => {
-                          onCompanyChange(id);
-                          form.setValue("companyId", id, { shouldDirty: true, shouldValidate: true });
-                          form.setValue("groupId", ""); // Limpar grupo na troca de empresa
-                        }}
-                      >
-                        {id === 1 ? "GRAAL" : id === 3 ? "GROTT" : `Empresa ${id}`}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground">
-                    {companyId === 3 ? "GROTT" : "GRAAL"}
-                  </div>
-                )}
-              </div>
-
-              <div className="col-span-full space-y-2">
-                <Label className="text-xs font-bold uppercase">Vendedor</Label>
-                <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground italic">
-                  {profileQ.data?.full_name ? `${profileQ.data.full_name} / automático` : "Automático pelo usuário logado"}
-                </div>
+            </div>
+            
+            {/* SPRINT 8.9.42.2.2: Vendedor Automático */}
+            <div className="mt-4 col-span-full space-y-2">
+              <Label className="text-xs font-bold uppercase">Vendedor</Label>
+              <div className="h-10 px-3 flex items-center bg-muted/30 border rounded-md text-sm font-medium text-muted-foreground italic">
+                {profileQ.data?.full_name ? `${profileQ.data.full_name} / automático` : "Automático pelo usuário logado"}
               </div>
             </div>
           </div>
@@ -682,6 +703,13 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
                 />
                 {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
+              
+              {/* SPRINT 8.9.42.2.2: Feedback de erro na busca do Google */}
+              {isMapsLoaded && !isSearching && addressQuery.length >= 3 && suggestions.length === 0 && showSuggestions && (
+                <div className="text-[10px] text-muted-foreground italic px-1 animate-in fade-in">
+                  Nenhum endereço encontrado nesta área.
+                </div>
+              )}
 
               {showSuggestions && suggestions.length > 0 && (
                 <div 
