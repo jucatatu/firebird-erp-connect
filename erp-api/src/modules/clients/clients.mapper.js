@@ -149,7 +149,11 @@ function buildQPatterns(q) {
   if (!q) return [];
   // Remove acentos e converte para uppercase para busca case-insensitive no Firebird
   const normalized = q.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-  return [exactLikePattern(normalized)];
+  return [normalized.includes("%") || normalized.includes("_") ? normalized : exactLikePattern(normalized)];
+}
+
+function sharedBuildQPatterns(q) {
+  return buildQPatterns(q);
 }
 
 function mapName(row) {
@@ -180,5 +184,5 @@ module.exports = {
   exactLikePattern,
   mapName,
   resolveCompany,
-  sharedBuildQPatterns: buildQPatterns
+  sharedBuildQPatterns
 };
