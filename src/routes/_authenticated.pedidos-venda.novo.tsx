@@ -1540,9 +1540,9 @@ function NewOrderPage() {
               </div>
             ) : (
               <div className="space-y-6">
-
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-bold flex items-center gap-2">
+
 
 
                     <Search className="h-4 w-4" /> Buscar cliente
@@ -1783,6 +1783,7 @@ function NewOrderPage() {
           </CardContent>
         </Card>
       )}
+
 
 
 
