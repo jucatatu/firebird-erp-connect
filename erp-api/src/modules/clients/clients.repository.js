@@ -400,10 +400,10 @@ async function createClientTransaction(clientParams, contactParams) {
     // Evitar mutação de contactParams (boa prática)
     const finalContactParams = [
       personId,
-      contactParams[1] || null,
-      contactParams[2] || null,
-      contactParams[3] || null,
-      null // Ultimo parâmetro da SP_CAD_CONTATOS costuma ser ID_CONTATO (PK) em SPs de cadastro ou algo do tipo, mas aqui passamos null
+      contactParams[1],
+      contactParams[2],
+      contactParams[3],
+      contactParams[4]
     ];
 
     await tx.query(spContact, finalContactParams);
