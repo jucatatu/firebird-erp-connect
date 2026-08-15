@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_authenticated/pedidos-venda/")({
   }),
   validateSearch: (search: Record<string, unknown>) => ({
     status: (search.status as StatusFilter | undefined) ?? "all",
-    page: search.page ? Number(search.page) : 1,
+    page: search.page ? Number(search.page) : undefined,
   }),
   component: OrdersListPage,
 });
@@ -72,7 +72,7 @@ function OrdersListPage() {
 
   const status: StatusFilter = search.status ?? "all";
 
-  const { data, isLoading, isError } = useOrderDrafts({
+  const paginatedQ = usePaginatedOrderDrafts({
     status,
     companyId: company === "all" ? "all" : (Number(company) as 1 | 3),
     mineOnly: role === "vendedor",
@@ -80,23 +80,11 @@ function OrdersListPage() {
     search: query,
     page,
     pageSize: PAGE_SIZE,
-  } as any);
+  });
 
-  // useOrderDrafts currently doesn't support pagination, but we want to use the new hook for the list
-  const paginatedQ = useOrderDrafts({
-    status,
-    companyId: company === "all" ? "all" : (Number(company) as 1 | 3),
-    mineOnly: role === "vendedor",
-    myUserId: user?.id ?? null,
-    search: query,
-    page,
-    pageSize: PAGE_SIZE,
-  } as any);
-
-  // Wait, I should use the new usePaginatedOrderDrafts hook here.
-  // I will refactor this to use usePaginatedOrderDrafts for the list view.
-
-  const rows = useMemo(() => data ?? [], [data]);
+  const { rows, total, totalPages } = paginatedQ.data || { rows: [], total: 0, totalPages: 0 };
+  const isLoading = paginatedQ.isLoading;
+  const isError = paginatedQ.isError;
 
   const erpOrderNumbers = useMemo(() => 
     rows.map(r => r.erp_order_number).filter((num): num is number => num !== null),
