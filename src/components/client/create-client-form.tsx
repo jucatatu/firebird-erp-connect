@@ -118,6 +118,8 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
     const initMaps = async () => {
       try {
         await loadGoogleMapsLibraries();
+        // SPRINT 8.9.42.2.2: Garantir geocoding importado
+        await (window as any).google.maps.importLibrary("geocoding");
         setIsMapsLoaded(true);
         const { AutocompleteSessionToken } = (window as any).google?.maps?.places || {};
         if (AutocompleteSessionToken) {
@@ -152,13 +154,16 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
       setIsSearching(true);
       try {
         const { AutocompleteSuggestion } = (window as any).google.maps.places;
+        
+        // SPRINT 8.9.42.2.2: Usar LatLngBoundsLiteral para locationRestriction
+        const bounds = getCustomerServiceAreaBounds();
+        
         const request = {
           input: addressQuery,
           includedRegionCodes: ["br"],
-          locationRestriction: getCustomerServiceAreaBounds(),
+          locationRestriction: bounds,
           origin: CUSTOMER_SERVICE_AREA_CENTER,
           sessionToken
-
         };
 
         const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
@@ -211,12 +216,12 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
       const state = getComp(["administrative_area_level_1"], true) || ""; 
       const zip = getComp(["postal_code"]) || "";
 
-      form.setValue("address.street", street);
-      form.setValue("address.number", number);
-      form.setValue("address.district", district);
-      form.setValue("address.city", city);
-      form.setValue("address.state", state.slice(0, 2).toUpperCase());
-      form.setValue("address.zip", zip.replace(/\D/g, ""));
+      form.setValue("address.street", street, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.number", number, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.district", district, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.city", city, { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.state", state.slice(0, 2).toUpperCase(), { shouldValidate: true, shouldDirty: true });
+      form.setValue("address.zip", zip.replace(/\D/g, ""), { shouldValidate: true, shouldDirty: true });
 
       // Validar área (Sprint 8.9.42.2)
       if (place.location) {
@@ -420,16 +425,61 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
               <Briefcase className="h-3.5 w-3.5" /> Comercial
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SPRINT 8.9.42.2.2: Empresa Editável */}
+              <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-bold uppercase">Empresa *</FormLabel>
+                    <TabsUI 
+                      value={String(field.value)} 
+                      onValueChange={(val) => {
+                        const newId = parseInt(val);
+                        field.onChange(newId);
+                        onCompanyChange(newId);
+                        // SPRINT 8.9.42.2.2: Limpar grupo ao trocar empresa
+                        form.setValue("groupId", "");
+                      }}
+                      className="w-full"
+                    >
+                      <TabsListUI className="grid w-full grid-cols-2 h-10 bg-muted/50">
+                        {allowedCompanyIds.includes(1) && (
+                          <TabsTriggerUI value="1" className="text-[10px] font-bold uppercase tracking-tighter">
+                            GRAAL (1)
+                          </TabsTriggerUI>
+                        )}
+                        {allowedCompanyIds.includes(3) && (
+                          <TabsTriggerUI value="3" className="text-[10px] font-bold uppercase tracking-tighter">
+                            GROTT (3)
+                          </TabsTriggerUI>
+                        )}
+                        {!allowedCompanyIds.includes(1) && !allowedCompanyIds.includes(3) && (
+                          <div className="flex items-center justify-center h-full px-2 text-[10px] text-muted-foreground uppercase font-bold">
+                            Sem acesso
+                          </div>
+                        )}
+                      </TabsListUI>
+                    </TabsUI>
+                    <FormMessage className="text-[10px]" />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="groupId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">Grupo de Cliente *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      disabled={groupsQ.isLoading}
+                    >
                       <FormControl>
                         <SelectTrigger className="h-10 text-sm">
-                          <SelectValue placeholder="Selecione o grupo" />
+                          <SelectValue placeholder={groupsQ.isLoading ? "Carregando grupos..." : "Selecione o grupo"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
