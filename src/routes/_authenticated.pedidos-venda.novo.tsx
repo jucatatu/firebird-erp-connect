@@ -1545,6 +1545,7 @@ function NewOrderPage() {
 
 
 
+
                     <Search className="h-4 w-4" /> Buscar cliente
                   </Label>
                   <Button
@@ -1783,6 +1784,7 @@ function NewOrderPage() {
           </CardContent>
         </Card>
       )}
+
 
 
 
