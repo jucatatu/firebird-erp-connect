@@ -74,7 +74,10 @@ function mapStatusFlags(row, schema) {
     active = !active;
   }
 
-  const blocked = !!blockedVal || !!blockedFinVal;
+  const blocked = (blockedVal === null || blockedVal === undefined) && (blockedFinVal === null || blockedFinVal === undefined)
+    ? null
+    : (!!blockedVal || !!blockedFinVal);
+
   const blockType = blockedFinVal ? "financial" : (blockedVal ? "commercial" : null);
   const blockReason = toNullableString(row.CLIENTE_MOTIVO_BLOQUEIO)?.replace(/\n/g, " ") || null;
 
