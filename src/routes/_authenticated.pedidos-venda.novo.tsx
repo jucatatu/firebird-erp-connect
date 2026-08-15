@@ -339,6 +339,7 @@ function NewOrderPage() {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [step, setStepState] = useState<"client" | "items" | "delivery" | "payment" | "review">("client");
+  const [showCreateClient, setShowCreateClient] = useState(false);
 
   const {
     clientId, clientName, companyId, items, equipments, deliver, deliveryAt,
