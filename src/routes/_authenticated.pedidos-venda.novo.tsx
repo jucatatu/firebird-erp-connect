@@ -1574,9 +1574,9 @@ function NewOrderPage() {
                     disabled={!companyId}
                   />
                 </div>
-                </div>
               </div>
             )}
+
 
 
 
