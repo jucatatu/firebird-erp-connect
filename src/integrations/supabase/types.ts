@@ -381,6 +381,7 @@ export type Database = {
       }
       order_drafts: {
         Row: {
+          app_order_number: number
           company_id: number | null
           created_at: string
           created_by: string
@@ -405,6 +406,7 @@ export type Database = {
           updated_by: string
         }
         Insert: {
+          app_order_number?: number
           company_id?: number | null
           created_at?: string
           created_by: string
@@ -429,6 +431,7 @@ export type Database = {
           updated_by: string
         }
         Update: {
+          app_order_number?: number
           company_id?: number | null
           created_at?: string
           created_by?: string
@@ -726,6 +729,7 @@ export type Database = {
           _reason?: string
         }
         Returns: {
+          app_order_number: number
           company_id: number | null
           created_at: string
           created_by: string
