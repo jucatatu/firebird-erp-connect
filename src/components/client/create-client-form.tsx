@@ -182,7 +182,6 @@ export function CreateClientForm({ companyId, allowedCompanyIds, onCompanyChange
         console.error("[PLACES] error:", err);
         toast.error("Não foi possível pesquisar endereços no Google Maps. Tente novamente.");
       } finally {
-      } finally {
         setIsSearching(false);
       }
     }, 400);
