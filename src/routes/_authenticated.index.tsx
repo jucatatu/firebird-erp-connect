@@ -2,6 +2,10 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/')({
   loader: () => {
-    throw redirect({ to: '/pedidos-venda', replace: true })
+    throw redirect({
+      to: '/pedidos-venda',
+      search: { status: 'all', page: undefined },
+      replace: true,
+    })
   },
 })
