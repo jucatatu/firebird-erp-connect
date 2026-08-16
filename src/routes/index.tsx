@@ -1,13 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/')({
-  component: HomePage,
-})
-
-function HomePage() {
-  return (
-    <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-Execute esta instrucao no projeto: # SPRINT 8.9.42.2.2 — HOTFIX GRUPO + EMPRESA + GOOGLE MAPS DO NOVO CLIENTE
+const content = `Execute esta instrucao no projeto: # SPRINT 8.9.42.2.2 — HOTFIX GRUPO + EMPRESA + GOOGLE MAPS DO NOVO CLIENTE
 
 ## OBJETIVO
 
@@ -1013,7 +1006,16 @@ SIM/NÃO
 
 REGRESSÕES:
 
-PENDÊNCIAS:
+PENDÊNCIAS:`
+
+export const Route = createFileRoute('/')({
+  component: HomePage,
+})
+
+function HomePage() {
+  return (
+    <div className="p-8 font-mono text-sm whitespace-pre-wrap">
+      {content}
     </div>
   )
 }
