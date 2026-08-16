@@ -1,1012 +1,806 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-const content = `Execute esta instrucao no projeto: # SPRINT 8.9.42.2.2 — HOTFIX GRUPO + EMPRESA + GOOGLE MAPS DO NOVO CLIENTE
+const content = `Execute esta instrucao no projeto: SPRINT 8.9.43 — NÚCLEO DE PERMISSÕES POR ÁRVORE
 
-## OBJETIVO
+OBJETIVO
 
-Corrigir exclusivamente três problemas confirmados no cadastro de Novo Cliente ERP:
+Criar a fundação do novo sistema de autorização do ERP Operacional usando:
 
-1. Grupo de Cliente não está sendo listado;
-2. Empresa fica fixa conforme a seleção anterior e não pode ser alterada dentro do cadastro;
-3. Google Places não retorna sugestões corretamente após a implementação da regra regional de 50 km.
+- perfis de permissão;
+- árvore hierárquica de recursos/telas;
+- quatro ações por recurso:
+  - visualizar
+  - criar
+  - editar
+  - deletar
+- um perfil de permissão vinculado a cada usuário;
+- helpers reutilizáveis para frontend e backend;
+- compatibilidade total com o sistema atual de roles.
 
 IMPORTANTE:
+Este sprint NÃO deve migrar todas as telas existentes para o novo modelo ainda.
+Não remover ` + "`user_roles`" + `.
+Não remover ` + "`has_role`" + `.
+Não alterar as RLS atuais de pedidos/aprovações.
+Não alterar o fluxo Novo Cliente / Novo Pedido / Entrega já homologado.
+Não alterar regras de empresa Graal/Grott.
+Não alterar criação de pedidos no ERP.
 
-Preservar integralmente tudo que já está funcionando:
-
-- somente UM botão "+ Novo Cliente";
-- Sheet global, fora das condicionais do wizard;
-- Novo Cliente abre corretamente no step "client";
-- cadastro em tela dedicada/full-screen no mobile;
-- PF/PJ;
-- CPF/CNPJ;
-- contatos;
-- financeiro;
-- cadastro direto no ERP;
-- duplicidade;
-- confirmação pós-cadastro;
-- newOrderFromClient;
-- regra rígida de 50 km;
-- Haversine server-side.
-
-NÃO reintroduzir formulário inline.
-NÃO criar segundo botão Novo Cliente.
-NÃO refatorar áreas estáveis.
+A migração efetiva das telas ocorrerá em sprint posterior.
 
 ==================================================
-1. CUSTOMER GROUPS — PROBLEMA CONFIRMADO
+1. REGRA FUNCIONAL DEFINITIVA
 ==================================================
 
-No Node atual existe consulta em:
+O novo modelo será:
 
-erp-api/src/modules/customer-groups/customer-groups.repository.js
+USUÁRIO
+  ↓
+PERFIL DE PERMISSÃO
+  ↓
+ÁRVORE DE RECURSOS
+  ↓
+VISUALIZAR / CRIAR / EDITAR / DELETAR
 
-que referencia:
+Cada usuário terá UM perfil de permissão.
 
-INATIVO
+Exemplos futuros de perfis:
 
-porém o schema REAL confirmado de GRUPO_CLIENTE possui:
+- Administrador
+- Vendedor
+- Entregador
+- Financeiro
+- Consulta
+- Comercial
 
-ID_GRUPO_CLIENTE
-DESCRICAO
-DELETED
-DATE_CAD
-DATE_UPDATE
-CONSUMIDOR_FINAL
-REVENDA_VAREJO
-REVENDA_ATACADO
-OBSERVACAO
-DEL_USER
-CAD_USER
-COMISSAO
-UP_USER
+Não implementar permissões individuais diretamente no usuário neste sprint.
 
-NÃO existe:
+Acesso às empresas continua independente através da tabela existente:
 
-INATIVO
+` + "`user_company_access`" + `
 
-Portanto corrigir a query.
+O vínculo de vendedor ERP continua independente através de:
 
-==================================================
-2. CORRIGIR CUSTOMER GROUPS NO NODE
-==================================================
-
-Utilizar:
-
-SELECT
-  ID_GRUPO_CLIENTE,
-  DESCRICAO
-FROM GRUPO_CLIENTE
-WHERE (DELETED IS NULL OR DELETED = 0)
-ORDER BY DESCRICAO
-
-NÃO referenciar INATIVO.
-
-Preservar o contrato:
-
-{
-  groups: [
-    {
-      id,
-      description
-    }
-  ]
-}
-
-Não hardcodar grupos.
-
-Não modificar IDs.
+` + "`profiles.erp_seller_id`" + `
 
 ==================================================
-3. UX DE CUSTOMER GROUPS
+2. COMPORTAMENTO GLOBAL QUE O NOVO SISTEMA DEVERÁ SUPORTAR
 ==================================================
 
-Arquivo:
+Estas regras devem ser consideradas desde já no design dos helpers:
 
-src/components/client/create-client-form.tsx
+A) SEM PERMISSÃO DE VISUALIZAR
 
-Hoje o Select pode simplesmente ficar vazio quando a consulta falha.
+A rota NÃO deve ser removida.
+A opção de menu NÃO deverá necessariamente ser escondida.
 
-Melhorar o estado visual.
+Quando uma tela futuramente for protegida por:
 
-Enquanto estiver carregando:
+resource = "commercial.orders"
+action = "view"
 
-"Carregando grupos..."
+e o usuário não possuir essa permissão, a rota deve abrir e renderizar um estado padronizado:
 
-Select disabled.
+"Você não possui permissão para visualizar esta tela."
 
-Se ocorrer erro:
+Não redirecionar para dashboard.
+Não gerar 404.
+Não desmontar toda a aplicação.
 
-"Não foi possível carregar os grupos de clientes do ERP."
+B) SEM PERMISSÃO DE AÇÃO
 
-Não permitir cadastrar cliente sem grupo.
+Se o usuário puder visualizar uma tela mas não puder criar, editar ou deletar:
 
-Quando carregar:
-
-usar normalmente os grupos vindos do ERP.
-
-==================================================
-4. GRUPO CONTINUA OBRIGATÓRIO
-==================================================
-
-groupId continua obrigatório.
-
-Mapeamento:
-
-groupId
-→ CLIENTES.ID_GRUPO_CLIENTE
-
-Não selecionar grupo automaticamente.
-
-Não hardcodar:
-
-Consumidor Final
-Ponto de Venda
-etc.
-
-==================================================
-5. EMPRESA — COMPORTAMENTO DESEJADO
-==================================================
-
-Hoje o Novo Cliente herda corretamente a empresa escolhida antes de abrir.
+- botão continua visível;
+- botão fica desabilitado;
+- deve possuir aparência de ação bloqueada;
+- opcionalmente tooltip:
+  "Você não possui permissão para esta ação."
 
 Exemplo:
 
-GRAAL selecionada
-→ Novo Cliente abre em GRAAL
+Pedidos:
+Visualizar = SIM
+Criar = NÃO
 
-GROTT selecionada
-→ Novo Cliente abre em GROTT
+Resultado:
 
-PRESERVAR isso como valor inicial.
+A tela de pedidos abre normalmente.
+O botão "+ Novo Pedido" continua visível, porém desabilitado.
 
-Porém permitir trocar a empresa DENTRO do Novo Cliente antes do cadastro.
+IMPORTANTE:
+Usar ` + "`disabled`" + ` para botões. Botão HTML não possui readonly real.
 
-==================================================
-6. EMPRESA EDITÁVEL
-==================================================
+C) SEGURANÇA
 
-Na seção COMERCIAL mostrar:
+A autorização NÃO poderá existir somente no frontend.
 
-EMPRESA *
+Arquitetura desejada:
 
-[ GRAAL ] [ GROTT ]
+UI
+ ↓
+verifica permissão
 
-Seguir o mesmo padrão visual da seleção de empresa já existente no step Cliente.
+Server Function / ação server-side
+ ↓
+verifica novamente
 
-Mostrar somente empresas às quais o usuário possui acesso.
+Supabase/RLS/RPC quando aplicável
+ ↓
+proteção final
 
-Se usuário possui acesso somente a uma:
-
-mostrar somente essa/read-only.
-
-Se possui acesso a ambas:
-
-permitir alternar entre:
-
-1 = GRAAL
-3 = GROTT
+Neste sprint criar a infraestrutura para isso.
+Não migrar ainda todas as Server Functions existentes.
 
 ==================================================
-7. UMA ÚNICA FONTE DE VERDADE
+3. NOVAS TABELAS
 ==================================================
 
-NÃO criar um companyId independente somente dentro do formulário.
+Criar migration nova, sem alterar migrations antigas.
 
-A empresa escolhida dentro do Novo Cliente deve atualizar também o companyId real
-do wizard.
+3.1 permission_profiles
 
-CreateClientForm deve receber callback equivalente a:
+Criar:
 
-onCompanyChange(companyId)
+public.permission_profiles
 
-Ao trocar dentro do cadastro:
+Campos:
 
-GRAAL → GROTT
+- id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- name TEXT NOT NULL
+- description TEXT NULL
+- active BOOLEAN NOT NULL DEFAULT true
+- is_system BOOLEAN NOT NULL DEFAULT false
+- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- created_by UUID NULL REFERENCES auth.users(id)
+- updated_by UUID NULL REFERENCES auth.users(id)
 
-o wizard também deve passar a:
+Regras:
 
-companyId = 3
+- nome obrigatório;
+- nome único case-insensitive, preferencialmente por índice em lower(name);
+- usar trigger padrão ` + "`set_updated_at()`" + ` já existente.
 
-E vice-versa.
+3.2 permission_resources
 
-Isso evita divergência entre:
+Criar:
 
-cliente criado na GROTT
+public.permission_resources
 
-e
+Campos:
 
-pedido ainda marcado como GRAAL.
+- id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- key TEXT NOT NULL UNIQUE
+- name TEXT NOT NULL
+- description TEXT NULL
+- parent_id UUID NULL REFERENCES permission_resources(id)
+- route TEXT NULL
+- sort_order INTEGER NOT NULL DEFAULT 0
+- active BOOLEAN NOT NULL DEFAULT true
+- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 
-==================================================
-8. REACT HOOK FORM
-==================================================
+` + "`key`" + ` será a identidade técnica estável.
 
-defaultValues do React Hook Form não atualizam automaticamente quando uma prop muda.
+Nunca usar o nome visual como chave de autorização.
 
-Ao trocar empresa:
+Exemplos:
 
-executar também algo equivalente a:
+operation
+operation.map
+operation.deliveries
+operation.pickups
 
-form.setValue("companyId", newCompanyId, {
-  shouldDirty: true,
-  shouldValidate: true
-})
+commercial
+commercial.orders
+commercial.order_approvals
 
-O payload enviado ao createErpClient deve usar exatamente a empresa atualmente
-selecionada e visível.
+admin
+admin.users
+admin.permission_profiles
+admin.erp
+admin.catalog
+admin.settings
 
-==================================================
-9. TROCA DE EMPRESA — PRESERVAR DADOS
-==================================================
+A estrutura deve permitir árvore com quantos níveis forem necessários.
 
-Ao alternar:
+3.3 permission_profile_rules
 
-GRAAL ↔ GROTT
+Criar:
 
-NÃO limpar:
+public.permission_profile_rules
 
-- tipo PF/PJ;
-- nome;
-- razão social;
-- CPF/CNPJ;
-- nome fantasia;
-- WhatsApp;
-- telefone;
-- e-mail;
-- condição de pagamento;
-- forma de pagamento;
-- endereço;
-- Google;
-- dados já digitados.
+Campos:
 
-Não fechar o Sheet.
+- id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+- profile_id UUID NOT NULL REFERENCES permission_profiles(id) ON DELETE CASCADE
+- resource_id UUID NOT NULL REFERENCES permission_resources(id) ON DELETE CASCADE
+- can_view BOOLEAN NOT NULL DEFAULT false
+- can_create BOOLEAN NOT NULL DEFAULT false
+- can_edit BOOLEAN NOT NULL DEFAULT false
+- can_delete BOOLEAN NOT NULL DEFAULT false
+- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+- updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 
-==================================================
-10. TROCA DE EMPRESA — LIMPAR GRUPO
-==================================================
+Constraint:
 
-Ao trocar empresa:
+UNIQUE(profile_id, resource_id)
 
-limpar somente:
-
-groupId
-
-e obrigar nova seleção do Grupo de Cliente.
-
-Não manter silenciosamente um grupo selecionado anteriormente.
-
-Não apagar os demais campos.
-
-==================================================
-11. SEGURANÇA DE EMPRESA
-==================================================
-
-Preservar a validação server-side existente em:
-
-createErpClient
-
-via:
-
-user_company_access
-
-O frontend controla a UX.
-
-A Server Function continua sendo autoridade final.
-
-Não permitir cadastrar para empresa sem acesso.
+Usar trigger ` + "`set_updated_at()`" + `.
 
 ==================================================
-12. GOOGLE PLACES — CORRIGIR LOCATION RESTRICTION
+4. VÍNCULO DO PERFIL AO USUÁRIO
 ==================================================
 
-No fluxo atual do Novo Cliente foi implementada restrição regional.
+Adicionar à tabela existente:
 
-Garantir que o request utilizado por:
+public.profiles
 
-AutocompleteSuggestion.fetchAutocompleteSuggestions()
+coluna:
 
-use o formato correto esperado pela Maps JavaScript Places Data API atual.
+permission_profile_id UUID NULL
+REFERENCES public.permission_profiles(id)
+ON DELETE SET NULL
 
-Para este contrato, utilizar:
+IMPORTANTE:
 
-LatLngBoundsLiteral
+Não tornar NOT NULL ainda.
 
-com:
+Temos usuários existentes e precisamos de migração progressiva.
 
-north
-south
-east
-west
+Não remover:
 
-em:
-
-locationRestriction
-
-Não usar formato incompatível de círculo se o TypeScript/contrato atual não aceitar.
+- full_name
+- active
+- erp_seller_id
+- qualquer coluna existente.
 
 ==================================================
-13. BOUNDING BOX DA ÁREA DE JARAGUÁ
+5. PERFIL SISTEMA "ADMINISTRADOR"
 ==================================================
 
-Criar helper único em:
+Criar via migration um perfil:
 
-src/utils/geo-utils.ts
+name = "Administrador"
+description = "Acesso completo ao ERP Operacional"
+active = true
+is_system = true
 
-ou equivalente:
+Esse perfil deve possuir:
 
-getCustomerServiceAreaBounds()
+can_view   = true
+can_create = true
+can_edit   = true
+can_delete = true
 
-Centro operacional:
+para TODOS os recursos seedados neste sprint.
 
-lat = -26.48
-lng = -49.07
+Após criar o perfil Administrador:
 
-Área de busca:
+vincular ` + "`profiles.permission_profile_id`" + ` a esse perfil para usuários que atualmente possuam:
 
-aproximadamente 50 km para:
+user_roles.role = 'admin'
 
-norte
-sul
-leste
-oeste
+IMPORTANTE:
 
-O helper deve retornar:
-
-{
-  north,
-  south,
-  east,
-  west
-}
-
-Não espalhar coordenadas derivadas pelo componente.
+Isso NÃO substitui ` + "`user_roles`" + `.
+É somente preparação para a migração futura.
 
 ==================================================
-14. AUTOCOMPLETE REQUEST
+6. SEED INICIAL DA ÁRVORE
 ==================================================
 
-Montar o request usando tipo real quando possível:
+Criar recursos correspondentes às áreas atuais da aplicação.
 
-google.maps.places.AutocompleteRequest
+Estrutura inicial sugerida:
 
-Conceitualmente:
+ERP Operacional
+|
+|-- Operação
+|   |-- Mapa
+|   |-- Entregas
+|   `-- Recolhas
+|
+|-- Comercial
+|   |-- Pedidos
+|   |-- Aprovações
+|   `-- Novo Cliente ERP
+|
+`-- Administração
+    |-- Usuários
+    |-- Perfis de Permissão
+    |-- Integração ERP
+    |-- Catálogo
+    `-- Configurações
 
-{
-  input: addressQuery,
+Usar keys técnicas estáveis:
 
-  includedRegionCodes: ["br"],
+operation
+operation.map
+operation.deliveries
+operation.pickups
 
-  locationRestriction: getCustomerServiceAreaBounds(),
+commercial
+commercial.orders
+commercial.order_approvals
+commercial.clients
 
-  origin: {
-    lat: -26.48,
-    lng: -49.07
-  },
+admin
+admin.users
+admin.permission_profiles
+admin.erp
+admin.catalog
+admin.settings
 
-  sessionToken
-}
+Para nós-pai como ` + "`operation`" + `, ` + "`commercial`" + ` e ` + "`admin`" + `, manter também as quatro flags no modelo.
 
-Evitar:
-
-const request: any
-
-se isso esconder novamente erro de contrato.
-
-==================================================
-15. BOUNDING BOX NÃO SUBSTITUI O RAIO REAL
-==================================================
-
-A restrição das sugestões é um RETÂNGULO.
-
-A regra comercial continua sendo:
-
-CÍRCULO REAL DE 50 KM.
-
-Portanto preservar:
-
-isWithinCustomerServiceArea(lat, lng)
-
-com Haversine.
-
-Place selecionado:
-
-<= 50000 m
-→ permitido
-
-> 50000 m
-→ bloqueado
-
-A validação Haversine continua sendo a autoridade final.
+Não criar nova tabela toda vez que uma tela nova surgir.
+Novas telas serão apenas novos registros em ` + "`permission_resources`" + `.
 
 ==================================================
-16. CANTOS DO RETÂNGULO
+7. FUNÇÃO SQL has_permission
 ==================================================
 
-O bounding box pode conter pontos nos cantos que ficam a mais de 50 km do centro.
-
-Isso é esperado.
-
-Se um resultado desses for selecionado:
-
-place.location
-→ Haversine
-→ > 50000
-→ bloquear cadastro.
-
-Mensagem:
-
-"Endereço fora da área de atendimento."
-
-Subtexto:
-
-"O cadastro de clientes está limitado a um raio de 50 km de Jaraguá do Sul/SC."
-
-==================================================
-17. ERROS DO GOOGLE NÃO PODEM SER SILENCIOSOS
-==================================================
-
-Adicionar estado equivalente a:
-
-placesSearchError
-
-Se fetchAutocompleteSuggestions falhar:
-
-mostrar abaixo da busca:
-
-"Não foi possível pesquisar endereços no Google Maps. Tente novamente."
-
-Diferenciar:
-
-ERRO DA API
-
-de:
-
-ZERO RESULTADOS.
-
-Zero resultados legítimos:
-
-"Nenhum endereço encontrado nesta área."
-
-==================================================
-18. SESSION TOKEN
-==================================================
-
-Preservar:
-
-AutocompleteSessionToken
-
-Após seleção concluída:
-
-gerar novo sessionToken para a próxima pesquisa.
-
-Não remover a sessão do autocomplete.
-
-==================================================
-19. PLACE SELECIONADO
-==================================================
-
-Ao selecionar sugestão:
-
-prediction.toPlace()
-
-depois:
-
-place.fetchFields({
-  fields: [
-    "addressComponents",
-    "formattedAddress",
-    "location",
-    "id",
-    "displayName"
-  ]
-})
-
-Preencher:
-
-route
-→ rua
-
-street_number
-→ número
-
-neighborhood / sublocality
-→ bairro
-
-locality / administrative_area_level_2
-→ cidade
-
-administrative_area_level_1.shortText
-→ UF
-
-postal_code
-→ CEP
-
-UF deve continuar com 2 caracteres.
-
-==================================================
-20. VALIDAÇÃO DO PLACE
-==================================================
-
-Quando place.location existir:
-
-guardar temporariamente:
-
-lat
-lng
-
-e calcular Haversine.
-
-Dentro de 50 km:
-
-addressValidationStatus = valid
-
-Fora:
-
-addressValidationStatus = outside
-
-Não chamar createErpClient se estiver outside.
-
-==================================================
-21. ENDEREÇO ALTERADO MANUALMENTE
-==================================================
-
-Se após seleção Google o vendedor alterar:
-
-Rua
-Número
-Bairro
-Cidade
-UF
-CEP
-
-invalidar imediatamente a validação anterior:
-
-addressValidationStatus = dirty
-
-Não reutilizar coordenadas antigas.
-
-Complemento NÃO precisa invalidar.
-
-==================================================
-22. GEOCODER — IMPORT CORRETO
-==================================================
-
-Para endereço manual ou alterado, carregar o Geocoder explicitamente usando:
-
-const { Geocoder } =
-  await google.maps.importLibrary("geocoding")
-
-ou helper equivalente tipado.
-
-Não presumir:
-
-window.google.maps.Geocoder
-
-apenas porque Places foi carregado.
-
-==================================================
-23. ENDEREÇO MANUAL
-==================================================
-
-Preservar fluxo:
-
-endereço manual
-→ montar endereço completo
-→ Geocoder
-→ lat/lng
-→ Haversine
-→ dentro 50 km permite
-→ fora bloqueia.
-
-Se geocodificação falhar:
-
-"Não foi possível validar este endereço. Confira os dados e tente novamente."
-
-Não cadastrar sem validação geográfica.
-
-==================================================
-24. SERVER FUNCTION — PRESERVAR VALIDAÇÃO
-==================================================
-
-Preservar em:
-
-src/lib/erp-orders.functions.ts
-
-createErpClient
-
-a validação server-side usando as coordenadas recebidas.
-
-A Server Function deve continuar recalculando:
-
-isWithinCustomerServiceArea(...)
-
-e retornar:
-
-ADDRESS_OUTSIDE_SERVICE_AREA
-
-se estiver fora.
-
-Não confiar em boolean vindo do frontend.
-
-==================================================
-25. NÃO SALVAR LAT/LNG NO ERP
-==================================================
-
-Coordenadas servem somente para validação operacional.
-
-Continuar:
-
-LATLONG = NULL
-
-Não alterar:
-
-SP_CAD_CLIENTE_COMPLETO
-
-para armazenar coordenadas.
-
-==================================================
-26. FINANCEIRO — NÃO ALTERAR
-==================================================
-
-Preservar:
-
-Condição de Pagamento
-Forma de Pagamento
+Criar função:
+
+public.has_permission(
+  _user_id UUID,
+  _resource_key TEXT,
+  _action TEXT
+)
+RETURNS BOOLEAN
+
+Requisitos:
+
+- SECURITY DEFINER;
+- SET search_path = public;
+- STABLE se tecnicamente adequado;
+- retornar false se:
+  - usuário não existir;
+  - perfil não estiver atribuído;
+  - perfil estiver inativo;
+  - recurso não existir;
+  - recurso estiver inativo;
+  - regra não existir;
+  - ação for inválida.
+
+Ações aceitas:
+
+view
+create
+edit
+delete
 
 Mapeamento:
 
-paymentTermId
-→ ID_PRAZO
+view   -> can_view
+create -> can_create
+edit   -> can_edit
+delete -> can_delete
 
-paymentMethodId
-→ ID_FORMA_PAGAMENTO
+Não lançar erro para ausência de regra.
+Default seguro = FALSE.
 
-Não adicionar Tipo de Venda ao cliente.
+IMPORTANTE:
 
-CLIENTES.ID_OPERACAO continua NULL.
+Administradores também devem passar pelo perfil Administrador no novo sistema.
 
-==================================================
-27. VENDEDOR — NÃO ALTERAR
-==================================================
+Não adicionar bypass mágico baseado em ` + "`user_roles.admin`" + ` dentro de ` + "`has_permission`" + `, porque queremos que no futuro a fonte de verdade seja o perfil.
 
-Vendedor continua automático:
+Durante a transição, ` + "`user_roles`" + ` continua sendo usado pelas funcionalidades antigas.
 
-profiles.erp_seller_id
-→ ID_VENDEDOR
-
-Não criar dropdown de vendedores.
+Revogar execução pública e conceder somente aos papéis necessários.
 
 ==================================================
-28. HOTFIX DE SHEET — NÃO REGREDIR
+8. RLS DAS NOVAS TABELAS
 ==================================================
 
-Confirmar que permanece:
+Ativar RLS em:
 
-- somente UM botão "+ Novo Cliente";
-- botão ao lado de "Buscar cliente";
-- Sheet global;
-- Sheet fora de step === "items";
-- Sheet abre em step === "client";
-- mobile full-screen;
-- cancelar retorna para busca;
-- não volta a existir formulário inline.
+permission_profiles
+permission_resources
+permission_profile_rules
 
-==================================================
-29. NODE ALTERADO
-==================================================
+Durante ESTE sprint, usar o sistema atual de admin (` + "`has_role(auth.uid(), 'admin')`" + `) para administrar essas estruturas.
 
-NODE ALTERADO: SIM
+Motivo:
 
-Alteração necessária:
+Ainda estamos construindo o novo sistema.
+Não podemos fazer o próprio sistema de permissões depender de permissões ainda não configuradas.
 
-erp-api/src/modules/customer-groups/customer-groups.repository.js
+Regras desejadas:
 
-Depois da implementação:
+permission_profiles:
+- authenticated pode ler perfis necessários para resolução do próprio acesso;
+- admin pode CRUD.
 
-COPIAR/SINCRONIZAR os arquivos alterados do Node para o servidor REAL conectado ao
-Firebird.
+permission_resources:
+- authenticated pode SELECT dos recursos ativos;
+- admin pode CRUD.
 
-Depois:
+permission_profile_rules:
+- usuário autenticado deve conseguir obter as regras do SEU próprio perfil;
+- admin pode CRUD.
 
-REINICIAR o Node real.
+Evitar exposição desnecessária de dados administrativos.
 
-Sem isso:
-
-Grupo de Cliente continuará sem funcionar.
-
-Não executar npm install se package.json não mudar.
+Manter service_role com acesso integral.
 
 ==================================================
-30. NÃO ALTERAR OUTRAS ÁREAS
+9. TYPES SUPABASE
 ==================================================
 
-NÃO alterar:
+Atualizar os tipos TypeScript do Supabase após a migration.
 
-CREATE pedido
-EDIT pedido
-Itens
-Equipamentos
-Cobertura
-Entrega
-Recolha
-Pagamento do pedido
-Tipo de Venda do pedido
-APP-XXXX
-Paginação
-Cards
-Status ERP
-Batch status
-Supabase schema
-Google Maps da etapa Entrega
+Precisamos tipagem para:
+
+permission_profiles
+permission_resources
+permission_profile_rules
+profiles.permission_profile_id
+RPC has_permission
+
+Não quebrar tipos existentes.
 
 ==================================================
-31. TESTES — GRUPOS
+10. NOVA CAMADA FRONTEND DE PERMISSÕES
 ==================================================
 
-GET /api/v1/customer-groups:
-PASS/FAIL
+Criar estrutura reutilizável, por exemplo:
 
-Query sem INATIVO:
-PASS/FAIL
+src/lib/permissions/
+  permission-types.ts
+  permission-keys.ts
 
-DELETED filtrado:
-PASS/FAIL
+src/hooks/
+  use-permissions.ts
 
-Grupos retornados:
-PASS/FAIL
+src/components/permissions/
+  permission-denied.tsx
+  permission-gate.tsx
+  permission-action.tsx
 
-Select populado:
-PASS/FAIL
+Os nomes podem variar se houver padrão melhor no projeto.
 
-Loading:
-PASS/FAIL
+10.1 Tipos
 
-Erro visível:
-PASS/FAIL
+Criar:
 
-Grupo obrigatório:
-PASS/FAIL
+type PermissionAction =
+  | "view"
+  | "create"
+  | "edit"
+  | "delete";
 
-==================================================
-32. TESTES — EMPRESA
-==================================================
+type PermissionMap = Record<
+  string,
+  {
+    view: boolean;
+    create: boolean;
+    edit: boolean;
+    delete: boolean;
+  }
+>;
 
-Selecionar GRAAL antes de abrir:
-Novo Cliente abre em GRAAL
-PASS/FAIL
+10.2 Chaves centralizadas
 
-Trocar para GROTT dentro do Novo Cliente:
-PASS/FAIL
+Não espalhar strings arbitrárias pelas telas.
 
-companyId do wizard vira 3:
-PASS/FAIL
+Criar constantes centralizadas, exemplo:
 
-form.companyId vira 3:
-PASS/FAIL
+PERMISSIONS = {
+  OPERATION: {
+    MAP: "operation.map",
+    DELIVERIES: "operation.deliveries",
+    PICKUPS: "operation.pickups",
+  },
 
-Trocar novamente para GRAAL:
-PASS/FAIL
+  COMMERCIAL: {
+    ORDERS: "commercial.orders",
+    APPROVALS: "commercial.order_approvals",
+    CLIENTS: "commercial.clients",
+  },
 
-Usuário sem acesso não vê empresa:
-PASS/FAIL
-
-Troca limpa somente groupId:
-PASS/FAIL
-
-Demais campos permanecem:
-PASS/FAIL
-
-==================================================
-33. TESTES — GOOGLE
-==================================================
-
-Google Places carrega:
-PASS/FAIL
-
-AutocompleteSuggestion disponível:
-PASS/FAIL
-
-includedRegionCodes ["br"]:
-PASS/FAIL
-
-locationRestriction usa LatLngBoundsLiteral:
-PASS/FAIL
-
-north:
-PASS/FAIL
-
-south:
-PASS/FAIL
-
-east:
-PASS/FAIL
-
-west:
-PASS/FAIL
-
-origin Jaraguá:
-PASS/FAIL
-
-"Pedro Francisco" retorna sugestões:
-PASS/FAIL
-
-Place retorna location:
-PASS/FAIL
-
-Rua preenchida:
-PASS/FAIL
-
-Bairro:
-PASS/FAIL
-
-Cidade:
-PASS/FAIL
-
-UF:
-PASS/FAIL
-
-CEP:
-PASS/FAIL
-
-Haversine dentro 50km:
-PASS/FAIL
-
-Fora 50km bloqueado:
-PASS/FAIL
-
-Erro Places visível:
-PASS/FAIL
-
-Geocoder importado via "geocoding":
-PASS/FAIL
-
-Endereço manual validado:
-PASS/FAIL
+  ADMIN: {
+    USERS: "admin.users",
+    PERMISSION_PROFILES: "admin.permission_profiles",
+    ERP: "admin.erp",
+    CATALOG: "admin.catalog",
+    SETTINGS: "admin.settings",
+  },
+};
 
 ==================================================
-34. REGRESSÃO
+11. usePermissions
 ==================================================
 
-Único botão Novo Cliente:
-PASS/FAIL
+Criar hook centralizado para usuário autenticado.
 
-Sheet abre:
-PASS/FAIL
+Ele deve carregar de forma eficiente:
 
-Mobile full-screen:
-PASS/FAIL
+profiles.permission_profile_id
 
-PF/PJ:
-PASS/FAIL
++
+permission_profile_rules
 
-CPF/CNPJ:
-PASS/FAIL
++
+permission_resources.key
 
-Grupo:
-PASS/FAIL
+e produzir mapa local de permissões.
 
-Empresa:
-PASS/FAIL
+API desejada:
 
-Vendedor:
-PASS/FAIL
+const {
+  can,
+  permissions,
+  profile,
+  isLoading,
+  error
+} = usePermissions();
 
-Financeiro:
-PASS/FAIL
+Uso:
 
-Contatos:
-PASS/FAIL
+can("commercial.orders", "view")
+can("commercial.orders", "create")
+can("commercial.orders", "edit")
+can("commercial.orders", "delete")
 
-Google:
-PASS/FAIL
+Se ainda estiver carregando:
 
-Cadastro ERP:
-PASS/FAIL
+não assumir permissão.
 
-Confirmação:
-PASS/FAIL
+Default seguro = false.
 
-newOrderFromClient:
-PASS/FAIL
+Evitar uma query SQL/RPC a cada botão.
+Carregar as permissões do perfil uma vez e usar cache React Query.
 
-CREATE pedido:
-PASS/FAIL
-
-EDIT pedido:
-PASS/FAIL
-
-Google Maps Entrega:
-PASS/FAIL
-
-APP-XXXX:
-PASS/FAIL
-
-Paginação:
-PASS/FAIL
-
-Cards:
-PASS/FAIL
+Query key deve incluir userId / permissionProfileId.
 
 ==================================================
-35. RELATÓRIO FINAL
+12. COMPONENTE PermissionDenied
 ==================================================
 
-Informar:
+Criar componente visual reutilizável.
 
-ARQUIVOS FRONTEND ALTERADOS:
+Exemplo:
 
-ARQUIVOS NODE ALTERADOS:
+<PermissionDenied
+  title="Acesso não permitido"
+  description="Seu perfil não possui permissão para visualizar esta tela."
+/>
 
-CUSTOMER GROUP QUERY:
-CORRIGIDA SIM/NÃO
+Visual consistente com o sistema.
 
-COLUNA INATIVO REMOVIDA:
-SIM/NÃO
+Deve funcionar bem em mobile e desktop.
 
-GRUPOS CARREGANDO:
-SIM/NÃO
+Não redirecionar automaticamente.
 
-EMPRESA EDITÁVEL:
-SIM/NÃO
+==================================================
+13. COMPONENTE PermissionGate
+==================================================
 
-EMPRESA SINCRONIZADA COM WIZARD:
-SIM/NÃO
+Criar componente reutilizável:
 
-GRUPO LIMPO NA TROCA DE EMPRESA:
-SIM/NÃO
+<PermissionGate
+  resource="commercial.orders"
+  action="view"
+>
+  ...
+</PermissionGate>
 
-GOOGLE AUTOCOMPLETE:
-FUNCIONANDO SIM/NÃO
+Comportamento:
 
-LOCATION RESTRICTION:
-LATLNGBOUNDS SIM/NÃO
+se permitido:
+renderiza children.
 
-HAVERSINE:
-PRESERVADO SIM/NÃO
+se não permitido:
+para action=view, permitir fallback com PermissionDenied.
 
-RAIO:
-50000 METROS
+Não aplicar ainda automaticamente em todas as rotas.
 
-GEOCODING LIBRARY:
-SIM/NÃO
+==================================================
+14. AÇÕES DESABILITADAS
+==================================================
 
-ENDEREÇO MANUAL:
-VALIDADO SIM/NÃO
+Criar helper/componente reutilizável para ações.
 
-TIPO VENDA NO CLIENTE:
-NÃO
+Exemplo conceitual:
 
-ID_OPERACAO:
-NULL
+<PermissionAction
+  resource="commercial.orders"
+  action="create"
+>
+  <Button>Novo pedido</Button>
+</PermissionAction>
 
-LATLONG ERP:
-NULL
+Resultado quando não permitido:
 
-VENDEDOR AUTOMÁTICO:
-SIM/NÃO
+- botão continua visível;
+- disabled=true;
+- não dispara onClick;
+- aria-disabled;
+- tooltip ou title explicando ausência de permissão.
 
-FINANCEIRO PRESERVADO:
-SIM/NÃO
+IMPORTANTE:
 
-SHEET GLOBAL:
-SIM/NÃO
+Não usar CSS com pointer-events apenas.
+O elemento deve estar efetivamente disabled quando suportado.
 
-BOTÕES NOVO CLIENTE:
-1
+==================================================
+15. SERVER-SIDE HELPER
+==================================================
 
-NODE ALTERADO:
-SIM
+Criar helper central para futuras Server Functions.
 
-PACKAGE.JSON ALTERADO:
-SIM/NÃO
+Exemplo conceitual:
 
-NPM INSTALL NECESSÁRIO:
-SIM/NÃO
+requirePermission({
+  userId,
+  resource: "commercial.orders",
+  action: "create"
+});
 
-REGRESSÕES:
+ou equivalente adequado à arquitetura existente.
 
-PENDÊNCIAS:`
+Ele deve consultar ` + "`has_permission`" + `.
+
+Quando negado:
+
+retornar/lançar erro padronizado 403:
+
+code:
+PERMISSION_DENIED
+
+message:
+"Você não possui permissão para executar esta ação."
+
+details opcionais:
+
+resource
+action
+
+NÃO aplicar ainda em todas as funções existentes.
+
+Apenas criar a infraestrutura e testes.
+
+==================================================
+16. NÃO ALTERAR NESTE SPRINT
+==================================================
+
+NÃO fazer agora:
+
+- não remover AppRole;
+- não remover ` + "`useMyRoles`" + `;
+- não remover ` + "`primaryRole`" + `;
+- não remover ` + "`user_roles`" + `;
+- não remover ` + "`has_role`" + `;
+- não alterar RLS de order_drafts;
+- não alterar aprovação;
+- não alterar criação de pedidos;
+- não alterar filtros Graal/Grott;
+- não alterar user_company_access;
+- não alterar fluxo Novo Cliente;
+- não alterar CreateClientForm;
+- não alterar Google Maps;
+- não alterar Node ERP API;
+- não criar endpoint de vendedores ainda;
+- não criar tela completa de usuários ainda;
+- não criar tela completa de perfis ainda;
+- não esconder menu por permissões novas ainda;
+- não migrar sidebar atual para o novo sistema ainda.
+
+Essas etapas ficam para o Sprint 8.9.43.1 e 8.9.43.2.
+
+==================================================
+17. COMPATIBILIDADE COM O SISTEMA ATUAL
+==================================================
+
+O layout ` + "`_authenticated.tsx`" + ` atualmente depende de:
+
+useMyRoles
+primaryRole
+isAdmin
+
+Manter funcionando exatamente como está.
+
+O AppSidebar atualmente usa role/adminOnly.
+
+Não substituir isso neste sprint.
+
+A fundação nova deve coexistir com o modelo atual.
+
+Objetivo:
+
+SISTEMA ANTIGO
+user_roles
+has_role
+   +
+SISTEMA NOVO
+permission_profile
+permission_resources
+permission_rules
+has_permission
+
+coexistindo temporariamente.
+
+==================================================
+18. TESTES
+==================================================
+
+Adicionar testes para pelo menos:
+
+1. has_permission retorna true para regra permitida;
+2. retorna false para regra negada;
+3. retorna false quando usuário não possui perfil;
+4. retorna false para perfil inativo;
+5. retorna false para recurso inexistente;
+6. retorna false para ação inválida;
+7. Administrador seedado possui CRUD completo;
+8. usuário admin existente recebe permission_profile_id do Administrador;
+9. ` + "`can()`" + ` frontend resolve corretamente o mapa;
+10. PermissionGate mostra conteúdo permitido;
+11. PermissionGate mostra PermissionDenied quando view=false;
+12. PermissionAction deixa botão disabled quando ação=false;
+13. helper server-side produz PERMISSION_DENIED / 403.
+
+Evitar testes dependentes de Firebird.
+
+Este sprint é Supabase + frontend.
+
+==================================================
+19. CRITÉRIOS DE ACEITE
+==================================================
+
+O sprint só está concluído se:
+
+[ ] migration nova criada;
+[ ] permission_profiles funcionando;
+[ ] permission_resources funcionando;
+[ ] permission_profile_rules funcionando;
+[ ] profiles.permission_profile_id criado;
+[ ] perfil Administrador seedado;
+[ ] recursos iniciais seedados;
+[ ] regras CRUD completas do Administrador seedadas;
+[ ] admins atuais vinculados ao perfil Administrador;
+[ ] has_permission funcionando;
+[ ] RLS das novas tabelas funcionando;
+[ ] tipos Supabase atualizados;
+[ ] hook usePermissions funcionando;
+[ ] PermissionDenied criado;
+[ ] PermissionGate criado;
+[ ] helper para ações disabled criado;
+[ ] helper server-side criado;
+[ ] testes adicionados;
+[ ] build passando;
+[ ] lint sem novos erros críticos;
+[ ] testes passando;
+[ ] nenhum fluxo atual de pedidos/clientes alterado.
+
+==================================================
+20. ENTREGA
+==================================================
+
+Ao terminar, não avançar automaticamente para Sprint 8.9.43.1.
+
+Entregar resumo contendo:
+
+1. migrations criadas;
+2. tabelas criadas;
+3. funções SQL criadas;
+4. recursos seedados;
+5. comportamento de has_permission;
+6. arquivos frontend criados;
+7. testes criados;
+8. resultado de build/lint/test;
+9. confirmação explícita de que:
+   - user_roles foi preservado;
+   - has_role foi preservado;
+   - fluxo de Novo Cliente não foi alterado;
+   - fluxo de Novo Pedido não foi alterado;
+   - RLS antigas não foram modificadas.
+
+Se durante a implementação for encontrado conflito estrutural com o schema atual, interromper a mudança destrutiva e informar o conflito antes de improvisar uma solução.`
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -1019,3 +813,4 @@ function HomePage() {
     </div>
   )
 }
+
