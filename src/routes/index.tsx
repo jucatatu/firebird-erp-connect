@@ -19,8 +19,8 @@ Criar a fundação do novo sistema de autorização do ERP Operacional usando:
 
 IMPORTANTE:
 Este sprint NÃO deve migrar todas as telas existentes para o novo modelo ainda.
-Não remover ` + "`user_roles`" + `.
-Não remover ` + "`has_role`" + `.
+Não remover user_roles.
+Não remover has_role.
 Não alterar as RLS atuais de pedidos/aprovações.
 Não alterar o fluxo Novo Cliente / Novo Pedido / Entrega já homologado.
 Não alterar regras de empresa Graal/Grott.
@@ -57,11 +57,11 @@ Não implementar permissões individuais diretamente no usuário neste sprint.
 
 Acesso às empresas continua independente através da tabela existente:
 
-` + "`user_company_access`" + `
+user_company_access
 
 O vínculo de vendedor ERP continua independente através de:
 
-` + "`profiles.erp_seller_id`" + `
+profiles.erp_seller_id
 
 ==================================================
 2. COMPORTAMENTO GLOBAL QUE O NOVO SISTEMA DEVERÁ SUPORTAR
@@ -109,7 +109,7 @@ A tela de pedidos abre normalmente.
 O botão "+ Novo Pedido" continua visível, porém desabilitado.
 
 IMPORTANTE:
-Usar ` + "`disabled`" + ` para botões. Botão HTML não possui readonly real.
+Usar disabled para botões. Botão HTML não possui readonly real.
 
 C) SEGURANÇA
 
@@ -160,7 +160,7 @@ Regras:
 
 - nome obrigatório;
 - nome único case-insensitive, preferencialmente por índice em lower(name);
-- usar trigger padrão ` + "`set_updated_at()`" + ` já existente.
+- usar trigger padrão set_updated_at() já existente.
 
 3.2 permission_resources
 
@@ -181,7 +181,7 @@ Campos:
 - created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 - updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 
-` + "`key`" + ` será a identidade técnica estável.
+key será a identidade técnica estável.
 
 Nunca usar o nome visual como chave de autorização.
 
@@ -227,7 +227,7 @@ Constraint:
 
 UNIQUE(profile_id, resource_id)
 
-Usar trigger ` + "`set_updated_at()`" + `.
+Usar trigger set_updated_at().
 
 ==================================================
 4. VÍNCULO DO PERFIL AO USUÁRIO
@@ -278,13 +278,13 @@ para TODOS os recursos seedados neste sprint.
 
 Após criar o perfil Administrador:
 
-vincular ` + "`profiles.permission_profile_id`" + ` a esse perfil para usuários que atualmente possuam:
+vincular profiles.permission_profile_id a esse perfil para usuários que atualmente possuam:
 
 user_roles.role = 'admin'
 
 IMPORTANTE:
 
-Isso NÃO substitui ` + "`user_roles`" + `.
+Isso NÃO substitui user_roles.
 É somente preparação para a migração futura.
 
 ==================================================
@@ -333,10 +333,10 @@ admin.erp
 admin.catalog
 admin.settings
 
-Para nós-pai como ` + "`operation`" + `, ` + "`commercial`" + ` e ` + "`admin`" + `, manter também as quatro flags no modelo.
+Para nós-pai como operation, commercial e admin, manter também as quatro flags no modelo.
 
 Não criar nova tabela toda vez que uma tela nova surgir.
-Novas telas serão apenas novos registros em ` + "`permission_resources`" + `.
+Novas telas serão apenas novos registros em permission_resources.
 
 ==================================================
 7. FUNÇÃO SQL has_permission
@@ -386,9 +386,9 @@ IMPORTANTE:
 
 Administradores também devem passar pelo perfil Administrador no novo sistema.
 
-Não adicionar bypass mágico baseado em ` + "`user_roles.admin`" + ` dentro de ` + "`has_permission`" + `, porque queremos que no futuro a fonte de verdade seja o perfil.
+Não adicionar bypass mágico baseado em user_roles.admin dentro de has_permission, porque queremos que no futuro a fonte de verdade seja o perfil.
 
-Durante a transição, ` + "`user_roles`" + ` continua sendo usado pelas funcionalidades antigas.
+Durante a transição, user_roles continua sendo usado pelas funcionalidades antigas.
 
 Revogar execução pública e conceder somente aos papéis necessários.
 
@@ -402,7 +402,7 @@ permission_profiles
 permission_resources
 permission_profile_rules
 
-Durante ESTE sprint, usar o sistema atual de admin (` + "`has_role(auth.uid(), 'admin')`" + `) para administrar essas estruturas.
+Durante ESTE sprint, usar o sistema atual de admin (has_role(auth.uid(), 'admin')) para administrar essas estruturas.
 
 Motivo:
 
@@ -643,7 +643,7 @@ requirePermission({
 
 ou equivalente adequado à arquitetura existente.
 
-Ele deve consultar ` + "`has_permission`" + `.
+Ele deve consultar has_permission.
 
 Quando negado:
 
@@ -671,10 +671,10 @@ Apenas criar a infraestrutura e testes.
 NÃO fazer agora:
 
 - não remover AppRole;
-- não remover ` + "`useMyRoles`" + `;
-- não remover ` + "`primaryRole`" + `;
-- não remover ` + "`user_roles`" + `;
-- não remover ` + "`has_role`" + `;
+- não remover useMyRoles;
+- não remover primaryRole;
+- não remover user_roles;
+- não remover has_role;
 - não alterar RLS de order_drafts;
 - não alterar aprovação;
 - não alterar criação de pedidos;
@@ -696,7 +696,7 @@ Essas etapas ficam para o Sprint 8.9.43.1 e 8.9.43.2.
 17. COMPATIBILIDADE COM O SISTEMA ATUAL
 ==================================================
 
-O layout ` + "`_authenticated.tsx`" + ` atualmente depende de:
+O layout _authenticated.tsx atualmente depende de:
 
 useMyRoles
 primaryRole
@@ -738,7 +738,7 @@ Adicionar testes para pelo menos:
 6. retorna false para ação inválida;
 7. Administrador seedado possui CRUD completo;
 8. usuário admin existente recebe permission_profile_id do Administrador;
-9. ` + "`can()`" + ` frontend resolve corretamente o mapa;
+9. can() frontend resolve corretamente o mapa;
 10. PermissionGate mostra conteúdo permitido;
 11. PermissionGate mostra PermissionDenied quando view=false;
 12. PermissionAction deixa botão disabled quando ação=false;
@@ -813,4 +813,3 @@ function HomePage() {
     </div>
   )
 }
-
