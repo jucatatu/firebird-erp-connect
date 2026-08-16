@@ -19,7 +19,11 @@ export function PermissionDenied() {
           <Button variant="outline" onClick={() => window.history.back()}>
             Voltar
           </Button>
-          <Button onClick={() => navigate({ to: "/pedidos-venda" })}>
+          <Button
+            onClick={() =>
+              navigate({ to: "/pedidos-venda", search: { status: "all", page: undefined } })
+            }
+          >
             Ir para Pedidos
           </Button>
         </div>
