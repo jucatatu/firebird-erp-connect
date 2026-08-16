@@ -300,19 +300,19 @@ ERP Operacional
 |-- Operação
 |   |-- Mapa
 |   |-- Entregas
-|   `-- Recolhas
+|   \`-- Recolhas
 |
 |-- Comercial
 |   |-- Pedidos
 |   |-- Aprovações
-|   `-- Novo Cliente ERP
+|   \`-- Novo Cliente ERP
 |
-`-- Administração
+\`-- Administração
     |-- Usuários
     |-- Perfis de Permissão
     |-- Integração ERP
     |-- Catálogo
-    `-- Configurações
+    \`-- Configurações
 
 Usar keys técnicas estáveis:
 
