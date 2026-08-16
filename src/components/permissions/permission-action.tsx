@@ -11,7 +11,7 @@ import {
 interface PermissionActionProps {
   resource: string;
   action: PermissionAction;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   tooltipMessage?: string;
 }
 

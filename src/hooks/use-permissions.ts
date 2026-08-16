@@ -6,7 +6,7 @@ import {
   UserPermissionProfile,
   PermissionFlags 
 } from "@/lib/permissions/permission-types";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthSession } from "@/hooks/use-auth";
 
 const DEFAULT_FLAGS: PermissionFlags = {
   view: false,
@@ -16,7 +16,7 @@ const DEFAULT_FLAGS: PermissionFlags = {
 };
 
 export function usePermissions() {
-  const { user } = useAuth();
+  const { user } = useAuthSession();
 
   const { data: permissions, isLoading, error } = useQuery({
     queryKey: ["permissions", user?.id],
