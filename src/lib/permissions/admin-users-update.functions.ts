@@ -55,11 +55,21 @@ export const updateUser = createServerFn({ method: "POST" })
     });
 
     if (error) {
-      if (error.hint === "LAST_ADMIN_PROTECTION") {
+      // Prioriza identificação pelo code/hint programático
+      const errorCode = (error as any).code || error.hint;
+      
+      if (errorCode === "LAST_ADMIN_PROTECTION") {
         const err = new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
         (err as any).code = "LAST_ADMIN_PROTECTION";
         throw err;
       }
+
+      if (errorCode === "INVALID_COMPANY_ACCESS") {
+        const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas e pelo menos uma deve ser selecionada.");
+        (err as any).code = "INVALID_COMPANY_ACCESS";
+        throw err;
+      }
+      
       throw error;
     }
 

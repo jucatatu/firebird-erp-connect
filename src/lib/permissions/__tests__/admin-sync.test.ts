@@ -206,7 +206,7 @@ describe('Admin Hardening & Sync Tests', () => {
       });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
-        error: { message: 'INVALID_PERMISSION_PROFILE: Perfil de permissão inexistente.' } 
+        error: { hint: 'INVALID_PERMISSION_PROFILE', message: 'Perfil de permissão inexistente.' } 
       });
 
       await expect((updateUser as any)({ data, context: mockContext })).rejects.toThrow('Perfil de permissão inexistente');
@@ -232,10 +232,48 @@ describe('Admin Hardening & Sync Tests', () => {
       });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
-        error: { message: 'LAST_ADMIN_PROTECTION: Não é permitido desativar ou remover privilégios do último administrador ativo.' } 
+        error: { hint: 'LAST_ADMIN_PROTECTION', message: 'Não é permitido desativar...' } 
       });
 
-      await expect((updateUser as any)({ data, context: mockContext })).rejects.toThrow('Não é permitido desativar ou remover privilégios do último administrador ativo');
+      const promise = (updateUser as any)({ data, context: mockContext });
+      await expect(promise).rejects.toThrow('Não é possível deixar o sistema sem administradores ativos');
+      try {
+        await promise;
+      } catch (e: any) {
+        expect(e.code).toBe('LAST_ADMIN_PROTECTION');
+      }
+    });
+
+    it('should handle INVALID_COMPANY_ACCESS from RPC', async () => {
+      const data = {
+        id: 'user-1',
+        fullName: 'Test',
+        permissionProfileId: 'vendedor-profile',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: null,
+        active: true
+      };
+
+      (supabaseAdmin.from as any).mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
+          })
+        })
+      });
+
+      (supabaseAdmin.rpc as any).mockResolvedValue({ 
+        error: { hint: 'INVALID_COMPANY_ACCESS', message: 'Acesso inválido...' } 
+      });
+
+      const promise = (updateUser as any)({ data, context: mockContext });
+      await expect(promise).rejects.toThrow('Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas');
+      try {
+        await promise;
+      } catch (e: any) {
+        expect(e.code).toBe('INVALID_COMPANY_ACCESS');
+      }
     });
   });
 });
