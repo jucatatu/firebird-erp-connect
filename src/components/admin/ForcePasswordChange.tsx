@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, LogOut, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { completeInitialPasswordChange } from "@/lib/permissions/password-change.functions";
+import { changeInitialPassword } from "@/lib/permissions/password-change.functions";
 
 const passwordSchema = z.object({
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres"),
@@ -47,16 +46,15 @@ export function ForcePasswordChange({ onLogout, onSuccess }: ForcePasswordChange
   const onSubmit = async (values: PasswordFormValues) => {
     setLoading(true);
     try {
-      // 1. Atualizar senha no Supabase Auth
-      const { error: authError } = await supabase.auth.updateUser({
-        password: values.password,
+      // 1. Chamar Server Function para atualizar senha e limpar a flag server-side
+      const result = await changeInitialPassword({
+        data: {
+          newPassword: values.password,
+          confirmPassword: values.confirmPassword
+        }
       });
-
-      if (authError) throw authError;
-
-      // 2. Chamar Server Function para marcar must_change_password = false
-      const result = await completeInitialPasswordChange();
-      if (!result.success) throw new Error("Falha ao atualizar perfil.");
+      
+      if (!(result as any).success) throw new Error("Falha ao atualizar senha e perfil.");
 
       toast.success("Senha atualizada com sucesso!");
       onSuccess();
