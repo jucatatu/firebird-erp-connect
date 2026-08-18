@@ -542,8 +542,6 @@ export type Database = {
           is_system?: boolean
           name?: string
           updated_at?: string
-          must_change_password?: boolean
-          must_change_password?: boolean
           updated_by?: string | null
         }
         Relationships: []
