@@ -222,6 +222,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
             roles: values.roles as any,
             erpSellerId: values.erpSellerId,
             temporaryPassword: values.temporaryPassword,
+            confirmPassword: values.confirmPassword,
           }
         });
       }

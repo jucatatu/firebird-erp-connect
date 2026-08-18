@@ -29,20 +29,11 @@ vi.mock('@/integrations/supabase/client.server', () => ({
       admin: {
         createUser: vi.fn(),
         deleteUser: vi.fn(),
-        inviteUserByEmail: vi.fn(), // Should not be called
+        inviteUserByEmail: vi.fn(),
       }
     },
     rpc: vi.fn(),
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(),
-        }))
-      })),
-      update: vi.fn(() => ({
-        eq: vi.fn(),
-      }))
-    }))
+    from: vi.fn()
   }
 }));
 
@@ -59,7 +50,6 @@ vi.mock('@/lib/erp-sellers.functions', () => ({
 }));
 
 import { createAdminUser } from '../admin-users-create.functions';
-import { updateUser } from '../admin-users-update.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import { validateErpSellerForCompanies } from '@/lib/erp-sellers.functions';
 
@@ -71,12 +61,26 @@ const mockContext = {
 describe('Admin User Creation Flow (Direct Creation)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Default profile mock (active)
+    const mockFrom = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ 
+            data: { id: 'profile-1', active: true }, 
+            error: null 
+          })
+        })
+      })
+    });
+    (supabaseAdmin.from as any).mockImplementation(mockFrom);
   });
 
   const validData = {
     email: 'new@example.com',
     fullName: 'New User',
     temporaryPassword: 'password123',
+    confirmPassword: 'password123',
     permissionProfileId: 'profile-1',
     companies: [1],
     roles: ['vendedor'] as any,
@@ -99,10 +103,22 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.anything());
   });
 
-  it('should reject short password via input validator logic (tested in testable function here)', async () => {
-    // Note: zod validation happens in the serverFn definition, 
-    // we test the handler logic or simulate the validator failure if possible.
-    // For now, let's test that the handler is protected.
+  it('should block creation if profile is inactive', async () => {
+    (supabaseAdmin.from as any).mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ 
+            data: { id: 'profile-1', active: false }, 
+            error: null 
+          })
+        })
+      })
+    });
+
+    await expect((createAdminUser as any)({ data: validData, context: mockContext }))
+      .rejects.toThrow('Não é permitido atribuir um perfil inativo.');
+    
+    expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
   });
 
   it('should allow erpSellerId null', async () => {
@@ -178,8 +194,6 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
   });
 
   it('should handle profiles_pkey idempotently (via RPC)', async () => {
-    // This is tested by ensuring the RPC name is admin_setup_created_user
-    // and passing the correct arguments. The actual SQL idempotency is in the migration.
     (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'existing-id' } }, error: null });
     (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
