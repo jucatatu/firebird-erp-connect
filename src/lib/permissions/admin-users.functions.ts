@@ -69,15 +69,32 @@ export const setUserActiveStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId: adminId } = context;
 
+    // Se estiver tentando desativar, precisa de admin.users/delete
+    const action = data.active ? "edit" : "delete";
+
     await requirePermission({
       userId: adminId,
       resource: "admin.users",
-      action: "edit",
+      action,
       supabase
     });
 
-    if (data.targetUserId === adminId && data.active === false) {
-      throw new Error("LAST_ADMIN_PROTECTION: Você não pode desativar seu próprio acesso administrativo.");
+    if (data.active === false) {
+      // Proteção real do último admin
+      const { data: adminsCount, error: countErr } = await supabase.rpc("count_active_admins");
+      if (countErr) throw new Error("Falha ao verificar administradores ativos");
+
+      // Se for o alvo for um dos admins e só tiver 1 ativo
+      const { data: targetIsAdmin } = await supabase.rpc("has_role", { 
+        _user_id: data.targetUserId, 
+        _role: "admin" 
+      });
+
+      if (targetIsAdmin && adminsCount <= 1) {
+        const error = new Error("Não é possível desativar o último administrador ativo do sistema.");
+        (error as any).code = "LAST_ADMIN_PROTECTION";
+        throw error;
+      }
     }
 
     const { error } = await supabaseAdmin
@@ -89,4 +106,5 @@ export const setUserActiveStatus = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
 
