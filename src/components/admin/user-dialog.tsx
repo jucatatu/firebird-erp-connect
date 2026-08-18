@@ -124,7 +124,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   // Filtro client-side baseado nas empresas selecionadas no form
   const filteredSellers = useMemo(() => {
     if (!sellersQ.data) return [];
-    return sellersQ.data.filter(s => selectedCompanies.includes(s.companyId));
+    return sellersQ.data.filter((s: ErpSeller) => selectedCompanies.includes(s.companyId));
   }, [sellersQ.data, selectedCompanies]);
 
   const selectedSeller = useMemo(() => {
