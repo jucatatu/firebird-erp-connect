@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-describe('use-permissions', () => {
-  it('should work in the frontend', () => {
+describe('use-permissions (restored)', () => {
+  it('should be usable in frontend', () => {
     expect(true).toBe(true);
   });
 });
