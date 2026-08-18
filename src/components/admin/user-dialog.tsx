@@ -155,16 +155,19 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     }
   }, [user, open, form, isEditing]);
 
-  // Validar se o seller atual ainda é válido para as empresas selecionadas
+  // Remover limpeza silenciosa de erpSellerId ao trocar empresas.
+  // O requisito é bloquear o salvamento e mostrar mensagem, não limpar o valor.
+  /* 
   useEffect(() => {
     if (erpSellerId && !isEditing) {
-      const seller = sellersQ.data?.find(s => s.id === erpSellerId);
+      const seller = sellersQ.data?.find((s: ErpSeller) => s.id === erpSellerId);
       if (seller && !selectedCompanies.includes(seller.companyId)) {
         form.setValue("erpSellerId", null);
         toast.info("Vendedor removido pois não pertence às empresas selecionadas.");
       }
     }
   }, [selectedCompanies, erpSellerId, sellersQ.data, form, isEditing]);
+  */
 
   const selectedProfileId = form.watch("permissionProfileId");
   const selectedProfile = profilesQ.data?.find(p => p.id === selectedProfileId);
