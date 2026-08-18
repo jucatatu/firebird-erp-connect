@@ -53,7 +53,7 @@ import { AdminUser } from "@/lib/permissions/admin-types";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
 import { inviteUser } from "@/lib/permissions/admin-users-invite.functions";
 import { updateUser } from "@/lib/permissions/admin-users-update.functions";
-import { searchErpSellers } from "@/lib/erp-orders.functions";
+import { searchErpSellers, type ErpSeller } from "@/lib/erp-sellers.functions";
 
 const userFormSchema = z.object({
   fullName: z.string().min(1, "Nome é obrigatório"),
