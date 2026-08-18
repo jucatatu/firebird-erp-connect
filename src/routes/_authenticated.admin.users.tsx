@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 
-export const Route = createFileRoute("/admin/users")({
+export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
 });
 

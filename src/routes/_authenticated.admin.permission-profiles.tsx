@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/admin/permission-profiles")({
+export const Route = createFileRoute("/_authenticated/admin/permission-profiles")({
   component: AdminProfilesPage,
 });
 
