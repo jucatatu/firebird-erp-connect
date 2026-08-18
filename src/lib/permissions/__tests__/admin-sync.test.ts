@@ -31,6 +31,7 @@ vi.mock('@/integrations/supabase/client.server', () => ({
     auth: {
       admin: {
         inviteUserByEmail: vi.fn(),
+        createUser: vi.fn(),
         deleteUser: vi.fn(),
       }
     },
@@ -63,6 +64,7 @@ vi.mock('@/lib/erp-sellers.functions', () => ({
 }));
 
 // 2. Now import the actual functions (which will use the mocks)
+import { createAdminUser } from '../admin-users-create.functions';
 import { updateUser } from '../admin-users-update.functions';
 import { updatePermissionProfile } from '../admin-profiles-crud.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
@@ -78,20 +80,21 @@ describe('Admin Hardening & Sync Tests', () => {
   });
 
   describe('Company Allowlist', () => {
-    it('should accept valid company IDs [1, 3] in inviteUser', async () => {
+    it('should accept valid company IDs [1, 3] in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [1, 3],
         roles: ['vendedor'] as any,
         erpSellerId: null
       };
 
-      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      const result = await (inviteUser as any)({ data, context: mockContext });
+      const result = await (createAdminUser as any)({ data, context: mockContext });
       expect(result.success).toBe(true);
     });
   });
@@ -139,30 +142,32 @@ describe('Admin Hardening & Sync Tests', () => {
   });
 
   describe('ERP Seller Rules', () => {
-    it('should allow erpSellerId null in inviteUser', async () => {
+    it('should allow erpSellerId null in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
         erpSellerId: null
       };
 
-      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      const result = await (inviteUser as any)({ data, context: mockContext });
+      const result = await (createAdminUser as any)({ data, context: mockContext });
       expect(result.success).toBe(true);
-      expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
+      expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
         _erp_seller_id: null
       }));
     });
 
-    it('should allow valid erpSellerId in inviteUser', async () => {
+    it('should allow valid erpSellerId in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
@@ -175,20 +180,21 @@ describe('Admin Hardening & Sync Tests', () => {
         seller: { id: 123, companyId: 1, name: 'Seller', nickname: null } as any
       });
 
-      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      const result = await (inviteUser as any)({ data, context: mockContext });
+      const result = await (createAdminUser as any)({ data, context: mockContext });
       expect(result.success).toBe(true);
-      expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
+      expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
         _erp_seller_id: 123
       }));
     });
 
-    it('should reject invalid erpSellerId (mismatch) in inviteUser', async () => {
+    it('should reject invalid erpSellerId (mismatch) in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [3], // Only Grott
         roles: ['vendedor'] as any,
@@ -201,14 +207,15 @@ describe('Admin Hardening & Sync Tests', () => {
         error: { code: 'SELLER_COMPANY_MISMATCH', message: 'empresa que não está habilitada' }
       });
 
-      await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('empresa que não está habilitada');
-      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+      await expect((createAdminUser as any)({ data, context: mockContext })).rejects.toThrow('empresa que não está habilitada');
+      expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
     });
 
-    it('should reject erpSellerId if ERP is unavailable in inviteUser', async () => {
+    it('should reject erpSellerId if ERP is unavailable in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
@@ -221,8 +228,8 @@ describe('Admin Hardening & Sync Tests', () => {
         error: { code: 'ERP_UNAVAILABLE', message: 'Não foi possível consultar os vendedores' }
       });
 
-      await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('Não foi possível consultar os vendedores');
-      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+      await expect((createAdminUser as any)({ data, context: mockContext })).rejects.toThrow('Não foi possível consultar os vendedores');
+      expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
     });
 
     it('should allow updating user with valid erpSellerId', async () => {
@@ -344,17 +351,18 @@ describe('Admin Hardening & Sync Tests', () => {
       }
     });
 
-    it('should prioritize hint over P0001 code for INVALID_COMPANY_ACCESS in inviteUser', async () => {
+    it('should prioritize hint over P0001 code for INVALID_COMPANY_ACCESS in createAdminUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
+        temporaryPassword: 'password123',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
         erpSellerId: null
       };
 
-      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.auth.admin.deleteUser as any).mockResolvedValue({ error: null });
       
       // Simula falha na RPC com code + hint
@@ -362,7 +370,7 @@ describe('Admin Hardening & Sync Tests', () => {
         error: { code: 'P0001', hint: 'INVALID_COMPANY_ACCESS', message: 'Invalid companies' } 
       });
 
-      const promise = (inviteUser as any)({ data, context: mockContext });
+      const promise = (createAdminUser as any)({ data, context: mockContext });
       await expect(promise).rejects.toThrow('Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas');
       
       // Verifica compensação do Auth
