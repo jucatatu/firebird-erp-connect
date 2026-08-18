@@ -625,7 +625,6 @@ export type Database = {
           permission_profile_id?: string | null
           updated_at?: string
           must_change_password?: boolean
-          must_change_password?: boolean
         }
         Relationships: [
           {
