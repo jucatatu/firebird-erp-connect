@@ -10,7 +10,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     email: z.string().email(),
     fullName: z.string().min(1),
     permissionProfileId: z.string(),
-    companies: z.array(z.number()),
+    companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
     roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
     erpSellerId: z.number().nullable()
   }).parse(data))
@@ -32,11 +32,12 @@ export const inviteUser = createServerFn({ method: "POST" })
 
     try {
       // 2. Configurar perfil e tabelas relacionadas ATOMICAMENTE via RPC
+      // Enquanto Sellers estiver pendente, forçamos null no convite
       const { error: setupError } = await supabaseAdmin.rpc("admin_setup_invited_user", {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
-        _erp_seller_id: data.erpSellerId as any, // Cast to any because the RPC expect integer (number), and Zod nullable translates to null, which PG handles.
+        _erp_seller_id: null, // Forçado null enquanto Sellers pendente
         _company_ids: data.companies,
         _roles: data.roles
       });
