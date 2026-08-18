@@ -75,7 +75,9 @@ export const saveProfileRules = createServerFn({ method: "POST" })
       .single();
 
     if (profile?.is_system) {
-      throw new Error("Não é permitido alterar regras de perfis de sistema.");
+      const error = new Error("SYSTEM_PROFILE_PROTECTED: Não é permitido alterar regras de um perfil de sistema.");
+      (error as any).code = "SYSTEM_PROFILE_PROTECTED";
+      throw error;
     }
 
     const { error } = await supabaseAdmin
