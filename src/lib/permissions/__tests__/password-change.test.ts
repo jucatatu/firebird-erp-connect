@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // 1. Mocks
 vi.mock('@tanstack/react-start', () => {
@@ -15,6 +17,8 @@ vi.mock('@tanstack/react-start', () => {
       handler: vi.fn().mockImplementation((h) => {
         options.handler = h;
         const execFn: any = async (input: any) => options.handler(input);
+        // Anexar o validador para testes
+        execFn.validate = (data: any) => options.inputValidator(data);
         return execFn;
       })
     };
@@ -50,6 +54,28 @@ describe('Initial Password Change Flow', () => {
     newPassword: 'newpassword123',
     confirmPassword: 'newpassword123'
   };
+
+  // --- Validação de Inputs ---
+
+  it('should reject password shorter than 8 characters', async () => {
+    const invalidData = { newPassword: 'short', confirmPassword: 'short' };
+    expect(() => (changeInitialPassword as any).validate(invalidData)).toThrow();
+    expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('should reject password with only spaces even if long enough', async () => {
+    const invalidData = { newPassword: '        ', confirmPassword: '        ' };
+    expect(() => (changeInitialPassword as any).validate(invalidData)).toThrow();
+    expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('should reject when passwords do not match', async () => {
+    const invalidData = { newPassword: 'newpassword123', confirmPassword: 'different123' };
+    expect(() => (changeInitialPassword as any).validate(invalidData)).toThrow();
+    expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  // --- Fluxo de Negócio ---
 
   it('should change password successfully and follow the correct order', async () => {
     const userId = 'user-1';
@@ -181,5 +207,20 @@ describe('Initial Password Change Flow', () => {
     })).rejects.toThrow('Falha ao validar status do perfil.');
     
     expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  // --- Verificação Estática de Migrations ---
+
+  it('should have a migration that drops the old bypass RPC', () => {
+    const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
+    const files = fs.readdirSync(migrationsDir);
+    
+    // Procurar por qualquer migration que contenha o DROP da função
+    const dropFound = files.some(file => {
+      const content = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      return content.includes('DROP FUNCTION IF EXISTS public.complete_initial_password_change()');
+    });
+
+    expect(dropFound).toBe(true);
   });
 });

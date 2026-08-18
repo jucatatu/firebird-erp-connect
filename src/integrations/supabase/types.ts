@@ -518,7 +518,6 @@ export type Database = {
           is_system: boolean
           name: string
           updated_at: string
-          must_change_password: boolean
           updated_by: string | null
         }
         Insert: {
@@ -530,7 +529,6 @@ export type Database = {
           is_system?: boolean
           name: string
           updated_at?: string
-          must_change_password?: boolean
           updated_by?: string | null
         }
         Update: {
@@ -692,6 +690,7 @@ export type Database = {
         }
         Returns: undefined
       }
+
       admin_setup_invited_user: {
         Args: {
           _company_ids: number[]
