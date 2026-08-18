@@ -5,17 +5,11 @@ import { requirePermission } from "./permissions.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { validateErpSellerForCompanies } from "@/lib/erp-sellers.functions";
 
-export const inviteUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({
-    email: z.string().email(),
-    fullName: z.string().min(1),
-    permissionProfileId: z.string(),
-    companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
-    roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
-    erpSellerId: z.number().int().positive().nullable()
-  }).parse(data))
-  .handler(async ({ data, context }) => {
+/**
+ * Helper para testar o envio de convite.
+ * exportado para facilitar testes determinísticos.
+ */
+export async function testableInviteUser(data: any, context: any) {
     const { supabase, userId } = context;
 
     // 1. Autenticar usuário executor e verificar permissão
@@ -55,24 +49,27 @@ export const inviteUser = createServerFn({ method: "POST" })
 
       if (setupError) {
         const errorCode = setupError.hint || (setupError as any).code;
-        
-        if (errorCode === "INVALID_COMPANY_ACCESS") {
-          throw new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas.");
-        }
-
-        if (errorCode === "INVALID_PERMISSION_PROFILE") {
-          throw new Error("Perfil de permissão inexistente ou inativo.");
-        }
-        
-        throw setupError;
+        throw new Error(setupError.message || "Falha na configuração do usuário.");
       }
     } catch (e: any) {
-      console.error("[INVITE] Falha na configuração pós-convite. Tentando compensação...", e);
-      // Compensação: Remove o usuário convidado se a configuração falhar
+      // Compensação
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
-      throw new Error(`Usuário convidado, mas falha na configuração: ${e.message || 'Erro desconhecido'}`);
+      throw e;
     }
 
     return { success: true };
-  });
+}
 
+export const inviteUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({
+    email: z.string().email(),
+    fullName: z.string().min(1),
+    permissionProfileId: z.string(),
+    companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
+    roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
+    erpSellerId: z.number().int().positive().nullable()
+  }).parse(data))
+  .handler(async ({ data, context }) => {
+    return testableInviteUser(data, context);
+  });
