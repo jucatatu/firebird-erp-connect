@@ -133,46 +133,106 @@ describe('Admin Hardening & Sync Tests', () => {
     });
   });
 
-  describe('ERP Seller Immutability', () => {
-    it('should ignore erpSellerId from payload in inviteUser and force null', async () => {
+  describe('ERP Seller Rules', () => {
+    it('should allow erpSellerId null in inviteUser', async () => {
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
-        erpSellerId: 999 
+        erpSellerId: null
       };
 
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      await (inviteUser as any)({ data, context: mockContext });
-      
+      const result = await (inviteUser as any)({ data, context: mockContext });
+      expect(result.success).toBe(true);
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
         _erp_seller_id: null
       }));
     });
 
-    it('should preserve existing erpSellerId in updateUser', async () => {
+    it('should allow valid erpSellerId in inviteUser', async () => {
+      const data = {
+        email: 'test@example.com',
+        fullName: 'Test User',
+        permissionProfileId: 'profile-1',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: 123
+      };
+
+      // Mock detail call
+      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+        ok: true,
+        data: { seller: { id: 123, companyId: 1, name: 'Seller' } }
+      });
+
+      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+      const result = await (inviteUser as any)({ data, context: mockContext });
+      expect(result.success).toBe(true);
+      expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
+        _erp_seller_id: 123
+      }));
+    });
+
+    it('should reject invalid erpSellerId (mismatch) in inviteUser', async () => {
+      const data = {
+        email: 'test@example.com',
+        fullName: 'Test User',
+        permissionProfileId: 'profile-1',
+        companies: [3], // Only Grott
+        roles: ['vendedor'] as any,
+        erpSellerId: 123 // Graal seller
+      };
+
+      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+        ok: true,
+        data: { seller: { id: 123, companyId: 1, name: 'Seller' } }
+      });
+
+      await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('empresa que não está habilitada');
+      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it('should reject erpSellerId if ERP is unavailable in inviteUser', async () => {
+      const data = {
+        email: 'test@example.com',
+        fullName: 'Test User',
+        permissionProfileId: 'profile-1',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: 123
+      };
+
+      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+        ok: false,
+        status: 503,
+        error: { code: 'ERP_UNAVAILABLE', message: 'Indisponível', retryable: true }
+      });
+
+      await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('Não foi possível consultar os vendedores');
+      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it('should allow updating user with valid erpSellerId', async () => {
       const data = {
         id: 'user-1',
         fullName: 'Updated Name',
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
-        erpSellerId: 888, 
+        erpSellerId: 456,
         active: true
       };
 
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ 
-              data: { erp_seller_id: 123 } 
-            })
-          })
-        })
+      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+        ok: true,
+        data: { seller: { id: 456, companyId: 1, name: 'Seller' } }
       });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
@@ -180,7 +240,7 @@ describe('Admin Hardening & Sync Tests', () => {
       await (updateUser as any)({ data, context: mockContext });
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_update_user', expect.objectContaining({
-        _erp_seller_id: 123 
+        _erp_seller_id: 456
       }));
     });
   });
