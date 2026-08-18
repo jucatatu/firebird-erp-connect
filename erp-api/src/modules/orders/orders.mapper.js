@@ -30,18 +30,45 @@ function toDateOrNull(v) {
  * Converte data operacional YYYY-MM-DD para objeto Date (meio-dia local)
  * para evitar que o fuso horário mude o dia durante a inserção no Firebird.
  */
+/**
+ * Converte data operacional YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss para objeto Date local.
+ * Isso evita que o fuso horário do servidor altere o horário escolhido pelo usuário.
+ */
 function toDateCivil(v) {
   if (!v || typeof v !== "string") return toDateOrNull(v);
   
-  // Se for formato YYYY-MM-DD
+  // Se for formato YYYY-MM-DDTHH:mm:ss ou YYYY-MM-DDTHH:mm
+  const isoDateTimeRegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?.*$/;
+  const match = v.match(isoDateTimeRegex);
+  
+  if (match) {
+    const [_, year, month, day, hour, minute, second = "00"] = match;
+    // Criamos usando componentes locais: new Date(year, monthIndex, day, hours, minutes, seconds)
+    return new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10),
+      parseInt(hour, 10),
+      parseInt(minute, 10),
+      parseInt(second, 10)
+    );
+  }
+
+  // Se for formato YYYY-MM-DD somente
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    // Forçamos 12:00:00 para garantir que o fuso não pule para o dia anterior/posterior
-    // dependendo de onde o Node está rodando.
-    return new Date(`${v}T12:00:00`);
+    const [year, month, day] = v.split("-");
+    // Regra mantida: sem horário explícito, assume 12:00 local
+    return new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10),
+      12, 0, 0
+    );
   }
   
   return toDateOrNull(v);
 }
+
 
 
 const companyRule = require("../../shared/company/company-rule");
