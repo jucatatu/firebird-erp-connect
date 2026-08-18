@@ -66,6 +66,33 @@ test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
   assert.ok(params[7] instanceof Date);
 });
 
+test("buildCompleteProcParams deliver=false resulta em ENTREGAR=null (Retirada)", () => {
+  const params = mapper.buildCompleteProcParams({
+    companyId: 1,
+    totals: { total: 50.0 },
+    payload: {
+      clientId: 1,
+      sellerId: 1,
+      deliver: false, // RETIRADA
+    },
+  });
+  assert.strictEqual(params[6], null, "ENTREGAR deve ser null para retirada");
+  assert.notEqual(params[6], 0, "ENTREGAR nunca deve ser 0");
+});
+
+test("buildCompleteProcParams deliver=true resulta em ENTREGAR=1 (Entrega)", () => {
+  const params = mapper.buildCompleteProcParams({
+    companyId: 1,
+    totals: { total: 50.0 },
+    payload: {
+      clientId: 1,
+      sellerId: 1,
+      deliver: true, // ENTREGA
+    },
+  });
+  assert.strictEqual(params[6], 1, "ENTREGAR deve ser 1 para entrega");
+});
+
 test("buildItemProcParams CHAVE I", () => {
   const p = mapper.buildItemProcParams(500, {
     productId: 10,
