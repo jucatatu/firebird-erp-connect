@@ -10,9 +10,10 @@ import { validateErpSellerForCompaniesServer } from "@/lib/erp-sellers.server";
  */
 export async function testableCreateAdminUser(data: any, context: any) {
     const { supabase, userId: execUserId } = context;
+    const traceId = crypto.randomUUID();
     const startTs = Date.now();
 
-    console.log(`[ADMIN_CREATE] permission:start user=${execUserId}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} permission:start`);
     // 1. Autenticar administrador e verificar permissão
     await requirePermission({
       userId: execUserId,
@@ -20,10 +21,10 @@ export async function testableCreateAdminUser(data: any, context: any) {
       action: "create",
       supabase
     });
-    console.log(`[ADMIN_CREATE] permission:ok durationMs=${Date.now() - startTs}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} permission:ok durationMs=${Date.now() - startTs}`);
 
     const profileStart = Date.now();
-    console.log(`[ADMIN_CREATE] profile:start id=${data.permissionProfileId}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} profile:start`);
     // 2. Pré-validar Perfil de Permissões e Normalizar Roles ANTES de criar no Auth
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("permission_profiles")
@@ -32,14 +33,14 @@ export async function testableCreateAdminUser(data: any, context: any) {
       .single();
 
     if (profileErr || !profile) {
-      console.error(`[ADMIN_CREATE] failed stage=profile error=NOT_FOUND`);
+      console.error(`[ADMIN_CREATE] trace=${traceId} failed stage=profile error=NOT_FOUND`);
       const err = new Error("Perfil de permissão inexistente.");
       (err as any).code = "INVALID_PERMISSION_PROFILE";
       throw err;
     }
 
     if (!profile.active) {
-      console.error(`[ADMIN_CREATE] failed stage=profile error=INACTIVE`);
+      console.error(`[ADMIN_CREATE] trace=${traceId} failed stage=profile error=INACTIVE`);
       const err = new Error("Não é permitido atribuir um perfil inativo.");
       (err as any).code = "INVALID_PERMISSION_PROFILE";
       throw err;
@@ -60,24 +61,24 @@ export async function testableCreateAdminUser(data: any, context: any) {
     if (profileName !== "administrador") {
       finalRoles = finalRoles.filter(r => r !== "admin");
     }
-    console.log(`[ADMIN_CREATE] profile:ok durationMs=${Date.now() - profileStart}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} profile:ok durationMs=${Date.now() - profileStart}`);
 
     // 3. Validar Seller no ERP ANTES de criar no Auth
     if (data.erpSellerId !== null) {
       const sellerStart = Date.now();
-      console.log(`[ADMIN_CREATE] seller:start id=${data.erpSellerId}`);
+      console.log(`[ADMIN_CREATE] trace=${traceId} seller:start`);
       const sellerValidation = await validateErpSellerForCompaniesServer(data.erpSellerId, data.companies);
       if (!sellerValidation.ok) {
-        console.error(`[ADMIN_CREATE] failed stage=seller error=${sellerValidation.error?.code}`);
+        console.error(`[ADMIN_CREATE] trace=${traceId} failed stage=seller error=${sellerValidation.error?.code}`);
         const err = new Error(sellerValidation.error?.message || "Vendedor inválido.");
         (err as any).code = sellerValidation.error?.code;
         throw err;
       }
-      console.log(`[ADMIN_CREATE] seller:ok durationMs=${Date.now() - sellerStart}`);
+      console.log(`[ADMIN_CREATE] trace=${traceId} seller:ok durationMs=${Date.now() - sellerStart}`);
     }
 
     const authStart = Date.now();
-    console.log(`[ADMIN_CREATE] auth:start email=${data.email}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} auth:start`);
     // 4. Criar usuário no Supabase Auth
     const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -86,7 +87,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
     });
 
     if (authErr) {
-      console.error(`[ADMIN_CREATE] failed stage=auth error=${authErr.message}`);
+      console.error(`[ADMIN_CREATE] trace=${traceId} failed stage=auth error=${authErr.message}`);
       if (authErr.message.includes("already registered")) {
         throw new Error("Já existe um usuário cadastrado com este e-mail.");
       }
@@ -94,24 +95,24 @@ export async function testableCreateAdminUser(data: any, context: any) {
     }
 
     const newUserId = authUser.user.id;
-    console.log(`[ADMIN_CREATE] auth:ok userId=${newUserId} durationMs=${Date.now() - authStart}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} auth:ok durationMs=${Date.now() - authStart}`);
 
     const setupStart = Date.now();
-    console.log(`[ADMIN_CREATE] setup:start`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} setup:start`);
     try {
-      // 5. Executar RPC admin_setup_created_user - Tipagem restaurada
+      // 5. Executar RPC admin_setup_created_user
       const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user", {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
         _erp_seller_id: data.erpSellerId,
-        _company_ids: data.companies as any,
-        _roles: finalRoles as any
+        _company_ids: data.companies,
+        _roles: finalRoles
       });
 
       if (setupError) {
         const errorCode = setupError.hint || (setupError as any).code;
-        console.error(`[ADMIN_CREATE] failed stage=setup error=${errorCode}`);
+        console.error(`[ADMIN_CREATE] trace=${traceId} failed stage=setup error=${errorCode}`);
         
         if (errorCode === "INVALID_COMPANY_ACCESS") {
           const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas.");
@@ -129,15 +130,20 @@ export async function testableCreateAdminUser(data: any, context: any) {
         (err as any).code = errorCode;
         throw err;
       }
-      console.log(`[ADMIN_CREATE] setup:ok durationMs=${Date.now() - setupStart}`);
+      console.log(`[ADMIN_CREATE] trace=${traceId} setup:ok durationMs=${Date.now() - setupStart}`);
     } catch (e: any) {
       // 6. Compensação: Se setup falhar, excluir usuário Auth criado
-      console.warn(`[ADMIN_CREATE] compensating: deleting auth user ${newUserId}`);
-      await supabaseAdmin.auth.admin.deleteUser(newUserId);
+      console.warn(`[ADMIN_CREATE] trace=${traceId} compensation:start`);
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        console.log(`[ADMIN_CREATE] trace=${traceId} compensation:ok`);
+      } catch (compErr) {
+        console.error(`[ADMIN_CREATE] trace=${traceId} compensation:error`);
+      }
       throw e;
     }
 
-    console.log(`[ADMIN_CREATE] success totalDurationMs=${Date.now() - startTs}`);
+    console.log(`[ADMIN_CREATE] trace=${traceId} success totalDurationMs=${Date.now() - startTs}`);
     return { success: true };
 }
 
