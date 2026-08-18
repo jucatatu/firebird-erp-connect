@@ -15,7 +15,18 @@ const idSchema = z.object({
 
 async function handleSearch(req, res, next) {
   try {
-    const { q, limit, companyId } = searchSchema.parse(req.query);
+    const parsed = searchSchema.safeParse(req.query);
+    if (!parsed.success) {
+      const { AppError } = require("../../shared/errors/app-error");
+      throw new AppError({
+        message: "Parâmetros de busca inválidos.",
+        statusCode: 400,
+        code: "INVALID_PARAMS",
+        exposeDetails: true,
+        details: parsed.error.format()
+      });
+    }
+    const { q, limit, companyId } = parsed.data;
     const sellers = await sellersRepository.searchSellers({ query: q, limit, companyId });
     res.json({ success: true, sellers });
   } catch (err) {
@@ -25,7 +36,18 @@ async function handleSearch(req, res, next) {
 
 async function handleGetById(req, res, next) {
   try {
-    const { id } = idSchema.parse(req.params);
+    const parsed = idSchema.safeParse(req.params);
+    if (!parsed.success) {
+      const { AppError } = require("../../shared/errors/app-error");
+      throw new AppError({
+        message: "ID de vendedor inválido.",
+        statusCode: 400,
+        code: "INVALID_ID",
+        exposeDetails: true,
+        details: parsed.error.format()
+      });
+    }
+    const { id } = parsed.data;
     const seller = await sellersRepository.getSellerById(id);
 
     if (!seller) {
