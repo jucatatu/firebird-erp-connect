@@ -43,6 +43,12 @@ export const updateUser = createServerFn({ method: "POST" })
     }
 
     // Normalização Determinística de Roles
+    const { data: profileDetails } = await supabaseAdmin
+      .from("permission_profiles")
+      .select("name, is_system")
+      .eq("id", data.permissionProfileId)
+      .single();
+
     let finalRoles = [...(data.roles || [])];
     const profileName = profileDetails?.name?.toLowerCase();
 
@@ -94,4 +100,3 @@ export const updateUser = createServerFn({ method: "POST" })
 
     return { success: true };
   });
-
