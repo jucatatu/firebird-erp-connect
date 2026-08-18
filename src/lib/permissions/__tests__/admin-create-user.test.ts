@@ -304,4 +304,38 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
       _roles: ['aprovador']
     }));
   });
+
+  describe('Anonymized Diagnostics and Security', () => {
+    it('should NOT log PII or IDs in console logs', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const consoleErrSpy = vi.spyOn(console, 'error');
+      
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user-id' } }, error: null });
+      (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+      const data = { ...validData, email: 'secret@pii.com', fullName: 'Secret Name' };
+      await (createAdminUser as any)({ data, context: mockContext });
+
+      const allLogs = JSON.stringify(consoleSpy.mock.calls) + JSON.stringify(consoleErrSpy.mock.calls);
+      
+      expect(allLogs).not.toContain('secret@pii.com');
+      expect(allLogs).not.toContain('Secret Name');
+      expect(allLogs).not.toContain('new-user-id');
+      expect(allLogs).toContain('trace=');
+    });
+
+    it('should NOT log PII during compensation', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn');
+      
+      (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user-id' } }, error: null });
+      (supabaseAdmin.rpc as any).mockResolvedValue({ error: { message: 'Setup Failed' } });
+      (supabaseAdmin.auth.admin.deleteUser as any).mockResolvedValue({ error: null });
+
+      await expect((createAdminUser as any)({ data: validData, context: mockContext })).rejects.toThrow();
+
+      const warnLogs = JSON.stringify(consoleWarnSpy.mock.calls);
+      expect(warnLogs).not.toContain('new-user-id');
+      expect(warnLogs).toContain('compensation:start');
+    });
+  });
 });
