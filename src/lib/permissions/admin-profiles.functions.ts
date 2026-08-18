@@ -2,13 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requirePermission } from "./permissions.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Lista perfis de permissão.
  */
 export const listPermissionProfiles = createServerFn({ method: "GET" })
-  .handler(async () => {
-    await requirePermission("admin.permission_profiles", "view");
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    await requirePermission({
+      userId,
+      resource: "admin.permission_profiles",
+      action: "view",
+      supabase
+    });
 
     const { data, error } = await supabaseAdmin
       .from("permission_profiles")
@@ -38,6 +47,7 @@ export const listPermissionProfiles = createServerFn({ method: "GET" })
  * Salva regras de um perfil.
  */
 export const saveProfileRules = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({
     profileId: z.string(),
     rules: z.array(z.object({
@@ -48,10 +58,16 @@ export const saveProfileRules = createServerFn({ method: "POST" })
       canDelete: z.boolean()
     }))
   }).parse(data))
-  .handler(async ({ data }) => {
-    await requirePermission("admin.permission_profiles", "edit");
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
 
-    // Verifica se é perfil de sistema (Administrador)
+    await requirePermission({
+      userId,
+      resource: "admin.permission_profiles",
+      action: "edit",
+      supabase
+    });
+
     const { data: profile } = await supabaseAdmin
       .from("permission_profiles")
       .select("is_system")
@@ -62,7 +78,6 @@ export const saveProfileRules = createServerFn({ method: "POST" })
       throw new Error("Não é permitido alterar regras de perfis de sistema.");
     }
 
-    // Upsert das regras
     const { error } = await supabaseAdmin
       .from("permission_profile_rules")
       .upsert(
@@ -80,3 +95,4 @@ export const saveProfileRules = createServerFn({ method: "POST" })
     if (error) throw error;
     return { success: true };
   });
+

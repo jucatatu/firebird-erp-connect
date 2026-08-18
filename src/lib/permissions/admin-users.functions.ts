@@ -2,13 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requirePermission } from "./permissions.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Lista todos os usuários com dados administrativos.
  */
 export const listAdminUsers = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const { userId } = await requirePermission("admin.users", "view");
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    
+    await requirePermission({
+      userId,
+      resource: "admin.users",
+      action: "view",
+      supabase
+    });
 
     const { data: profiles, error: pError } = await supabaseAdmin
       .from("profiles")
@@ -24,16 +33,13 @@ export const listAdminUsers = createServerFn({ method: "GET" })
 
     if (pError) throw new Error("Falha ao buscar perfis");
 
-    // Buscamos e-mails via Auth API (requer admin client)
     const { data: authUsers, error: aError } = await supabaseAdmin.auth.admin.listUsers();
     if (aError) throw new Error("Falha ao buscar usuários auth");
 
-    // Buscamos acessos a empresas
     const { data: companyAccess, error: cError } = await supabaseAdmin
       .from("user_company_access")
       .select("user_id, company_id");
     
-    // Buscamos roles legadas
     const { data: legacyRoles, error: rError } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, role");
@@ -58,12 +64,18 @@ export const listAdminUsers = createServerFn({ method: "GET" })
  * Ativa/Desativa um usuário.
  */
 export const setUserActiveStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ targetUserId: z.string(), active: z.boolean() }).parse(data))
-  .handler(async ({ data }) => {
-    const { userId: adminId } = await requirePermission("admin.users", "edit");
+  .handler(async ({ data, context }) => {
+    const { supabase, userId: adminId } = context;
 
-    // Proteção do último admin (lógica simplificada: não desativar a si mesmo se for admin)
-    // Uma implementação robusta contaria admins ativos no banco.
+    await requirePermission({
+      userId: adminId,
+      resource: "admin.users",
+      action: "edit",
+      supabase
+    });
+
     if (data.targetUserId === adminId && data.active === false) {
       throw new Error("LAST_ADMIN_PROTECTION: Você não pode desativar seu próprio acesso administrativo.");
     }
@@ -77,3 +89,4 @@ export const setUserActiveStatus = createServerFn({ method: "POST" })
 
     return { success: true };
   });
+
