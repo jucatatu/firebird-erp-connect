@@ -45,13 +45,14 @@ vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn()
 }));
 
-vi.mock('@/lib/erp-sellers.functions', () => ({
-  validateErpSellerForCompanies: vi.fn(),
+vi.mock('@/lib/erp-sellers.server', () => ({
+  validateErpSellerForCompaniesServer: vi.fn(),
+  getErpSellerDetailServer: vi.fn(),
 }));
 
 import { createAdminUser } from '../admin-users-create.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
-import { validateErpSellerForCompanies } from '@/lib/erp-sellers.functions';
+import { validateErpSellerForCompaniesServer } from '@/lib/erp-sellers.server';
 
 const mockContext = { 
   userId: 'admin-1', 
@@ -63,15 +64,17 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     vi.clearAllMocks();
     
     // Default profile mock (active)
-    const mockFrom = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ 
-            data: { id: 'profile-1', active: true }, 
-            error: null 
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { id: 'profile-1', active: true, name: 'Standard' }, 
+              error: null 
+            })
           })
         })
-      })
+      };
     });
     (supabaseAdmin.from as any).mockImplementation(mockFrom);
   });
@@ -104,15 +107,17 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
   });
 
   it('should block creation if profile is inactive', async () => {
-    (supabaseAdmin.from as any).mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ 
-            data: { id: 'profile-1', active: false }, 
-            error: null 
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { id: 'profile-1', active: false, name: 'Standard' }, 
+              error: null 
+            })
           })
         })
-      })
+      };
     });
 
     await expect((createAdminUser as any)({ data: validData, context: mockContext }))
@@ -126,25 +131,25 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
     await (createAdminUser as any)({ data: validData, context: mockContext });
-    expect(validateErpSellerForCompanies).not.toHaveBeenCalled();
+    expect(validateErpSellerForCompaniesServer).not.toHaveBeenCalled();
     expect(supabaseAdmin.auth.admin.createUser).toHaveBeenCalled();
   });
 
-  it('should validate ERP Seller before createUser', async () => {
+  it('should validate ERP Seller before createUser using the SERVER helper', async () => {
     const data = { ...validData, erpSellerId: 123 };
-    (vi.mocked(validateErpSellerForCompanies) as any).mockResolvedValue({ ok: true });
+    (vi.mocked(validateErpSellerForCompaniesServer) as any).mockResolvedValue({ ok: true });
     (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
     (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
     await (createAdminUser as any)({ data, context: mockContext });
     
-    expect(validateErpSellerForCompanies).toHaveBeenCalledWith(123, [1]);
+    expect(validateErpSellerForCompaniesServer).toHaveBeenCalledWith(123, [1]);
     expect(supabaseAdmin.auth.admin.createUser).toHaveBeenCalled();
   });
 
-  it('should block creation if Seller mismatch occurs before Auth', async () => {
+  it('should block creation if Seller mismatch occurs before Auth using SERVER helper', async () => {
     const data = { ...validData, erpSellerId: 123 };
-    (vi.mocked(validateErpSellerForCompanies) as any).mockResolvedValue({ 
+    (vi.mocked(validateErpSellerForCompaniesServer) as any).mockResolvedValue({ 
       ok: false, 
       error: { code: 'SELLER_COMPANY_MISMATCH', message: 'Mismatch' } 
     });
@@ -155,9 +160,9 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
   });
 
-  it('should block creation if ERP is offline', async () => {
+  it('should block creation if ERP is offline using SERVER helper', async () => {
     const data = { ...validData, erpSellerId: 123 };
-    (vi.mocked(validateErpSellerForCompanies) as any).mockResolvedValue({ 
+    (vi.mocked(validateErpSellerForCompaniesServer) as any).mockResolvedValue({ 
       ok: false, 
       error: { code: 'ERP_UNAVAILABLE', message: 'Offline' } 
     });
@@ -191,6 +196,78 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
       .rejects.toThrow('Perfil de permissão inexistente ou inativo.');
     
     expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith('new-user');
+  });
+
+  it('should normalize role "admin" for profile "Administrador"', async () => {
+    const data = { ...validData, roles: [] as any };
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { name: 'Administrador', is_system: true, active: true }, 
+              error: null 
+            })
+          })
+        })
+      };
+    });
+    (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+    await (createAdminUser as any)({ data, context: mockContext });
+    
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
+      _roles: ['admin']
+    }));
+  });
+
+  it('should normalize role "vendedor" for profile "Vendedor"', async () => {
+    const data = { ...validData, roles: [] as any };
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { name: 'Vendedor', is_system: false, active: true }, 
+              error: null 
+            })
+          })
+        })
+      };
+    });
+    (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+    await (createAdminUser as any)({ data, context: mockContext });
+    
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
+      _roles: ['vendedor']
+    }));
+  });
+
+  it('should prevent "admin" role for custom profiles', async () => {
+    const data = { ...validData, roles: ['admin'] as any };
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { name: 'Custom Profile', is_system: false, active: true }, 
+              error: null 
+            })
+          })
+        })
+      };
+    });
+    (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+    await (createAdminUser as any)({ data, context: mockContext });
+    
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
+      _roles: []
+    }));
   });
 
   it('should handle profiles_pkey idempotently (via RPC)', async () => {

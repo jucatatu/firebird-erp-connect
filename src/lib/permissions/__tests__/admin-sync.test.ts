@@ -57,6 +57,11 @@ vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn()
 }));
 
+vi.mock('@/lib/erp-sellers.server', () => ({
+  validateErpSellerForCompaniesServer: vi.fn(),
+  getErpSellerDetailServer: vi.fn(),
+}));
+
 vi.mock('@/lib/erp-sellers.functions', () => ({
   validateErpSellerForCompanies: vi.fn(),
   getErpSellerDetail: vi.fn(),
@@ -201,8 +206,8 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123
       };
 
-      const sellersFuncs = await import('@/lib/erp-sellers.functions');
-      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
+      const sellersServer = await import('@/lib/erp-sellers.server');
+      vi.mocked(sellersServer.validateErpSellerForCompaniesServer).mockResolvedValue({
         ok: true,
         seller: { id: 123, companyId: 1, name: 'Seller', nickname: null } as any
       });
@@ -228,8 +233,8 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123 // Graal seller
       };
 
-      const sellersFuncs = await import('@/lib/erp-sellers.functions');
-      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
+      const sellersServer = await import('@/lib/erp-sellers.server');
+      vi.mocked(sellersServer.validateErpSellerForCompaniesServer).mockResolvedValue({
         ok: false,
         error: { code: 'SELLER_COMPANY_MISMATCH', message: 'empresa que não está habilitada' }
       });
@@ -249,8 +254,8 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123
       };
 
-      const sellersFuncs = await import('@/lib/erp-sellers.functions');
-      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
+      const sellersServer = await import('@/lib/erp-sellers.server');
+      vi.mocked(sellersServer.validateErpSellerForCompaniesServer).mockResolvedValue({
         ok: false,
         error: { code: 'ERP_UNAVAILABLE', message: 'Não foi possível consultar os vendedores' }
       });
@@ -270,8 +275,8 @@ describe('Admin Hardening & Sync Tests', () => {
         active: true
       };
 
-      const sellersFuncs = await import('@/lib/erp-sellers.functions');
-      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
+      const sellersServer = await import('@/lib/erp-sellers.server');
+      vi.mocked(sellersServer.validateErpSellerForCompaniesServer).mockResolvedValue({
         ok: true,
         seller: { id: 456, companyId: 1, name: 'Seller', nickname: null } as any
       });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requirePermission } from "./permissions.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { validateErpSellerForCompanies } from "@/lib/erp-sellers.functions";
+import { validateErpSellerForCompaniesServer } from "@/lib/erp-sellers.server";
 
 /**
  * Cria um novo usuário diretamente no Supabase Auth com senha temporária.
@@ -40,7 +40,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
 
     // 3. Validar Seller no ERP ANTES de criar no Auth
     if (data.erpSellerId !== null) {
-      const sellerValidation = await validateErpSellerForCompanies(data.erpSellerId, data.companies);
+      const sellerValidation = await validateErpSellerForCompaniesServer(data.erpSellerId, data.companies);
       if (!sellerValidation.ok) {
         const err = new Error(sellerValidation.error?.message || "Vendedor inválido.");
         (err as any).code = sellerValidation.error?.code;
@@ -65,14 +65,37 @@ export async function testableCreateAdminUser(data: any, context: any) {
     const newUserId = authUser.user.id;
 
     try {
-      // 5. Executar RPC admin_setup_created_user
+      // 5. Normalizar roles baseadas no perfil (Regra Legada)
+      const { data: profileDetails } = await supabaseAdmin
+        .from("permission_profiles")
+        .select("name, is_system")
+        .eq("id", data.permissionProfileId)
+        .single();
+
+      let finalRoles = [...(data.roles || [])];
+      const profileName = profileDetails?.name?.toLowerCase();
+
+      if (profileName === "administrador") {
+        if (!finalRoles.includes("admin")) finalRoles.push("admin");
+      } else if (profileName === "vendedor") {
+        if (!finalRoles.includes("vendedor")) finalRoles.push("vendedor");
+      } else if (profileName === "aprovador") {
+        if (!finalRoles.includes("aprovador")) finalRoles.push("aprovador");
+      }
+
+      // Garantir que perfis customizados não ganhem admin indevidamente
+      if (profileName !== "administrador") {
+        finalRoles = finalRoles.filter(r => r !== "admin");
+      }
+
+      // 6. Executar RPC admin_setup_created_user
       const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user" as any, {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
         _erp_seller_id: data.erpSellerId as any,
         _company_ids: data.companies as any,
-        _roles: data.roles as any
+        _roles: finalRoles as any
       });
 
       if (setupError) {
