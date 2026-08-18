@@ -543,6 +543,7 @@ export type Database = {
           name?: string
           updated_at?: string
           must_change_password?: boolean
+          must_change_password?: boolean
           updated_by?: string | null
         }
         Relationships: []
@@ -623,6 +624,7 @@ export type Database = {
           id?: string
           permission_profile_id?: string | null
           updated_at?: string
+          must_change_password?: boolean
           must_change_password?: boolean
         }
         Relationships: [
