@@ -33,7 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 
 import { AdminUser } from "@/lib/permissions/admin-types";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
@@ -47,7 +46,7 @@ const userFormSchema = z.object({
   companies: z.array(z.number()).min(1, "Selecione pelo menos uma empresa"),
   roles: z.array(z.string()),
   erpSellerId: z.number().nullable(),
-  active: z.boolean().default(true),
+  active: z.boolean(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -108,7 +107,6 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   const selectedProfileId = form.watch("permissionProfileId");
   const selectedProfile = profilesQ.data?.find(p => p.id === selectedProfileId);
   
-  // Sincronização Perfil Administrador <=> role admin na UI
   useEffect(() => {
     if (selectedProfile?.name === "Administrador" && selectedProfile?.isSystem) {
       const currentRoles = form.getValues("roles");
@@ -213,7 +211,6 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
                     <FormLabel>Perfil de Permissões</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
-                      defaultValue={field.value}
                       value={field.value}
                       disabled={isSystemAdmin}
                     >
@@ -282,7 +279,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
                                     return checked
                                       ? field.onChange([...field.value, id])
                                       : field.onChange(
-                                          field.value?.filter((value) => value !== id)
+                                          field.value?.filter((v: number) => v !== id)
                                         )
                                   }}
                                 />
