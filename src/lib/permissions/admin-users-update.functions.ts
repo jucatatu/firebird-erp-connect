@@ -56,15 +56,21 @@ export const updateUser = createServerFn({ method: "POST" })
       const errorCode = error.hint || (error as any).code;
       
       if (errorCode === "LAST_ADMIN_PROTECTION") {
-        throw new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
+        const err = new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
+        (err as any).code = "LAST_ADMIN_PROTECTION";
+        throw err;
       }
 
       if (errorCode === "INVALID_COMPANY_ACCESS") {
-        throw new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas e pelo menos uma deve ser selecionada.");
+        const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas e pelo menos uma deve ser selecionada.");
+        (err as any).code = "INVALID_COMPANY_ACCESS";
+        throw err;
       }
 
       if (errorCode === "INVALID_PERMISSION_PROFILE") {
-        throw new Error("Perfil de permissão inexistente ou inativo.");
+        const err = new Error("Perfil de permissão inexistente ou inativo.");
+        (err as any).code = "INVALID_PERMISSION_PROFILE";
+        throw err;
       }
       
       throw error;
