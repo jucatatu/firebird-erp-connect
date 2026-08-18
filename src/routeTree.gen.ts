@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuditoriaProdutosRouteImport } from './routes/auditoria-produtos'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedRecolhasRouteImport } from './routes/_authenticated.recolhas'
 import { Route as AuthenticatedOperationsRouteImport } from './routes/_authenticated.operations'
 import { Route as AuthenticatedEntregasRouteImport } from './routes/_authenticated.entregas'
@@ -43,10 +43,10 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedRecolhasRoute = AuthenticatedRecolhasRouteImport.update({
   id: '/recolhas',
@@ -134,7 +134,7 @@ const AuthenticatedAdminPermissionProfilesRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedIndexRoute
   '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
@@ -154,13 +154,13 @@ export interface FileRoutesByFullPath {
   '/pedidos-venda/': typeof AuthenticatedPedidosVendaIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
   '/recolhas': typeof AuthenticatedRecolhasRoute
+  '/': typeof AuthenticatedIndexRoute
   '/admin/permission-profiles': typeof AuthenticatedAdminPermissionProfilesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
@@ -175,7 +175,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auditoria-produtos': typeof AuditoriaProdutosRoute
   '/login': typeof LoginRoute
@@ -183,6 +182,7 @@ export interface FileRoutesById {
   '/_authenticated/entregas': typeof AuthenticatedEntregasRoute
   '/_authenticated/operations': typeof AuthenticatedOperationsRoute
   '/_authenticated/recolhas': typeof AuthenticatedRecolhasRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/permission-profiles': typeof AuthenticatedAdminPermissionProfilesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
@@ -218,13 +218,13 @@ export interface FileRouteTypes {
     | '/pedidos-venda/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/auditoria-produtos'
     | '/login'
     | '/approvals'
     | '/entregas'
     | '/operations'
     | '/recolhas'
+    | '/'
     | '/admin/permission-profiles'
     | '/admin/users'
     | '/orders/$'
@@ -238,7 +238,6 @@ export interface FileRouteTypes {
     | '/pedidos-venda'
   id:
     | '__root__'
-    | '/'
     | '/_authenticated'
     | '/auditoria-produtos'
     | '/login'
@@ -246,6 +245,7 @@ export interface FileRouteTypes {
     | '/_authenticated/entregas'
     | '/_authenticated/operations'
     | '/_authenticated/recolhas'
+    | '/_authenticated/'
     | '/_authenticated/admin/permission-profiles'
     | '/_authenticated/admin/users'
     | '/_authenticated/orders/$'
@@ -260,7 +260,6 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuditoriaProdutosRoute: typeof AuditoriaProdutosRoute
   LoginRoute: typeof LoginRoute
@@ -290,12 +289,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/recolhas': {
       id: '/_authenticated/recolhas'
@@ -410,6 +409,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEntregasRoute: typeof AuthenticatedEntregasRoute
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
   AuthenticatedRecolhasRoute: typeof AuthenticatedRecolhasRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedAdminPermissionProfilesRoute: typeof AuthenticatedAdminPermissionProfilesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
@@ -427,6 +427,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEntregasRoute: AuthenticatedEntregasRoute,
   AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
   AuthenticatedRecolhasRoute: AuthenticatedRecolhasRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedAdminPermissionProfilesRoute:
     AuthenticatedAdminPermissionProfilesRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
@@ -446,7 +447,6 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuditoriaProdutosRoute: AuditoriaProdutosRoute,
   LoginRoute: LoginRoute,
