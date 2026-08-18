@@ -161,3 +161,24 @@ export const createAdminUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     return testableCreateAdminUser(data, context);
   });
+
+export const createAdminUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({
+    email: z.string().email(),
+    fullName: z.string().min(1),
+    temporaryPassword: z.string().min(8).refine(val => val.trim().length >= 8, {
+      message: "Senha deve ter pelo menos 8 caracteres (sem contar apenas espaços)"
+    }),
+    confirmPassword: z.string().min(8),
+    permissionProfileId: z.string(),
+    companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
+    roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
+    erpSellerId: z.number().int().positive().nullable()
+  }).refine(data => data.temporaryPassword === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"]
+  }).parse(data))
+  .handler(async ({ data, context }) => {
+    return testableCreateAdminUser(data, context);
+  });
