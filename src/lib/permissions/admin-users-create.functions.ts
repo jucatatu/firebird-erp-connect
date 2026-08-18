@@ -47,7 +47,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
 
     try {
       // 4. Executar RPC admin_setup_created_user
-      const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user", {
+      const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user" as any, {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
