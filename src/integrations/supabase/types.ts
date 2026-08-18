@@ -679,6 +679,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_setup_created_user: {
+        Args: {
+          _company_ids?: number[]
+          _erp_seller_id?: number
+          _full_name: string
+          _permission_profile_id: string
+          _roles?: string[]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       admin_setup_invited_user: {
         Args: {
           _company_ids: number[]
