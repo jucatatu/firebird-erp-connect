@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -38,7 +38,6 @@ export function RulesEditorDialog({ profile, open, onOpenChange }: RulesEditorDi
   const queryClient = useQueryClient();
   const [localRules, setLocalRules] = useState<Record<string, PermissionRule>>({});
 
-  // Carregar recursos reais do banco
   const resourcesQ = useQuery({
     queryKey: ["admin", "resources"],
     queryFn: async () => {
@@ -50,12 +49,18 @@ export function RulesEditorDialog({ profile, open, onOpenChange }: RulesEditorDi
         .order("sort_order", { ascending: true });
       
       if (error) throw error;
-      return data as PermissionResource[];
+      
+      return data.map((r: any) => ({
+        id: r.id,
+        key: r.key,
+        label: r.name, // Mapping ERP DB 'name' to our 'label'
+        parentId: r.parent_id,
+        sortOrder: r.sort_order
+      })) as PermissionResource[];
     },
     enabled: open,
   });
 
-  // Carregar regras atuais do perfil
   const rulesQ = useQuery({
     queryKey: ["admin", "profile-rules", profile?.id],
     queryFn: async () => {
@@ -71,7 +76,6 @@ export function RulesEditorDialog({ profile, open, onOpenChange }: RulesEditorDi
     enabled: open && !!profile,
   });
 
-  // Inicializar estado local quando os dados carregarem
   useEffect(() => {
     if (resourcesQ.data && rulesQ.data && open) {
       const initialMap: Record<string, PermissionRule> = {};
@@ -230,5 +234,3 @@ export function RulesEditorDialog({ profile, open, onOpenChange }: RulesEditorDi
     </Dialog>
   );
 }
-
-import { useEffect } from "react";
