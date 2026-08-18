@@ -1153,7 +1153,7 @@ function NewOrderPage() {
       return;
     }
     
-    if (!myProfile.data?.erp_seller_id) {
+    if (!(myProfile.data as any)?.erp_seller_id) {
       toast.error("Vendedor não mapeado no servidor.");
       return;
     }
@@ -1184,7 +1184,7 @@ function NewOrderPage() {
           name: clientName || "(sem nome)",
           fantasyName: clientDetailQ.data?.data?.tradingName || null
         },
-        sellerId: myProfile.data.erp_seller_id,
+        sellerId: (myProfile.data as any).erp_seller_id,
         saleTypeId: saleTypeId,
         paymentTermId: paymentTermId,
         paymentMethodId: paymentMethodId,
@@ -1261,7 +1261,7 @@ function NewOrderPage() {
       return;
     }
     
-    if (!myProfile.data?.erp_seller_id) {
+    if (!(myProfile.data as any)?.erp_seller_id) {
       toast.error("Vendedor não mapeado no servidor.");
       return;
     }
@@ -1277,7 +1277,7 @@ function NewOrderPage() {
           name: clientName || "(sem nome)",
           fantasyName: clientDetailQ.data?.data?.tradingName || null
         },
-        sellerId: myProfile.data.erp_seller_id,
+        sellerId: (myProfile.data as any).erp_seller_id,
         saleTypeId: saleTypeId!,
         paymentTermId: paymentTermId!,
         paymentMethodId: paymentMethodId!,
