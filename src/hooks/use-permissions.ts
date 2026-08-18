@@ -3,52 +3,58 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   PermissionAction, 
   PermissionMap, 
-  UserPermissionProfile,
-  PermissionFlags 
+  UserPermissionProfile 
 } from "@/lib/permissions/permission-types";
 import { useAuthSession } from "@/hooks/use-auth";
-
-const DEFAULT_FLAGS: PermissionFlags = {
-  view: false,
-  create: false,
-  edit: false,
-  delete: false,
-};
 
 export function usePermissions() {
   const { user } = useAuthSession();
 
-  const { data: permissions, isLoading, error } = useQuery({
-    queryKey: ["permissions", user?.id],
-    queryFn: async (): Promise<{ profile: UserPermissionProfile | null; map: PermissionMap }> => {
-      if (!user) return { profile: null, map: {} };
-
-      // 1. Get user profile and linked permission profile
-      const { data: profileData, error: profileErr } = await supabase
+  // 1. First query to get the permission profile ID from user profile
+  const { data: profileInfo, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["user-profile-permission", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
         .from("profiles")
-        .select(`
-          permission_profile_id,
-          permission_profiles (
-            id,
-            name,
-            is_system,
-            active
-          )
-        `)
+        .select("permission_profile_id")
         .eq("id", user.id)
         .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
-      if (profileErr || !profileData?.permission_profiles) {
+  const permissionProfileId = profileInfo?.permission_profile_id;
+
+  // 2. Main query for permissions, keyed by both userId AND permissionProfileId
+  const { data: permissions, isLoading: isLoadingRules, error } = useQuery({
+    queryKey: ["permissions", user?.id, permissionProfileId],
+    queryFn: async (): Promise<{ profile: UserPermissionProfile | null; map: PermissionMap }> => {
+      if (!user || !permissionProfileId) {
         return { profile: null, map: {} };
       }
 
-      const permissionProfile = profileData.permission_profiles as unknown as UserPermissionProfile;
+      // Load profile details
+      const { data: profileData, error: profileErr } = await supabase
+        .from("permission_profiles")
+        .select("id, name, is_system, active")
+        .eq("id", permissionProfileId)
+        .single();
+
+      if (profileErr || !profileData) {
+        return { profile: null, map: {} };
+      }
+
+      const permissionProfile = profileData as UserPermissionProfile;
       
       if (!permissionProfile.active) {
         return { profile: permissionProfile, map: {} };
       }
 
-      // 2. Load rules for this profile
+      // Load rules for this profile
       const { data: rules, error: rulesErr } = await supabase
         .from("permission_profile_rules")
         .select(`
@@ -66,25 +72,26 @@ export function usePermissions() {
         return { profile: permissionProfile, map: {} };
       }
 
-      // 3. Map to technical keys
       const map: PermissionMap = {};
       rules.forEach((rule: any) => {
         const resourceKey = rule.permission_resources?.key;
         if (resourceKey) {
           map[resourceKey] = {
-            view: rule.can_view,
-            create: rule.can_create,
-            edit: rule.can_edit,
-            delete: rule.can_delete,
+            view: !!rule.can_view,
+            create: !!rule.can_create,
+            edit: !!rule.can_edit,
+            delete: !!rule.can_delete,
           };
         }
       });
 
       return { profile: permissionProfile, map };
     },
-    enabled: !!user,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !!user && !!permissionProfileId,
+    staleTime: 1000 * 60 * 5,
   });
+
+  const isLoading = isLoadingProfile || isLoadingRules;
 
   const can = (resource: string, action: PermissionAction): boolean => {
     if (isLoading || !permissions?.map) return false;
