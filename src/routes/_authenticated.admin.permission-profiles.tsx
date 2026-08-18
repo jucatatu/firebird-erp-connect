@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
+import { deletePermissionProfile } from "@/lib/permissions/admin-profiles-crud.functions";
 import { PermissionGate } from "@/components/permissions/permission-gate";
 import { PermissionAction } from "@/components/permissions/permission-action";
-import { Shield, Plus } from "lucide-react";
+import { Shield, Plus, Settings2, Edit2, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,33 +18,82 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ProfileDialog } from "@/components/admin/profile-dialog";
+import { RulesEditorDialog } from "@/components/admin/rules-editor-dialog";
+import { PermissionProfile } from "@/lib/permissions/admin-types";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/permission-profiles")({
   component: AdminProfilesPage,
 });
 
 function AdminProfilesPage() {
+  const queryClient = useQueryClient();
   const profilesQ = useSuspenseQuery({
     queryKey: ["admin", "profiles"],
     queryFn: () => listPermissionProfiles(),
   });
+
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<PermissionProfile | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deletePermissionProfile({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Perfil excluído com sucesso");
+      queryClient.invalidateQueries({ queryKey: ["admin", "profiles"] });
+      setDeleteDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir perfil");
+    }
+  });
+
+  const handleCreate = () => {
+    setSelectedProfile(null);
+    setProfileDialogOpen(true);
+  };
+
+  const handleEdit = (profile: PermissionProfile) => {
+    setSelectedProfile(profile);
+    setProfileDialogOpen(true);
+  };
+
+  const handleManageRules = (profile: PermissionProfile) => {
+    setSelectedProfile(profile);
+    setRulesDialogOpen(true);
+  };
+
+  const handleDeleteClick = (profile: PermissionProfile) => {
+    setSelectedProfile(profile);
+    setDeleteDialogOpen(true);
+  };
 
   return (
     <div className="container py-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Perfis de Permissão</h1>
-          <p className="text-muted-foreground">
-            Defina papéis e regras de acesso para os usuários do sistema.
-          </p>
+          <p className="text-muted-foreground">Defina papéis e regras de acesso para os usuários do sistema.</p>
         </div>
         <PermissionAction resource="admin.permission_profiles" action="create">
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleCreate}>
             <Plus className="h-4 w-4" />
             Novo perfil
           </Button>
         </PermissionAction>
-
       </div>
 
       <PermissionGate resource="admin.permission_profiles" action="view">
@@ -67,16 +119,10 @@ function AdminProfilesPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {profile.description || "—"}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{profile.description || "—"}</span>
                   </TableCell>
                   <TableCell>
-                    {profile.isSystem ? (
-                      <Badge variant="secondary">Sistema</Badge>
-                    ) : (
-                      <Badge variant="outline">Customizado</Badge>
-                    )}
+                    {profile.isSystem ? <Badge variant="secondary">Sistema</Badge> : <Badge variant="outline">Customizado</Badge>}
                   </TableCell>
                   <TableCell>
                     <Badge variant={profile.active ? "default" : "secondary"}>
@@ -87,19 +133,63 @@ function AdminProfilesPage() {
                     <span className="text-sm font-medium">{profile.userCount}</span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <PermissionAction resource="admin.permission_profiles" action="edit">
-                      <Button variant="ghost" size="sm">
-                        Gerenciar Regras
-                      </Button>
-                    </PermissionAction>
+                    <div className="flex justify-end gap-2">
+                      <PermissionAction resource="admin.permission_profiles" action="edit">
+                        <Button variant="ghost" size="icon" onClick={() => handleManageRules(profile)} title="Gerenciar Regras">
+                          <Settings2 className="h-4 w-4" />
+                        </Button>
+                      </PermissionAction>
+                      <PermissionAction resource="admin.permission_profiles" action="edit">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(profile)} title="Editar Perfil">
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </PermissionAction>
+                      {!profile.isSystem && (
+                        <PermissionAction resource="admin.permission_profiles" action="delete">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive" 
+                            onClick={() => handleDeleteClick(profile)}
+                            title="Excluir Perfil"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </PermissionAction>
+                      )}
+                    </div>
                   </TableCell>
-
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       </PermissionGate>
+
+      <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} profile={selectedProfile} />
+      <RulesEditorDialog open={rulesDialogOpen} onOpenChange={setRulesDialogOpen} profile={selectedProfile} />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Perfil</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o perfil "{selectedProfile?.name}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => selectedProfile && deleteMutation.mutate(selectedProfile.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
