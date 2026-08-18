@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 import {
   Dialog,
@@ -33,11 +33,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 import { AdminUser } from "@/lib/permissions/admin-types";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
 import { inviteUser } from "@/lib/permissions/admin-users-invite.functions";
 import { updateUser } from "@/lib/permissions/admin-users-update.functions";
+import { searchErpSellers } from "@/lib/erp-orders.functions";
 
 const userFormSchema = z.object({
   fullName: z.string().min(1, "Nome é obrigatório"),
@@ -60,12 +76,8 @@ interface UserDialogProps {
 export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = !!user;
-
-  const profilesQ = useQuery({
-    queryKey: ["admin", "profiles"],
-    queryFn: () => listPermissionProfiles(),
-    enabled: open,
-  });
+  const [sellerSearch, setSellerSearch] = useState("");
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -79,6 +91,45 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
       active: true,
     },
   });
+
+  const selectedCompanies = form.watch("companies");
+  const erpSellerId = form.watch("erpSellerId");
+
+  const profilesQ = useQuery({
+    queryKey: ["admin", "profiles"],
+    queryFn: () => listPermissionProfiles(),
+    enabled: open,
+  });
+
+  // Sprint 8.9.43.2: Busca de vendedores reais
+  // Se o usuário tem acesso a 1 e 3, buscamos todos. 
+  // Se tem apenas a uma, a API filtra no backend se passarmos companyId, 
+  // mas aqui vamos carregar e filtrar no select para UX reativa.
+  const sellersQ = useQuery({
+    queryKey: ["erp", "sellers", sellerSearch],
+    queryFn: async () => {
+      const res = await searchErpSellers({ 
+        data: { 
+          q: sellerSearch,
+          limit: 100
+        } 
+      });
+      if (!res.ok) throw new Error(res.error?.message || "Erro ao carregar vendedores");
+      return res.data?.sellers || [];
+    },
+    enabled: open,
+    staleTime: 1000 * 60 * 5, // 5 min
+  });
+
+  // Filtro client-side baseado nas empresas selecionadas no form
+  const filteredSellers = useMemo(() => {
+    if (!sellersQ.data) return [];
+    return sellersQ.data.filter(s => selectedCompanies.includes(s.companyId));
+  }, [sellersQ.data, selectedCompanies]);
+
+  const selectedSeller = useMemo(() => {
+    return sellersQ.data?.find(s => s.id === erpSellerId);
+  }, [sellersQ.data, erpSellerId]);
 
   useEffect(() => {
     if (user && open) {
@@ -104,6 +155,17 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     }
   }, [user, open, form, isEditing]);
 
+  // Validar se o seller atual ainda é válido para as empresas selecionadas
+  useEffect(() => {
+    if (erpSellerId && !isEditing) {
+      const seller = sellersQ.data?.find(s => s.id === erpSellerId);
+      if (seller && !selectedCompanies.includes(seller.companyId)) {
+        form.setValue("erpSellerId", null);
+        toast.info("Vendedor removido pois não pertence às empresas selecionadas.");
+      }
+    }
+  }, [selectedCompanies, erpSellerId, sellersQ.data, form, isEditing]);
+
   const selectedProfileId = form.watch("permissionProfileId");
   const selectedProfile = profilesQ.data?.find(p => p.id === selectedProfileId);
   
@@ -118,6 +180,14 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
 
   const mutation = useMutation({
     mutationFn: async (values: UserFormValues) => {
+      // Validação final de empresa vs seller antes de enviar
+      if (values.erpSellerId) {
+        const seller = sellersQ.data?.find(s => s.id === values.erpSellerId);
+        if (seller && !values.companies.includes(seller.companyId)) {
+          throw new Error("O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário.");
+        }
+      }
+
       if (isEditing && user) {
         return updateUser({
           data: {
@@ -302,17 +372,91 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
               control={form.control}
               name="erpSellerId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Vendedor ERP</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="Aguardando homologação..." 
-                      disabled 
-                      value={field.value ?? ""}
-                    />
-                  </FormControl>
+                  <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={popoverOpen}
+                          className={cn(
+                            "w-full justify-between font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {selectedSeller 
+                            ? `${selectedSeller.name} — ${selectedSeller.companyId === 1 ? "GRAAL" : "GROTT"}`
+                            : "Selecione um vendedor..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[450px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Buscar vendedor por nome ou apelido..." 
+                          value={sellerSearch}
+                          onValueChange={setSellerSearch}
+                        />
+                        <CommandList>
+                          {sellersQ.isLoading && (
+                            <div className="flex items-center justify-center py-6">
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              <span className="text-sm text-muted-foreground">Carregando vendedores...</span>
+                            </div>
+                          )}
+                          {!sellersQ.isLoading && filteredSellers.length === 0 && (
+                            <CommandEmpty>Nenhum vendedor encontrado para as empresas selecionadas.</CommandEmpty>
+                          )}
+                          <CommandGroup>
+                            <CommandItem
+                              value="none"
+                              onSelect={() => {
+                                field.onChange(null);
+                                setPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === null ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              Nenhum Vendedor
+                            </CommandItem>
+                            {filteredSellers.map((seller) => (
+                              <CommandItem
+                                key={seller.id}
+                                value={String(seller.id)}
+                                onSelect={() => {
+                                  field.onChange(seller.id);
+                                  setPopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    field.value === seller.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{seller.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {seller.nickname && `${seller.nickname} • `}
+                                    {seller.companyId === 1 ? "GRAAL (1)" : "GROTT (3)"}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormDescription>
-                    Consulta de vendedores ERP aguardando homologação do schema.
+                    O vendedor deve pertencer a uma das empresas selecionadas acima.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
