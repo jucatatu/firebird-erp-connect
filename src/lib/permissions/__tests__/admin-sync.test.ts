@@ -1,6 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mocks MUST be defined before imports
+// 1. Mocks must be defined before any imports
+vi.mock('@tanstack/react-start', () => {
+  const createServerFn = vi.fn().mockImplementation((options) => {
+    const fn: any = async (input: any) => options.handler(input);
+    fn.middleware = vi.fn().mockReturnValue(fn);
+    fn.inputValidator = vi.fn().mockReturnValue(fn);
+    fn.handler = vi.fn().mockImplementation((h) => {
+      options.handler = h;
+      return fn;
+    });
+    return fn;
+  });
+  return { createServerFn };
+});
+
 vi.mock('@/integrations/supabase/client.server', () => ({
   supabaseAdmin: {
     auth: {
@@ -28,41 +42,10 @@ vi.mock('../permissions.server', () => ({
 }));
 
 vi.mock('@/integrations/supabase/auth-middleware', () => ({
-  requireSupabaseAuth: vi.fn((ctx) => ctx)
+  requireSupabaseAuth: vi.fn()
 }));
 
-// Mock @tanstack/react-start
-vi.mock('@tanstack/react-start', async () => {
-  const actual = await vi.importActual('@tanstack/react-start');
-  return {
-    ...actual,
-    createServerFn: vi.fn().mockImplementation(() => {
-      const fn: any = (options: any) => {
-        const handlerWrapper: any = async (input: any) => {
-          // Emulamos o comportamento do handler do TanStack Start
-          // No ambiente real o TanStack injeta context se middleware for usado
-          // Aqui passamos o input diretamente se for um objeto com data e context
-          return options.handler(input);
-        };
-        handlerWrapper.handler = (h: any) => {
-          options.handler = h;
-          return handlerWrapper;
-        };
-        handlerWrapper.middleware = (m: any) => {
-          options.middleware = m;
-          return handlerWrapper;
-        };
-        handlerWrapper.inputValidator = (v: any) => {
-          options.inputValidator = v;
-          return handlerWrapper;
-        };
-        return handlerWrapper;
-      };
-      return fn;
-    }),
-  };
-});
-
+// 2. Now import the actual functions (which will use the mocks)
 import { inviteUser } from '../admin-users-invite.functions';
 import { updateUser } from '../admin-users-update.functions';
 import { updatePermissionProfile } from '../admin-profiles-crud.functions';
@@ -79,27 +62,6 @@ describe('Admin Hardening & Sync Tests', () => {
   });
 
   describe('Company Allowlist', () => {
-    it('should reject invalid company IDs in inviteUser (Zod)', async () => {
-      const data = {
-        email: 'test@example.com',
-        fullName: 'Test User',
-        permissionProfileId: 'profile-1',
-        companies: [1, 2], // 2 is invalid
-        roles: ['vendedor'] as any,
-        erpSellerId: null
-      };
-
-      // O validator do TanStack Start é disparado no handler real
-      // Aqui testamos se a função explode se tentarmos passar dados inválidos
-      // (Considerando que as funções exportadas são agora os handlers puros pelo mock)
-      
-      // Como o mock do createServerFn retorna o handler diretamente, precisamos 
-      // simular a validação se quisermos testar o Zod, mas aqui o objetivo é testar
-      // o hardening de código. O Zod é testado indiretamente se dispararmos a lógica.
-      
-      // Para este teste específico, vamos focar no resultado final da RPC se o Zod passar
-    });
-
     it('should accept valid company IDs [1, 3] in inviteUser', async () => {
       const data = {
         email: 'test@example.com',
@@ -168,7 +130,7 @@ describe('Admin Hardening & Sync Tests', () => {
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
-        erpSellerId: 999 // Should be ignored
+        erpSellerId: 999 
       };
 
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
@@ -188,7 +150,7 @@ describe('Admin Hardening & Sync Tests', () => {
         permissionProfileId: 'profile-1',
         companies: [1],
         roles: ['vendedor'] as any,
-        erpSellerId: 888, // Trying to change
+        erpSellerId: 888, 
         active: true
       };
 
@@ -196,7 +158,7 @@ describe('Admin Hardening & Sync Tests', () => {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({ 
-              data: { erp_seller_id: 123 } // Existing seller ID
+              data: { erp_seller_id: 123 } 
             })
           })
         })
@@ -207,7 +169,7 @@ describe('Admin Hardening & Sync Tests', () => {
       await (updateUser as any)({ data, context: mockContext });
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_update_user', expect.objectContaining({
-        _erp_seller_id: 123 // Preserved from DB, not from payload
+        _erp_seller_id: 123 
       }));
     });
   });
