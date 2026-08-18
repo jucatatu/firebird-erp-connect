@@ -36,7 +36,7 @@ export const inviteUser = createServerFn({ method: "POST" })
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
-        _erp_seller_id: data.erpSellerId,
+        _erp_seller_id: data.erpSellerId as any, // Cast to any because the RPC expect integer (number), and Zod nullable translates to null, which PG handles.
         _company_ids: data.companies,
         _roles: data.roles
       });
