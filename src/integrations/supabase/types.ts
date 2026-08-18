@@ -598,6 +598,7 @@ export type Database = {
           erp_seller_id: number | null
           full_name: string
           id: string
+          must_change_password: boolean
           permission_profile_id: string | null
           updated_at: string
         }
@@ -607,6 +608,7 @@ export type Database = {
           erp_seller_id?: number | null
           full_name: string
           id: string
+          must_change_password?: boolean
           permission_profile_id?: string | null
           updated_at?: string
         }
@@ -616,6 +618,7 @@ export type Database = {
           erp_seller_id?: number | null
           full_name?: string
           id?: string
+          must_change_password?: boolean
           permission_profile_id?: string | null
           updated_at?: string
         }
