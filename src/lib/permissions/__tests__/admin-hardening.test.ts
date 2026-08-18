@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { inviteUser } from '../admin-users-invite.functions';
-import { updateUser } from '../admin-users-update.functions';
-import { updatePermissionProfile } from '../admin-profiles-crud.functions';
 
-// Mock supabaseAdmin
+// Mocks MUST be defined before imports that use them
 vi.mock('@/integrations/supabase/client.server', () => ({
   supabaseAdmin: {
     auth: {
@@ -26,16 +23,18 @@ vi.mock('@/integrations/supabase/client.server', () => ({
   }
 }));
 
-// Mock permissions.server
 vi.mock('../permissions.server', () => ({
   requirePermission: vi.fn(() => Promise.resolve(true))
 }));
 
-// Mock auth-middleware
 vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn((ctx) => ctx)
 }));
 
+// Agora importamos os alvos dos testes
+import { inviteUser } from '../admin-users-invite.functions';
+import { updateUser } from '../admin-users-update.functions';
+import { updatePermissionProfile } from '../admin-profiles-crud.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 
 describe('Admin Hardening Tests', () => {
@@ -45,7 +44,6 @@ describe('Admin Hardening Tests', () => {
 
   describe('Company Allowlist', () => {
     it('should reject invalid company IDs in inviteUser (Zod)', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
@@ -55,11 +53,11 @@ describe('Admin Hardening Tests', () => {
         erpSellerId: null
       };
 
-      await expect(inviteUser({ data, context })).rejects.toThrow();
+      // @ts-ignore - simulating server call structure for test
+      await expect(inviteUser({ data })).rejects.toThrow();
     });
 
     it('should accept valid company IDs [1, 3] in inviteUser', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
@@ -72,14 +70,14 @@ describe('Admin Hardening Tests', () => {
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      const result = await inviteUser({ data, context });
+      // @ts-ignore
+      const result = await inviteUser({ data });
       expect(result.success).toBe(true);
     });
   });
 
   describe('System Profile Protection', () => {
     it('should reject renaming a system profile', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         id: 'system-profile-id',
         name: 'New Name',
@@ -96,11 +94,11 @@ describe('Admin Hardening Tests', () => {
         })
       });
 
-      await expect(updatePermissionProfile({ data, context })).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
+      // @ts-ignore
+      await expect(updatePermissionProfile({ data })).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
     });
 
     it('should reject deactivating a system profile', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         id: 'system-profile-id',
         name: 'Administrador',
@@ -117,13 +115,13 @@ describe('Admin Hardening Tests', () => {
         })
       });
 
-      await expect(updatePermissionProfile({ data, context })).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
+      // @ts-ignore
+      await expect(updatePermissionProfile({ data })).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
     });
   });
 
   describe('ERP Seller Immutability', () => {
     it('should ignore erpSellerId from payload in inviteUser and force null', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         email: 'test@example.com',
         fullName: 'Test User',
@@ -136,7 +134,8 @@ describe('Admin Hardening Tests', () => {
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      await inviteUser({ data, context });
+      // @ts-ignore
+      await inviteUser({ data });
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
         _erp_seller_id: null
@@ -144,7 +143,6 @@ describe('Admin Hardening Tests', () => {
     });
 
     it('should preserve existing erpSellerId in updateUser', async () => {
-      const context = { userId: 'admin-1', supabase: {} as any };
       const data = {
         id: 'user-1',
         fullName: 'Updated Name',
@@ -167,7 +165,8 @@ describe('Admin Hardening Tests', () => {
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      await updateUser({ data, context });
+      // @ts-ignore
+      await updateUser({ data });
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_update_user', expect.objectContaining({
         _erp_seller_id: 123 // Preserved from DB, not from payload
