@@ -1,5 +1,8 @@
 "use strict";
 
+require("dotenv").config();
+
+
 const firebird = require("../src/shared/database/firebird-client");
 
 /**

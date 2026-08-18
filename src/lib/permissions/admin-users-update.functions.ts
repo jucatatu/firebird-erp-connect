@@ -37,22 +37,35 @@ export const updateUser = createServerFn({ method: "POST" })
       supabase
     });
 
-    // Buscar seller atual para garantir imutabilidade real enquanto pendente
-    const { data: currentProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("erp_seller_id")
-      .eq("id", data.id)
-      .single();
+    // Sprint 8.9.43.2: Validar erpSellerId server-side antes de persistir
+    if (data.erpSellerId) {
+      const { getErpSellerDetail } = await import("@/lib/erp-orders.functions");
+      const sellerResult = await getErpSellerDetail({ data: data.erpSellerId });
+      
+      if (!sellerResult.ok || !sellerResult.data?.seller) {
+        const err = new Error("O vendedor selecionado não existe mais no ERP.");
+        (err as any).code = "SELLER_NOT_FOUND";
+        throw err;
+      }
+
+      const seller = sellerResult.data.seller;
+      if (!data.companies.includes(seller.companyId as any)) {
+        const err = new Error("O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário.");
+        (err as any).code = "SELLER_COMPANY_MISMATCH";
+        throw err;
+      }
+    }
 
     const { error } = await supabaseAdmin.rpc("admin_update_user", {
       _target_user_id: data.id,
       _full_name: data.fullName,
       _active: data.active,
       _permission_profile_id: data.permissionProfileId,
-      _erp_seller_id: (currentProfile?.erp_seller_id ?? null) as any, // Preserva valor atual
+      _erp_seller_id: data.erpSellerId as any,
       _company_ids: data.companies as any,
       _roles: data.roles as any
     });
+
 
     if (error) {
       // Prioridade: hint (aplicação) -> code (PostgreSQL genérico)
