@@ -19,10 +19,10 @@ export async function testableCreateAdminUser(data: any, context: any) {
       supabase
     });
 
-    // 2. Pré-validar Perfil de Permissões ANTES de criar no Auth
+    // 2. Pré-validar Perfil de Permissões e Normalizar Roles ANTES de criar no Auth
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from("permission_profiles")
-      .select("id, active")
+      .select("id, active, name, is_system")
       .eq("id", data.permissionProfileId)
       .single();
 
@@ -36,6 +36,25 @@ export async function testableCreateAdminUser(data: any, context: any) {
       const err = new Error("Não é permitido atribuir um perfil inativo.");
       (err as any).code = "INVALID_PERMISSION_PROFILE";
       throw err;
+    }
+
+    // Normalização Determinística de Roles ANTES do Auth
+    let finalRoles = [...(data.roles || [])];
+    const profileName = profile.name?.toLowerCase();
+
+    if (profileName === "administrador") {
+      if (!finalRoles.includes("admin")) finalRoles.push("admin");
+    } else if (profileName === "vendedor") {
+      // Vendedor deve ter somente vendedor nas roles legadas
+      finalRoles = ["vendedor"];
+    } else if (profileName === "aprovador") {
+      // Aprovador deve ter somente aprovador nas roles legadas
+      finalRoles = ["aprovador"];
+    }
+
+    // Garantir que perfis customizados não ganhem admin indevidamente
+    if (profileName !== "administrador") {
+      finalRoles = finalRoles.filter(r => r !== "admin");
     }
 
     // 3. Validar Seller no ERP ANTES de criar no Auth
@@ -65,31 +84,8 @@ export async function testableCreateAdminUser(data: any, context: any) {
     const newUserId = authUser.user.id;
 
     try {
-      // 5. Normalizar roles baseadas no perfil (Regra Legada)
-      const { data: profileDetails } = await supabaseAdmin
-        .from("permission_profiles")
-        .select("name, is_system")
-        .eq("id", data.permissionProfileId)
-        .single();
-
-      let finalRoles = [...(data.roles || [])];
-      const profileName = profileDetails?.name?.toLowerCase();
-
-      if (profileName === "administrador") {
-        if (!finalRoles.includes("admin")) finalRoles.push("admin");
-      } else if (profileName === "vendedor") {
-        if (!finalRoles.includes("vendedor")) finalRoles.push("vendedor");
-      } else if (profileName === "aprovador") {
-        if (!finalRoles.includes("aprovador")) finalRoles.push("aprovador");
-      }
-
-      // Garantir que perfis customizados não ganhem admin indevidamente
-      if (profileName !== "administrador") {
-        finalRoles = finalRoles.filter(r => r !== "admin");
-      }
-
-      // 6. Executar RPC admin_setup_created_user
-      const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user" as any, {
+      // 5. Executar RPC admin_setup_created_user - Tipagem restaurada no types.ts permitirá remover as any depois
+      const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user", {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
