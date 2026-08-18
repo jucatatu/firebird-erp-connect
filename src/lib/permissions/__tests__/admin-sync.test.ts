@@ -56,6 +56,12 @@ vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn()
 }));
 
+vi.mock('@/lib/erp-sellers.functions', () => ({
+  validateErpSellerForCompanies: vi.fn(),
+  getErpSellerDetail: vi.fn(),
+  searchErpSellers: vi.fn(),
+}));
+
 // 2. Now import the actual functions (which will use the mocks)
 import { inviteUser } from '../admin-users-invite.functions';
 import { updateUser } from '../admin-users-update.functions';
