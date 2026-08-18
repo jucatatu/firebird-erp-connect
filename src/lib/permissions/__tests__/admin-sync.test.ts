@@ -1,16 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // 1. Mocks must be defined before any imports
+// We need to mock createServerFn so it returns an object with the chainable methods
 vi.mock('@tanstack/react-start', () => {
   const createServerFn = vi.fn().mockImplementation((options) => {
-    const fn: any = async (input: any) => options.handler(input);
-    fn.middleware = vi.fn().mockReturnValue(fn);
-    fn.inputValidator = vi.fn().mockReturnValue(fn);
-    fn.handler = vi.fn().mockImplementation((h) => {
-      options.handler = h;
-      return fn;
-    });
-    return fn;
+    // The initial call returns an object that has middleware, inputValidator, and handler
+    const builder: any = {
+      middleware: vi.fn().mockImplementation((m) => {
+        options.middleware = m;
+        return builder;
+      }),
+      inputValidator: vi.fn().mockImplementation((v) => {
+        options.inputValidator = v;
+        return builder;
+      }),
+      handler: vi.fn().mockImplementation((h) => {
+        options.handler = h;
+        // The final handler call returns the actual function that can be executed
+        const execFn: any = async (input: any) => options.handler(input);
+        return execFn;
+      })
+    };
+    return builder;
   });
   return { createServerFn };
 });
