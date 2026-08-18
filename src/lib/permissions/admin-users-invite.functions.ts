@@ -49,7 +49,22 @@ export async function testableInviteUser(data: any, context: any) {
 
       if (setupError) {
         const errorCode = setupError.hint || (setupError as any).code;
-        throw new Error(setupError.message || "Falha na configuração do usuário.");
+        
+        if (errorCode === "INVALID_COMPANY_ACCESS") {
+          const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas.");
+          (err as any).code = "INVALID_COMPANY_ACCESS";
+          throw err;
+        }
+
+        if (errorCode === "INVALID_PERMISSION_PROFILE") {
+          const err = new Error("Perfil de permissão inexistente ou inativo.");
+          (err as any).code = "INVALID_PERMISSION_PROFILE";
+          throw err;
+        }
+
+        const err = new Error(setupError.message || "Falha na configuração do usuário.");
+        (err as any).code = errorCode;
+        throw err;
       }
     } catch (e: any) {
       // Compensação
