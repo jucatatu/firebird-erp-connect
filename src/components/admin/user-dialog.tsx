@@ -61,7 +61,7 @@ const userFormSchema = z.object({
   permissionProfileId: z.string().min(1, "Perfil é obrigatório"),
   companies: z.array(z.number()).min(1, "Selecione pelo menos uma empresa"),
   roles: z.array(z.string()),
-  erpSellerId: z.number().nullable(),
+  erpSellerId: z.number().int().positive().nullable(),
   active: z.boolean(),
 });
 

@@ -1,7 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { ErpResponse } from "./erp-orders.functions";
+// Tipo local neutro para remover dependência de Pedidos
+export interface ErpResponse<T = any> {
+  ok: boolean;
+  status: number;
+  data: T | null;
+  error: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    details?: any;
+  } | null;
+}
 
 export interface ErpSeller {
   id: number;

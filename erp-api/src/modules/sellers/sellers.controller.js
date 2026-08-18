@@ -5,12 +5,17 @@ const { z } = require("zod");
 
 const searchSchema = z.object({
   q: z.string().default(""),
-  limit: z.preprocess((val) => val ? parseInt(val, 10) : 50, z.number().min(1).max(100).default(50)),
-  companyId: z.preprocess((val) => val ? parseInt(val, 10) : null, z.union([z.literal(1), z.literal(3), z.null()]).default(null))
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  companyId: z.preprocess((val) => {
+    if (val === "1") return 1;
+    if (val === "3") return 3;
+    if (val === "" || val === undefined || val === null) return null;
+    return "INVALID";
+  }, z.union([z.literal(1), z.literal(3), z.null()]))
 });
 
 const idSchema = z.object({
-  id: z.preprocess((val) => parseInt(val, 10), z.number().positive())
+  id: z.coerce.number().int().positive()
 });
 
 async function handleSearch(req, res, next) {

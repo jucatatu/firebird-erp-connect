@@ -208,11 +208,11 @@ test("sucesso 201 com id orderNumber companyId status; GERA_COBRANCA=1 nas procs
   });
   assert.equal(res.status, 201);
   assert.equal(res.body.success, true);
-  assert.equal(res.body.order.id, 999);
+  assert.equal(res.body.data.id, 999);
   // N_PEDIDO = ID no ERP.
-  assert.equal(res.body.order.orderNumber, 999);
-  assert.equal(res.body.order.companyId, 1);
-  assert.equal(res.body.order.status, "LIBERADO");
+  assert.equal(res.body.data.orderNumber, 999);
+  assert.equal(res.body.data.companyId, 1);
+  assert.equal(res.body.data.status, "LIBERADO");
   const completeCall = state.calls.find((c) =>
     /FROM SP_CAD_ORDEM_VENDA_COMPLETO/i.test(c.sql),
   );
@@ -318,7 +318,7 @@ test("payload sem companyId + cliente GROTT companyId=3", async () => {
     { "idempotency-key": "resolve-1" },
   );
   assert.equal(res.status, 201);
-  assert.equal(res.body.order.companyId, 3);
+  assert.equal(res.body.data.companyId, 3);
   const completeCall = state.calls.find((c) =>
     /FROM SP_CAD_ORDEM_VENDA_COMPLETO/i.test(c.sql),
   );
@@ -351,9 +351,9 @@ test("mutex global serializa criações concorrentes (chaves distintas)", async 
   // Serialização: nunca mais de 1 transação ativa ao mesmo tempo.
   assert.equal(state.maxActiveTx, 1);
   // IDs distintos, cada resposta corresponde ao próprio payload.
-  assert.notEqual(r1.body.order.id, r2.body.order.id);
-  assert.ok([1001, 1002].includes(r1.body.order.id));
-  assert.ok([1001, 1002].includes(r2.body.order.id));
+  assert.notEqual(r1.body.data.id, r2.body.data.id);
+  assert.ok([1001, 1002].includes(r1.body.data.id));
+  assert.ok([1001, 1002].includes(r2.body.data.id));
   assert.equal(state.commits, 2);
   assert.equal(state.rollbacks, 0);
 });
