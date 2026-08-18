@@ -35,6 +35,7 @@ describe('Order Time Utils', () => {
       expect(finalizeTimeInput('830')).toBe('08:30');
       expect(finalizeTimeInput('1630')).toBe('16:30');
     });
+  });
 
   describe('isValidCivilTime', () => {
     it('should validate 00:00 to 23:59', () => {
