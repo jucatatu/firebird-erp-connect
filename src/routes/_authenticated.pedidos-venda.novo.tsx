@@ -30,6 +30,8 @@ import { companyLabel } from "@/components/order-identifier";
 import { formatDateOnly, addDaysToDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
 import { cn } from "@/lib/utils";
+import { getCivilTime, normalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from "@/utils/order-time-utils";
+
 
 
 export const Route = createFileRoute("/_authenticated/pedidos-venda/novo")({
@@ -2078,25 +2080,51 @@ function NewOrderPage() {
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Horário Previsto (Opcional)</Label>
                       <Input 
-                        type="time" 
-                        value={deliveryAt?.includes("T") ? deliveryAt.split("T")[1].slice(0, 5) : ""}
+                        type="text" 
+                        inputMode="numeric"
+                        placeholder="HH:MM"
+                        value={getCivilTime(deliveryAt)}
+                        disabled={!deliveryAt}
                         className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          const newTime = e.target.value;
-                          if (!newTime) {
-                            // Se limpar o horário, volta para apenas a data
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          
+                          // Permite digitar livremente até 5 caracteres (HH:MM)
+                          if (val.length > 5) return;
+
+                          // Se apagou tudo
+                          if (!val) {
                             setDelivery(deliver, deliveryAt?.split('T')[0] || "");
                             return;
                           }
 
-                          if (deliveryAt) {
-                            const date = deliveryAt.split('T')[0];
-                            setDelivery(deliver, `${date}T${newTime}:00`);
+                          // Se tem 4 ou 5 caracteres, tentamos normalizar e validar
+                          // Só atualizamos o deliveryAt se for um formato válido de tempo
+                          const digits = val.replace(/\D/g, "");
+                          if (digits.length >= 3) {
+                            const normalized = normalizeTimeInput(val);
+                            if (isValidCivilTime(normalized) && deliveryAt) {
+                              setDelivery(deliver, mergeCivilDateTime(deliveryAt, normalized));
+                            }
                           }
-                        }} 
+                        }}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          
+                          const normalized = normalizeTimeInput(val);
+                          if (isValidCivilTime(normalized)) {
+                            if (deliveryAt) {
+                              setDelivery(deliver, mergeCivilDateTime(deliveryAt, normalized));
+                            }
+                          } else {
+                            toast.error("Informe um horário válido no formato HH:MM.");
+                          }
+                        }}
                       />
                     </div>
                   )}
+
 
                 </div>
 
@@ -2318,7 +2346,7 @@ function NewOrderPage() {
                     <div className="text-sm space-y-1">
                       <p className="flex items-center gap-2">
                         <Badge variant="outline" className="h-5 text-[10px] bg-orange-50 border-orange-200 text-orange-700 font-bold">{deliver ? "Entrega" : "Retirada"}</Badge>
-                        {deliveryAt && <span>{formatDateOnly(deliveryAt)} {deliver && deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
+                        {deliveryAt && <span>{formatDateOnly(deliveryAt)}{deliveryAt.includes('T') ? ` às ${deliveryAt.split('T')[1].slice(0, 5)}` : ''}</span>}
 
                       </p>
                       {returnEquipment && (
