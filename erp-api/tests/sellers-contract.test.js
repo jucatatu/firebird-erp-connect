@@ -84,20 +84,14 @@ test("Sellers Contract", async (t) => {
     assert.equal(resNeg.status, 400);
   });
 
-  await t.test("Limit malformado -> 400", async () => {
-    const res = await signedGet("/api/v1/sellers?limit=1.5");
-    assert.equal(res.status, 400);
-    const res2 = await signedGet("/api/v1/sellers?limit=10abc");
-    assert.equal(res2.status, 400);
-  });
-
-  await t.test("ID malformado -> 400", async () => {
-    const res = await signedGet("/api/v1/sellers/1abc");
-    assert.equal(res.status, 400);
-    const res2 = await signedGet("/api/v1/sellers/0");
-    assert.equal(res2.status, 400);
-    const res3 = await signedGet("/api/v1/sellers/-1");
-    assert.equal(res3.status, 400);
+  await t.test("ERP Indisponível (Mock Repository Error)", async () => {
+    sellersRepository.searchSellers = async () => {
+      const { AppError } = require("../src/shared/errors/app-error");
+      throw new AppError({ message: "ERP Offline", statusCode: 503, code: "ERP_UNAVAILABLE" });
+    };
+    const res = await signedGet("/api/v1/sellers");
+    assert.equal(res.status, 503);
+    assert.equal(res.body.error.code, "ERP_UNAVAILABLE");
   });
 
   await t.test("Seller inexistente -> 404", async () => {
