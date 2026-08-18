@@ -61,12 +61,21 @@ export const updatePermissionProfile = createServerFn({ method: "POST" })
 
     const { data: current } = await supabaseAdmin
       .from("permission_profiles")
-      .select("is_system, name")
+      .select("is_system, name, active")
       .eq("id", data.id)
       .single();
 
-    if (current?.is_system && data.active === false) {
-      throw new Error("Não é permitido desativar perfis de sistema.");
+    if (current?.is_system) {
+      if (data.active !== undefined && data.active !== current.active) {
+        const error = new Error("SYSTEM_PROFILE_PROTECTED: Não é permitido alterar o status de ativação de perfis de sistema.");
+        (error as any).code = "SYSTEM_PROFILE_PROTECTED";
+        throw error;
+      }
+      if (data.name !== current.name) {
+        const error = new Error("SYSTEM_PROFILE_PROTECTED: Não é permitido renomear perfis de sistema.");
+        (error as any).code = "SYSTEM_PROFILE_PROTECTED";
+        throw error;
+      }
     }
 
     const { error } = await supabaseAdmin

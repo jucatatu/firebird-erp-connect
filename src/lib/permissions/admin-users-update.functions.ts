@@ -13,7 +13,7 @@ export const updateUser = createServerFn({ method: "POST" })
     id: z.string(),
     fullName: z.string().min(1),
     permissionProfileId: z.string(),
-    companies: z.array(z.number()),
+    companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
     roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
     erpSellerId: z.number().nullable(),
     active: z.boolean()
@@ -37,14 +37,21 @@ export const updateUser = createServerFn({ method: "POST" })
       supabase
     });
 
+    // Buscar seller atual para garantir imutabilidade real enquanto pendente
+    const { data: currentProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("erp_seller_id")
+      .eq("id", data.id)
+      .single();
+
     const { error } = await supabaseAdmin.rpc("admin_update_user", {
       _target_user_id: data.id,
       _full_name: data.fullName,
       _active: data.active,
       _permission_profile_id: data.permissionProfileId,
-      _erp_seller_id: data.erpSellerId as any,
-      _company_ids: data.companies,
-      _roles: data.roles
+      _erp_seller_id: (currentProfile?.erp_seller_id ?? null) as any, // Preserva valor atual
+      _company_ids: data.companies as any,
+      _roles: data.roles as any
     });
 
     if (error) {
