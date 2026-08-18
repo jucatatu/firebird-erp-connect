@@ -1,4 +1,4 @@
-import { ErpResponse, ErpSeller } from "./erp-sellers.functions";
+import type { ErpResponse, ErpSeller } from "./erp-sellers.functions";
 import { callErp } from "./erp.server";
 
 /**

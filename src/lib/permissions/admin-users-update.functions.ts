@@ -42,7 +42,7 @@ export const updateUser = createServerFn({ method: "POST" })
       }
     }
 
-    // Normalizar roles baseadas no perfil (Regra Legada)
+    // Normalização Determinística de Roles
     const { data: profileDetails } = await supabaseAdmin
       .from("permission_profiles")
       .select("name, is_system")
@@ -55,9 +55,9 @@ export const updateUser = createServerFn({ method: "POST" })
     if (profileName === "administrador") {
       if (!finalRoles.includes("admin")) finalRoles.push("admin");
     } else if (profileName === "vendedor") {
-      if (!finalRoles.includes("vendedor")) finalRoles.push("vendedor");
+      finalRoles = ["vendedor"];
     } else if (profileName === "aprovador") {
-      if (!finalRoles.includes("aprovador")) finalRoles.push("aprovador");
+      finalRoles = ["aprovador"];
     }
 
     if (profileName !== "administrador") {
@@ -100,4 +100,3 @@ export const updateUser = createServerFn({ method: "POST" })
 
     return { success: true };
   });
-

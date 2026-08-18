@@ -182,18 +182,12 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     if (selectedProfile?.name === "Administrador") {
       const currentRoles = form.getValues("roles");
       if (!currentRoles.includes("admin")) {
-        form.setValue("roles", [...currentRoles, "admin"]);
+        form.setValue("roles", ["admin"]);
       }
     } else if (selectedProfile?.name === "Vendedor") {
-      const currentRoles = form.getValues("roles");
-      if (!currentRoles.includes("vendedor")) {
-        form.setValue("roles", [...currentRoles, "vendedor"]);
-      }
+      form.setValue("roles", ["vendedor"]);
     } else if (selectedProfile?.name === "Aprovador") {
-      const currentRoles = form.getValues("roles");
-      if (!currentRoles.includes("aprovador")) {
-        form.setValue("roles", [...currentRoles, "aprovador"]);
-      }
+      form.setValue("roles", ["aprovador"]);
     }
   }, [selectedProfile, form]);
 
