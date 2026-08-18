@@ -49,7 +49,7 @@ export const updateUser = createServerFn({ method: "POST" })
       _full_name: data.fullName,
       _active: data.active,
       _permission_profile_id: data.permissionProfileId,
-      _erp_seller_id: currentProfile?.erp_seller_id ?? null, // Preserva valor atual
+      _erp_seller_id: (currentProfile?.erp_seller_id ?? null) as any, // Preserva valor atual
       _company_ids: data.companies as any,
       _roles: data.roles as any
     });
