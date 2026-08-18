@@ -45,12 +45,19 @@ vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn()
 }));
 
+vi.mock('@/lib/erp-sellers.server', () => ({
+  validateErpSellerForCompaniesServer: vi.fn(),
+  getErpSellerDetailServer: vi.fn(),
+}));
+
 vi.mock('@/lib/erp-sellers.functions', () => ({
   validateErpSellerForCompanies: vi.fn(),
+  getErpSellerDetail: vi.fn(),
 }));
 
 import { createAdminUser } from '../admin-users-create.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
+import { validateErpSellerForCompaniesServer } from '@/lib/erp-sellers.server';
 import { validateErpSellerForCompanies } from '@/lib/erp-sellers.functions';
 
 const mockContext = { 

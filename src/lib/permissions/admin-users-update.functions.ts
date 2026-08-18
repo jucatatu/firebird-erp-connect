@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requirePermission } from "./permissions.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { validateErpSellerForCompanies } from "@/lib/erp-sellers.functions";
+import { validateErpSellerForCompaniesServer } from "@/lib/erp-sellers.server";
 
 /**
  * Atualiza um usuário existente.
@@ -34,12 +34,34 @@ export const updateUser = createServerFn({ method: "POST" })
 
     // Validar Seller no ERP quando não-null
     if (data.erpSellerId !== null) {
-      const sellerValidation = await validateErpSellerForCompanies(data.erpSellerId, data.companies);
+      const sellerValidation = await validateErpSellerForCompaniesServer(data.erpSellerId, data.companies);
       if (!sellerValidation.ok) {
         const err = new Error(sellerValidation.error?.message || "Vendedor inválido.");
         (err as any).code = sellerValidation.error?.code;
         throw err;
       }
+    }
+
+    // Normalizar roles baseadas no perfil (Regra Legada)
+    const { data: profileDetails } = await supabaseAdmin
+      .from("permission_profiles")
+      .select("name, is_system")
+      .eq("id", data.permissionProfileId)
+      .single();
+
+    let finalRoles = [...(data.roles || [])];
+    const profileName = profileDetails?.name?.toLowerCase();
+
+    if (profileName === "administrador") {
+      if (!finalRoles.includes("admin")) finalRoles.push("admin");
+    } else if (profileName === "vendedor") {
+      if (!finalRoles.includes("vendedor")) finalRoles.push("vendedor");
+    } else if (profileName === "aprovador") {
+      if (!finalRoles.includes("aprovador")) finalRoles.push("aprovador");
+    }
+
+    if (profileName !== "administrador") {
+      finalRoles = finalRoles.filter(r => r !== "admin");
     }
 
     const { error } = await supabaseAdmin.rpc("admin_update_user", {
@@ -49,7 +71,7 @@ export const updateUser = createServerFn({ method: "POST" })
       _permission_profile_id: data.permissionProfileId,
       _erp_seller_id: data.erpSellerId as any,
       _company_ids: data.companies as any,
-      _roles: data.roles as any
+      _roles: finalRoles as any
     });
 
     if (error) {

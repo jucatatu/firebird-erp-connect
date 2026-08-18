@@ -48,11 +48,8 @@ export const getErpSellerDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((id: number) => z.number().parse(id))
   .handler(async ({ data: sellerId }) => {
-    const { callErp } = await import("./erp.server");
-    return callErp({
-      method: "GET",
-      path: `/api/v1/sellers/${sellerId}`
-    }) as Promise<ErpResponse<{ seller: ErpSeller }>>;
+    const { getErpSellerDetailServer } = await import("./erp-sellers.server");
+    return getErpSellerDetailServer(sellerId);
   });
 
 /**
@@ -62,45 +59,6 @@ export async function validateErpSellerForCompanies(
   erpSellerId: number | null,
   companies: number[]
 ) {
-  if (erpSellerId === null) return { ok: true };
-
-  // Validação básica do ID
-  if (erpSellerId <= 0 || !Number.isInteger(erpSellerId)) {
-    return { 
-      ok: false, 
-      error: { code: "INVALID_SELLER_ID", message: "ID de vendedor inválido." } 
-    };
-  }
-
-  const result = await getErpSellerDetail({ data: erpSellerId });
-
-  if (!result.ok) {
-    // Preservar códigos de erro específicos do ERP
-    const code = result.error?.code || "ERP_UNAVAILABLE";
-    const message = (code === "SELLER_NOT_FOUND" || result.status === 404)
-      ? "O vendedor selecionado não existe mais no ERP."
-      : "Não foi possível consultar os vendedores no ERP neste momento. Tente novamente.";
-    
-    return { ok: false, error: { code, message } };
-  }
-
-  const seller = result.data?.seller;
-  if (!seller) {
-    return { 
-      ok: false, 
-      error: { code: "SELLER_NOT_FOUND", message: "O vendedor selecionado não existe mais no ERP." } 
-    };
-  }
-
-  if (!companies.includes(seller.companyId)) {
-    return { 
-      ok: false, 
-      error: { 
-        code: "SELLER_COMPANY_MISMATCH", 
-        message: "O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário." 
-      } 
-    };
-  }
-
-  return { ok: true, seller };
+  const { validateErpSellerForCompaniesServer } = await import("./erp-sellers.server");
+  return validateErpSellerForCompaniesServer(erpSellerId, companies);
 }
