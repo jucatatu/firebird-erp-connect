@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 
 import {
   Dialog,
@@ -47,11 +47,10 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
 
 import { AdminUser } from "@/lib/permissions/admin-types";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
-import { inviteUser } from "@/lib/permissions/admin-users-invite.functions";
+import { createAdminUser } from "@/lib/permissions/admin-users-create.functions";
 import { updateUser } from "@/lib/permissions/admin-users-update.functions";
 import { searchErpSellers, type ErpSeller } from "@/lib/erp-sellers.functions";
 
@@ -63,6 +62,26 @@ const userFormSchema = z.object({
   roles: z.array(z.string()),
   erpSellerId: z.number().int().positive().nullable(),
   active: z.boolean(),
+  temporaryPassword: z.string().optional(),
+  confirmPassword: z.string().optional(),
+}).refine((data) => {
+  // Se não estiver editando (estiver criando), a senha é obrigatória
+  if (data.temporaryPassword === undefined && data.confirmPassword === undefined) return true;
+  if (data.temporaryPassword) {
+    return data.temporaryPassword.trim().length >= 8;
+  }
+  return true;
+}, {
+  message: "Senha deve ter pelo menos 8 caracteres",
+  path: ["temporaryPassword"],
+}).refine((data) => {
+  if (data.temporaryPassword !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "As senhas não conferem",
+  path: ["confirmPassword"],
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -89,6 +108,8 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
       roles: [],
       erpSellerId: null,
       active: true,
+      temporaryPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -101,10 +122,6 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     enabled: open,
   });
 
-  // Sprint 8.9.43.2: Busca de vendedores reais
-  // Se o usuário tem acesso a 1 e 3, buscamos todos. 
-  // Se tem apenas a uma, a API filtra no backend se passarmos companyId, 
-  // mas aqui vamos carregar e filtrar no select para UX reativa.
   const sellersQ = useQuery({
     queryKey: ["erp", "sellers", sellerSearch],
     queryFn: async () => {
@@ -121,7 +138,6 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     staleTime: 1000 * 60 * 5, // 5 min
   });
 
-  // Filtro client-side baseado nas empresas selecionadas no form
   const filteredSellers = useMemo(() => {
     if (!sellersQ.data) return [];
     return sellersQ.data.filter((s: ErpSeller) => selectedCompanies.includes(s.companyId));
@@ -141,6 +157,8 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
         roles: user.roles,
         erpSellerId: user.erpSellerId,
         active: user.active,
+        temporaryPassword: "",
+        confirmPassword: "",
       });
     } else if (!isEditing && open) {
       form.reset({
@@ -151,23 +169,11 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
         roles: [],
         erpSellerId: null,
         active: true,
+        temporaryPassword: "",
+        confirmPassword: "",
       });
     }
   }, [user, open, form, isEditing]);
-
-  // Remover limpeza silenciosa de erpSellerId ao trocar empresas.
-  // O requisito é bloquear o salvamento e mostrar mensagem, não limpar o valor.
-  /* 
-  useEffect(() => {
-    if (erpSellerId && !isEditing) {
-      const seller = sellersQ.data?.find((s: ErpSeller) => s.id === erpSellerId);
-      if (seller && !selectedCompanies.includes(seller.companyId)) {
-        form.setValue("erpSellerId", null);
-        toast.info("Vendedor removido pois não pertence às empresas selecionadas.");
-      }
-    }
-  }, [selectedCompanies, erpSellerId, sellersQ.data, form, isEditing]);
-  */
 
   const selectedProfileId = form.watch("permissionProfileId");
   const selectedProfile = profilesQ.data?.find(p => p.id === selectedProfileId);
@@ -183,7 +189,6 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
 
   const mutation = useMutation({
     mutationFn: async (values: UserFormValues) => {
-      // Validação final de empresa vs seller antes de enviar
       if (values.erpSellerId) {
         const seller = sellersQ.data?.find((s: ErpSeller) => s.id === values.erpSellerId);
         if (seller && !values.companies.includes(seller.companyId)) {
@@ -195,21 +200,37 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
         return updateUser({
           data: {
             id: user.id,
-            ...values,
+            fullName: values.fullName,
+            email: values.email,
+            permissionProfileId: values.permissionProfileId,
+            companies: values.companies as any,
             roles: values.roles as any,
+            erpSellerId: values.erpSellerId,
+            active: values.active,
           }
         });
       } else {
-        return inviteUser({
+        if (!values.temporaryPassword) {
+          throw new Error("Senha temporária é obrigatória para novos usuários.");
+        }
+        return createAdminUser({
           data: {
-            ...values,
+            fullName: values.fullName,
+            email: values.email,
+            permissionProfileId: values.permissionProfileId,
+            companies: values.companies as any,
             roles: values.roles as any,
+            erpSellerId: values.erpSellerId,
+            temporaryPassword: values.temporaryPassword,
           }
         });
       }
     },
     onSuccess: () => {
-      toast.success(isEditing ? "Usuário atualizado" : "Convite enviado");
+      toast.success(isEditing ? "Usuário atualizado" : "Usuário criado com sucesso.");
+      if (!isEditing) {
+        toast.info("O usuário deverá trocar a senha no primeiro acesso.");
+      }
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       onOpenChange(false);
     },
@@ -233,7 +254,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
           <DialogDescription>
             {isEditing 
               ? "Atualize os dados e permissões do colaborador." 
-              : "Envie um convite por e-mail para um novo colaborador."}
+              : "Crie um novo usuário diretamente com senha temporária."}
           </DialogDescription>
         </DialogHeader>
 
@@ -268,12 +289,43 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
                     />
                   </FormControl>
                   {isEditing && (
-                    <FormDescription>O e-mail não pode ser alterado após o convite.</FormDescription>
+                    <FormDescription>O e-mail não pode ser alterado após a criação.</FormDescription>
                   )}
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            {!isEditing && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="temporaryPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha Temporária</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmar Senha</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -477,7 +529,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Salvar Alterações" : "Enviar Convite"}
+                {isEditing ? "Salvar Alterações" : "Criar Usuário"}
               </Button>
             </DialogFooter>
           </form>
