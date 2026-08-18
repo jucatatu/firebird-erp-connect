@@ -2051,7 +2051,22 @@ function NewOrderPage() {
                       value={deliveryAt?.split('T')[0] || ""} 
                       onChange={(e) => {
                         const newDate = e.target.value;
-                        setDelivery(deliver, newDate);
+                        if (!newDate) {
+                          setDelivery(deliver, "");
+                          return;
+                        }
+
+                        // Preservar o horário se já existir
+                        const existingTime = deliveryAt?.includes("T")
+                          ? deliveryAt.split("T")[1].slice(0, 5)
+                          : null;
+
+                        if (existingTime) {
+                          setDelivery(deliver, `${newDate}T${existingTime}:00`);
+                        } else {
+                          setDelivery(deliver, newDate);
+                        }
+
                         if (returnEquipment && newDate) {
                           setReturn(true, addDaysToDateOnly(newDate, 7));
                         }
@@ -2064,16 +2079,25 @@ function NewOrderPage() {
                       <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Horário Previsto (Opcional)</Label>
                       <Input 
                         type="time" 
+                        value={deliveryAt?.includes("T") ? deliveryAt.split("T")[1].slice(0, 5) : ""}
                         className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const newTime = e.target.value;
+                          if (!newTime) {
+                            // Se limpar o horário, volta para apenas a data
+                            setDelivery(deliver, deliveryAt?.split('T')[0] || "");
+                            return;
+                          }
+
                           if (deliveryAt) {
                             const date = deliveryAt.split('T')[0];
-                            setDelivery(deliver, `${date}T${e.target.value}:00`);
+                            setDelivery(deliver, `${date}T${newTime}:00`);
                           }
                         }} 
                       />
                     </div>
                   )}
+
                 </div>
 
                 <Separator className="bg-primary/5" />
