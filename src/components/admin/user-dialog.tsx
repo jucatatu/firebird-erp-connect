@@ -429,7 +429,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
                               />
                               Nenhum Vendedor
                             </CommandItem>
-                            {filteredSellers.map((seller) => (
+                            {filteredSellers.map((seller: ErpSeller) => (
                               <CommandItem
                                 key={seller.id}
                                 value={String(seller.id)}
