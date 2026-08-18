@@ -38,6 +38,22 @@ export const Route = createFileRoute("/_authenticated/admin/permission-profiles"
 });
 
 function AdminProfilesPage() {
+  return (
+    <div className="container py-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Perfis de Permissão</h1>
+          <p className="text-muted-foreground">Defina papéis e regras de acesso para os usuários do sistema.</p>
+        </div>
+      </div>
+      <PermissionGate resource="admin.permission_profiles" action="view">
+        <AdminProfilesContent />
+      </PermissionGate>
+    </div>
+  );
+}
+
+function AdminProfilesContent() {
   const queryClient = useQueryClient();
   const profilesQ = useSuspenseQuery({
     queryKey: ["admin", "profiles"],
@@ -82,12 +98,8 @@ function AdminProfilesPage() {
   };
 
   return (
-    <div className="container py-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Perfis de Permissão</h1>
-          <p className="text-muted-foreground">Defina papéis e regras de acesso para os usuários do sistema.</p>
-        </div>
+    <>
+      <div className="mb-6 flex justify-end">
         <PermissionAction resource="admin.permission_profiles" action="create">
           <Button className="gap-2" onClick={handleCreate}>
             <Plus className="h-4 w-4" />
@@ -96,75 +108,73 @@ function AdminProfilesPage() {
         </PermissionAction>
       </div>
 
-      <PermissionGate resource="admin.permission_profiles" action="view">
-        <div className="rounded-md border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Perfil</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Usuários</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Perfil</TableHead>
+              <TableHead>Descrição</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Usuários</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {profilesQ.data.map((profile) => (
+              <TableRow key={profile.id}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    {profile.name}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground">{profile.description || "—"}</span>
+                </TableCell>
+                <TableCell>
+                  {profile.isSystem ? <Badge variant="secondary">Sistema</Badge> : <Badge variant="outline">Customizado</Badge>}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={profile.active ? "default" : "secondary"}>
+                    {profile.active ? "Ativo" : "Inativo"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm font-medium">{profile.userCount}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <PermissionAction resource="admin.permission_profiles" action="edit">
+                      <Button variant="ghost" size="icon" onClick={() => handleManageRules(profile)} title="Gerenciar Regras">
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                    </PermissionAction>
+                    <PermissionAction resource="admin.permission_profiles" action="edit">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(profile)} title="Editar Perfil">
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </PermissionAction>
+                    {!profile.isSystem && (
+                      <PermissionAction resource="admin.permission_profiles" action="delete">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-destructive hover:text-destructive" 
+                          onClick={() => handleDeleteClick(profile)}
+                          title="Excluir Perfil"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </PermissionAction>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profilesQ.data.map((profile) => (
-                <TableRow key={profile.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                      {profile.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">{profile.description || "—"}</span>
-                  </TableCell>
-                  <TableCell>
-                    {profile.isSystem ? <Badge variant="secondary">Sistema</Badge> : <Badge variant="outline">Customizado</Badge>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={profile.active ? "default" : "secondary"}>
-                      {profile.active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm font-medium">{profile.userCount}</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <PermissionAction resource="admin.permission_profiles" action="edit">
-                        <Button variant="ghost" size="icon" onClick={() => handleManageRules(profile)} title="Gerenciar Regras">
-                          <Settings2 className="h-4 w-4" />
-                        </Button>
-                      </PermissionAction>
-                      <PermissionAction resource="admin.permission_profiles" action="edit">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(profile)} title="Editar Perfil">
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      </PermissionAction>
-                      {!profile.isSystem && (
-                        <PermissionAction resource="admin.permission_profiles" action="delete">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-destructive hover:text-destructive" 
-                            onClick={() => handleDeleteClick(profile)}
-                            title="Excluir Perfil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </PermissionAction>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </PermissionGate>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       <ProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} profile={selectedProfile} />
       <RulesEditorDialog open={rulesDialogOpen} onOpenChange={setRulesDialogOpen} profile={selectedProfile} />
@@ -190,6 +200,6 @@ function AdminProfilesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
