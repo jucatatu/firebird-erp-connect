@@ -280,4 +280,28 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
       _user_id: 'existing-id'
     }));
   });
+
+  it('should normalize role "aprovador" for profile "Aprovador"', async () => {
+    const data = { ...validData, roles: [] as any };
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ 
+              data: { name: 'Aprovador', is_system: false, active: true }, 
+              error: null 
+            })
+          })
+        })
+      };
+    });
+    (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+    await (createAdminUser as any)({ data, context: mockContext });
+    
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
+      _roles: ['aprovador']
+    }));
+  });
 });
