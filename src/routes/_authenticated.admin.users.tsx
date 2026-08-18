@@ -1,22 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { listAdminUsers } from "@/lib/permissions/admin-users.functions";
 import { PermissionGate } from "@/components/permissions/permission-gate";
 import { PermissionAction } from "@/components/permissions/permission-action";
-import { ShieldAlert, UserPlus, Search, Filter } from "lucide-react";
-
+import { UserPlus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { UserDialog } from "@/components/admin/user-dialog";
+import { AdminUser } from "@/lib/permissions/admin-types";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
@@ -29,28 +23,37 @@ function AdminUsersPage() {
   });
 
   const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
   const filteredUsers = usersQ.data.filter((u) =>
     u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleEdit = (user: AdminUser) => {
+    setSelectedUser(user);
+    setDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setSelectedUser(null);
+    setDialogOpen(true);
+  };
+
   return (
     <div className="container py-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Usuários</h1>
-          <p className="text-muted-foreground">
-            Gerencie o acesso e as permissões dos colaboradores.
-          </p>
+          <p className="text-muted-foreground">Gerencie o acesso e as permissões dos colaboradores.</p>
         </div>
         <PermissionAction resource="admin.users" action="create">
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleCreate}>
             <UserPlus className="h-4 w-4" />
             Novo usuário
           </Button>
         </PermissionAction>
-
       </div>
 
       <PermissionGate resource="admin.users" action="view">
@@ -64,12 +67,10 @@ function AdminUsersPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Filter className="h-4 w-4" />
+            Filtros
+          </Button>
         </div>
 
         <div className="rounded-md border bg-card">
@@ -80,8 +81,7 @@ function AdminUsersPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Perfil</TableHead>
                 <TableHead>Empresas</TableHead>
-                <TableHead>Roles Legadas</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -99,13 +99,7 @@ function AdminUsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {user.permissionProfileName ? (
-                      <span className="text-sm">{user.permissionProfileName}</span>
-                    ) : (
-                      <Badge variant="outline" className="text-destructive border-destructive">
-                        Sem Perfil
-                      </Badge>
-                    )}
+                    {user.permissionProfileName || <Badge variant="outline" className="text-destructive">Sem Perfil</Badge>}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -114,35 +108,19 @@ function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {user.roles.map((r) => (
-                        <Badge key={r} variant="secondary" className="text-[10px] uppercase">
-                          {r}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
                     <PermissionAction resource="admin.users" action="edit">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
                         Editar
                       </Button>
                     </PermissionAction>
                   </TableCell>
-
                 </TableRow>
               ))}
-              {filteredUsers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Nenhum usuário encontrado.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </div>
       </PermissionGate>
+      <UserDialog open={dialogOpen} onOpenChange={setDialogOpen} user={selectedUser} />
     </div>
   );
 }
