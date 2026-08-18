@@ -63,7 +63,7 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     vi.clearAllMocks();
     
     // Default profile mock (active)
-    (supabaseAdmin.from as any).mockReturnValue({
+    const mockFrom = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({ 
@@ -73,6 +73,7 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
         })
       })
     });
+    (supabaseAdmin.from as any).mockImplementation(mockFrom);
   });
 
   const validData = {
@@ -154,6 +155,19 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
     expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
   });
 
+  it('should block creation if ERP is offline', async () => {
+    const data = { ...validData, erpSellerId: 123 };
+    (vi.mocked(validateErpSellerForCompanies) as any).mockResolvedValue({ 
+      ok: false, 
+      error: { code: 'ERP_UNAVAILABLE', message: 'Offline' } 
+    });
+
+    await expect((createAdminUser as any)({ data, context: mockContext }))
+      .rejects.toThrow('Offline');
+    
+    expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
+  });
+
   it('should handle duplicate email from Auth', async () => {
     (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ 
       data: { user: null }, 
@@ -177,5 +191,16 @@ describe('Admin User Creation Flow (Direct Creation)', () => {
       .rejects.toThrow('Perfil de permissão inexistente ou inativo.');
     
     expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith('new-user');
+  });
+
+  it('should handle profiles_pkey idempotently (via RPC)', async () => {
+    (supabaseAdmin.auth.admin.createUser as any).mockResolvedValue({ data: { user: { id: 'existing-id' } }, error: null });
+    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+
+    await (createAdminUser as any)({ data: validData, context: mockContext });
+    
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_created_user', expect.objectContaining({
+      _user_id: 'existing-id'
+    }));
   });
 });
