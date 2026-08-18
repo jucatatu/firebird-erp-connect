@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { usePermissions } from "../../hooks/use-permissions";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useAuthSession } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,10 +15,6 @@ vi.mock("@tanstack/react-query", async () => {
   };
 });
 
-// Since @testing-library/react might not be available or causing issues in this env, 
-// we will test the logic by calling the hook directly (it's a function)
-// or mocking the behavior.
-
 describe("usePermissions logic", () => {
   const mockUser = { id: "user-123" };
 
@@ -30,7 +26,6 @@ describe("usePermissions logic", () => {
   it("should return false for all actions when loading", () => {
     (useQuery as any).mockReturnValue({ isLoading: true });
     
-    // Minimal mock for testing logic without full renderHook
     const result = usePermissions();
     
     expect(result.can("any", "view")).toBe(false);
