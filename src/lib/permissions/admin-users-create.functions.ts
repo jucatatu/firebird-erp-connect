@@ -19,7 +19,26 @@ export async function testableCreateAdminUser(data: any, context: any) {
       supabase
     });
 
-    // 2. Validar Seller no ERP ANTES de criar no Auth
+    // 2. Pré-validar Perfil de Permissões ANTES de criar no Auth
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from("permission_profiles")
+      .select("id, active")
+      .eq("id", data.permissionProfileId)
+      .single();
+
+    if (profileErr || !profile) {
+      const err = new Error("Perfil de permissão inexistente.");
+      (err as any).code = "INVALID_PERMISSION_PROFILE";
+      throw err;
+    }
+
+    if (!profile.active) {
+      const err = new Error("Não é permitido atribuir um perfil inativo.");
+      (err as any).code = "INVALID_PERMISSION_PROFILE";
+      throw err;
+    }
+
+    // 3. Validar Seller no ERP ANTES de criar no Auth
     if (data.erpSellerId !== null) {
       const sellerValidation = await validateErpSellerForCompanies(data.erpSellerId, data.companies);
       if (!sellerValidation.ok) {
@@ -29,7 +48,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
       }
     }
 
-    // 3. Criar usuário no Supabase Auth
+    // 4. Criar usuário no Supabase Auth
     const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.temporaryPassword,
@@ -46,7 +65,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
     const newUserId = authUser.user.id;
 
     try {
-      // 4. Executar RPC admin_setup_created_user
+      // 5. Executar RPC admin_setup_created_user
       const { error: setupError } = await supabaseAdmin.rpc("admin_setup_created_user" as any, {
         _user_id: newUserId,
         _full_name: data.fullName,
@@ -76,7 +95,7 @@ export async function testableCreateAdminUser(data: any, context: any) {
         throw err;
       }
     } catch (e: any) {
-      // 5. Compensação: Se setup falhar, excluir usuário Auth criado
+      // 6. Compensação: Se setup falhar, excluir usuário Auth criado
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
       throw e;
     }
@@ -92,10 +111,14 @@ export const createAdminUser = createServerFn({ method: "POST" })
     temporaryPassword: z.string().min(8).refine(val => val.trim().length >= 8, {
       message: "Senha deve ter pelo menos 8 caracteres (sem contar apenas espaços)"
     }),
+    confirmPassword: z.string().min(8),
     permissionProfileId: z.string(),
     companies: z.array(z.union([z.literal(1), z.literal(3)])).min(1),
     roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
     erpSellerId: z.number().int().positive().nullable()
+  }).refine(data => data.temporaryPassword === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"]
   }).parse(data))
   .handler(async ({ data, context }) => {
     return testableCreateAdminUser(data, context);
