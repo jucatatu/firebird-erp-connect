@@ -84,7 +84,7 @@ function buildCompleteProcParams({ payload, companyId, clientContext, totals }) 
     /*  3 ID_TIPO_VENDA            */ payload.saleTypeId,
     /*  4 ID_PRAZO                 */ payload.paymentTermId,
     /*  5 ID_FORMA_PAGAMENTO       */ payload.paymentMethodId,
-    /*  6 ENTREGAR                 */ payload.deliver ? 1 : 0,
+    /*  6 ENTREGAR                 */ payload.deliver ? 1 : null,
     /*  7 DATA_PREV_ENTREGA        */ toDateCivil(payload.deliveryAt),
     /*  8 DATA_ENTREGA             */ null, // Criando: data de entrega real é futura
     /*  9 BUSCAR_EQUIP             */ payload.returnEquipment ? 1 : 0,
