@@ -2,8 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requirePermission } from "./permissions.server";
-import { callErp } from "@/lib/erp.server";
+import { callErp, JsonValue } from "@/lib/erp.server";
 import { ErpSeller } from "./admin-types";
+
+interface SellersResponse extends Record<string, JsonValue> {
+  success: boolean;
+  sellers: (ErpSeller & Record<string, JsonValue>)[];
+}
 
 export const searchErpSellers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -18,7 +23,7 @@ export const searchErpSellers = createServerFn({ method: "GET" })
       supabase
     });
 
-    const res = await callErp<{ success: boolean, sellers: ErpSeller[] }>({
+    const res = await callErp<SellersResponse>({
       path: "/api/v1/sellers",
       query: {
         q: data.q || "",
@@ -32,4 +37,5 @@ export const searchErpSellers = createServerFn({ method: "GET" })
 
     return res.data.sellers;
   });
+
 
