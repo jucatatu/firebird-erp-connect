@@ -1,9 +1,10 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserX, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { useMyProfile, useMyRoles, primaryRole } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 import type { User } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -40,10 +41,38 @@ function AuthenticatedLayout() {
   const rolesQ = useMyRoles(user);
   const profileQ = useMyProfile(user);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/login", replace: true });
+  };
+
   if (!checked || !user || rolesQ.isLoading || profileQ.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Verifica se o usuário está desativado
+  if (profileQ.data && profileQ.data.active === false) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4 text-center">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <UserX className="h-10 w-10" />
+        </div>
+        <h1 className="mb-2 text-2xl font-bold tracking-tight">Conta desativada</h1>
+        <p className="mb-8 max-w-sm text-muted-foreground">
+          Seu acesso ao ERP Operacional está desativado. Entre em contato com um administrador.
+        </p>
+        <Button 
+          variant="outline" 
+          onClick={handleLogout}
+          className="gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
       </div>
     );
   }
