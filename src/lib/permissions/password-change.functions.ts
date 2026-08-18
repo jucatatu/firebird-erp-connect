@@ -25,7 +25,7 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
     // 1. Verificar se o profile realmente precisa trocar a senha
     const { data: profile, error: profileGetError } = await supabaseAdmin
       .from("profiles")
-      .select("must_change_password")
+      .select("id, must_change_password" as any)
       .eq("id", userId)
       .single();
 
@@ -33,7 +33,7 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
       throw new Error("Falha ao validar status do perfil.");
     }
 
-    if (!profile?.must_change_password) {
+    if (!(profile as any)?.must_change_password) {
       throw new Error("Troca de senha não é necessária ou já foi realizada.");
     }
 
