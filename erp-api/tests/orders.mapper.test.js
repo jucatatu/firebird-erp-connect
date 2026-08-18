@@ -94,7 +94,22 @@ test("buildCompleteProcParams deliver=true resulta em ENTREGAR=1 (Entrega)", () 
 });
 
 test("buildItemProcParams CHAVE I", () => {
-...
+  const p = mapper.buildItemProcParams(500, {
+    productId: 10,
+    unitPrice: 15.5,
+    quantity: 2,
+  });
+  assert.deepEqual(p, [500, 10, 15.5, 2, 0, "I"]);
+});
+
+test("buildEquipmentProcParams CHAVE I", () => {
+  const p = mapper.buildEquipmentProcParams(500, {
+    equipmentTypeId: 5,
+    quantity: 1,
+  });
+  assert.deepEqual(p, [500, 5, null, 1, "I"]);
+});
+
 test("truncate respeita limites do schema", () => {
   const long = "x".repeat(200);
   assert.equal(mapper.truncate(long, 60).length, 60);
