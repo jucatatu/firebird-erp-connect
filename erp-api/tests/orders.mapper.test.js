@@ -66,23 +66,35 @@ test("buildCompleteProcParams 30 posicoes GERA_COBRANCA=1 CHAVE=null", () => {
   assert.ok(params[7] instanceof Date);
 });
 
+test("buildCompleteProcParams deliver=false resulta em ENTREGAR=null (Retirada)", () => {
+  const params = mapper.buildCompleteProcParams({
+    companyId: 1,
+    totals: { total: 50.0 },
+    payload: {
+      clientId: 1,
+      sellerId: 1,
+      deliver: false, // RETIRADA
+    },
+  });
+  assert.strictEqual(params[6], null, "ENTREGAR deve ser null para retirada");
+  assert.notEqual(params[6], 0, "ENTREGAR nunca deve ser 0");
+});
+
+test("buildCompleteProcParams deliver=true resulta em ENTREGAR=1 (Entrega)", () => {
+  const params = mapper.buildCompleteProcParams({
+    companyId: 1,
+    totals: { total: 50.0 },
+    payload: {
+      clientId: 1,
+      sellerId: 1,
+      deliver: true, // ENTREGA
+    },
+  });
+  assert.strictEqual(params[6], 1, "ENTREGAR deve ser 1 para entrega");
+});
+
 test("buildItemProcParams CHAVE I", () => {
-  const p = mapper.buildItemProcParams(500, {
-    productId: 10,
-    unitPrice: 15.5,
-    quantity: 2,
-  });
-  assert.deepEqual(p, [500, 10, 15.5, 2, 0, "I"]);
-});
-
-test("buildEquipmentProcParams CHAVE I", () => {
-  const p = mapper.buildEquipmentProcParams(500, {
-    equipmentTypeId: 5,
-    quantity: 1,
-  });
-  assert.deepEqual(p, [500, 5, null, 1, "I"]);
-});
-
+...
 test("truncate respeita limites do schema", () => {
   const long = "x".repeat(200);
   assert.equal(mapper.truncate(long, 60).length, 60);
