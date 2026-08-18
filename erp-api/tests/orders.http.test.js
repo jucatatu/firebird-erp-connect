@@ -184,6 +184,7 @@ test("POST orders sem Idempotency-Key 400", async () => {
   const app = createApp();
   const res = await signedPost(app, "/api/v1/orders", payload());
   assert.equal(res.status, 400);
+  // O contrato do orders.service.js retorna IDEMPOTENCY_KEY_REQUIRED
   assert.equal(res.body.error.code, "IDEMPOTENCY_KEY_REQUIRED");
 });
 
