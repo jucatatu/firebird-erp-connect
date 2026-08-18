@@ -28,7 +28,7 @@ async function handleSearch(req, res, next) {
     }
     const { q, limit, companyId } = parsed.data;
     const sellers = await sellersRepository.searchSellers({ query: q, limit, companyId });
-    res.json({ success: true, sellers });
+    res.json({ success: true, data: { sellers } });
   } catch (err) {
     next(err);
   }
@@ -58,7 +58,7 @@ async function handleGetById(req, res, next) {
       });
     }
 
-    res.json({ success: true, seller });
+    res.json({ success: true, data: { seller } });
   } catch (err) {
     next(err);
   }

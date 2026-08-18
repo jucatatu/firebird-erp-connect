@@ -53,7 +53,7 @@ import { AdminUser } from "@/lib/permissions/admin-types";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
 import { inviteUser } from "@/lib/permissions/admin-users-invite.functions";
 import { updateUser } from "@/lib/permissions/admin-users-update.functions";
-import { searchErpSellers } from "@/lib/erp-orders.functions";
+import { searchErpSellers, type ErpSeller } from "@/lib/erp-sellers.functions";
 
 const userFormSchema = z.object({
   fullName: z.string().min(1, "Nome é obrigatório"),
@@ -124,11 +124,11 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   // Filtro client-side baseado nas empresas selecionadas no form
   const filteredSellers = useMemo(() => {
     if (!sellersQ.data) return [];
-    return sellersQ.data.filter(s => selectedCompanies.includes(s.companyId));
+    return sellersQ.data.filter((s: ErpSeller) => selectedCompanies.includes(s.companyId));
   }, [sellersQ.data, selectedCompanies]);
 
   const selectedSeller = useMemo(() => {
-    return sellersQ.data?.find(s => s.id === erpSellerId);
+    return sellersQ.data?.find((s: ErpSeller) => s.id === erpSellerId);
   }, [sellersQ.data, erpSellerId]);
 
   useEffect(() => {
@@ -155,16 +155,19 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     }
   }, [user, open, form, isEditing]);
 
-  // Validar se o seller atual ainda é válido para as empresas selecionadas
+  // Remover limpeza silenciosa de erpSellerId ao trocar empresas.
+  // O requisito é bloquear o salvamento e mostrar mensagem, não limpar o valor.
+  /* 
   useEffect(() => {
     if (erpSellerId && !isEditing) {
-      const seller = sellersQ.data?.find(s => s.id === erpSellerId);
+      const seller = sellersQ.data?.find((s: ErpSeller) => s.id === erpSellerId);
       if (seller && !selectedCompanies.includes(seller.companyId)) {
         form.setValue("erpSellerId", null);
         toast.info("Vendedor removido pois não pertence às empresas selecionadas.");
       }
     }
   }, [selectedCompanies, erpSellerId, sellersQ.data, form, isEditing]);
+  */
 
   const selectedProfileId = form.watch("permissionProfileId");
   const selectedProfile = profilesQ.data?.find(p => p.id === selectedProfileId);
@@ -182,7 +185,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     mutationFn: async (values: UserFormValues) => {
       // Validação final de empresa vs seller antes de enviar
       if (values.erpSellerId) {
-        const seller = sellersQ.data?.find(s => s.id === values.erpSellerId);
+        const seller = sellersQ.data?.find((s: ErpSeller) => s.id === values.erpSellerId);
         if (seller && !values.companies.includes(seller.companyId)) {
           throw new Error("O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário.");
         }
@@ -426,7 +429,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
                               />
                               Nenhum Vendedor
                             </CommandItem>
-                            {filteredSellers.map((seller) => (
+                            {filteredSellers.map((seller: ErpSeller) => (
                               <CommandItem
                                 key={seller.id}
                                 value={String(seller.id)}

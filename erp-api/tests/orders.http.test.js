@@ -116,41 +116,24 @@ const HMAC_SECRET = process.env.HMAC_SECRET;
 
 function payload(overrides = {}) {
   return {
-    customerId: 100,
+    clientId: 100, // ID real no schema ERP
     companyId: 1,
     sellerId: 10,
     saleTypeId: 1,
     paymentTermId: 1,
     paymentMethodId: 1,
-    delivery: true,
-    expectedDeliveryAt: "2026-07-25T14:00:00.000Z",
-    deliveryAt: null,
-    retrieveEquipment: false,
+    deliver: true, // boolean real
+    deliveryAt: "2026-07-25T14:00:00.000Z",
+    returnEquipment: false, // boolean real
     returnAt: null,
-    expectedReturnAt: null,
-    total: 31,
-    freight: 0,
-    address: {
-      state: "SC",
-      city: "Jaragua do Sul",
-      district: "Centro",
-      street: "Rua A",
-      number: "100",
-      complement: null,
-      postalCode: "89250000",
-    },
+    freightValue: 0, // finite number
     notes: null,
-    stockOutput: false,
-    userId: 5,
-    carrierId: null,
-    carrierVehicleId: null,
-    commercialDiscountPercent: 0,
-    posSessionId: null,
-    items: [{ productId: 10, unitPrice: 15.5, quantity: 2, discount: 0 }],
-    equipment: [{ equipmentTypeId: 5, productId: null, quantity: 1 }],
+    items: [{ productId: 10, manualUnitPrice: 15.5, quantity: 2 }],
+    equipments: [{ equipmentTypeId: 5, quantity: 1 }],
     ...overrides,
   };
 }
+
 
 function signedPost(app, urlPath, body, headers = {}) {
   const { headers: sig } = sign({
