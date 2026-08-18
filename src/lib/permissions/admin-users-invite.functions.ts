@@ -42,7 +42,17 @@ export const inviteUser = createServerFn({ method: "POST" })
         _roles: data.roles as any
       });
 
-      if (setupError) throw setupError;
+      if (setupError) {
+        const errorCode = (setupError as any).code || setupError.hint;
+        
+        if (errorCode === "INVALID_COMPANY_ACCESS") {
+          const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas.");
+          (err as any).code = "INVALID_COMPANY_ACCESS";
+          throw err;
+        }
+        
+        throw setupError;
+      }
     } catch (e: any) {
       console.error("[INVITE] Falha na configuração pós-convite. Tentando compensação...", e);
       // Compensação: Remove o usuário convidado se a configuração falhar para não deixar lixo
