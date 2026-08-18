@@ -128,7 +128,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
   }, [sellersQ.data, selectedCompanies]);
 
   const selectedSeller = useMemo(() => {
-    return sellersQ.data?.find(s => s.id === erpSellerId);
+    return sellersQ.data?.find((s: ErpSeller) => s.id === erpSellerId);
   }, [sellersQ.data, erpSellerId]);
 
   useEffect(() => {
