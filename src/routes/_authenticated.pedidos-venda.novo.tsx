@@ -1046,6 +1046,13 @@ function NewOrderPage() {
   const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
   const currentStepIndex = stepsOrder.indexOf(step);
 
+  const [deliveryTimeDraft, setDeliveryTimeDraft] = useState("");
+
+  // Sincronizar draft com deliveryAt quando mudar externamente
+  useEffect(() => {
+    setDeliveryTimeDraft(getCivilTime(deliveryAt));
+  }, [deliveryAt]);
+
   const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
     if (targetStep === "client") return true;
     if (targetStep === "items") return !!clientId;
