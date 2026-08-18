@@ -122,14 +122,18 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     mutationFn: async (values: UserFormValues) => {
       if (isEditing && user) {
         return updateUser({
-          id: user.id,
-          ...values,
-          roles: values.roles as any,
+          data: {
+            id: user.id,
+            ...values,
+            roles: values.roles as any,
+          }
         });
       } else {
         return inviteUser({
-          ...values,
-          roles: values.roles as any,
+          data: {
+            ...values,
+            roles: values.roles as any,
+          }
         });
       }
     },
