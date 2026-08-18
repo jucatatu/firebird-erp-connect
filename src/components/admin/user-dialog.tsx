@@ -185,7 +185,7 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
     mutationFn: async (values: UserFormValues) => {
       // Validação final de empresa vs seller antes de enviar
       if (values.erpSellerId) {
-        const seller = sellersQ.data?.find(s => s.id === values.erpSellerId);
+        const seller = sellersQ.data?.find((s: ErpSeller) => s.id === values.erpSellerId);
         if (seller && !values.companies.includes(seller.companyId)) {
           throw new Error("O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário.");
         }
