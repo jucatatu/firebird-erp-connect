@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCivilTime, normalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from '../order-time-utils';
+import { getCivilTime, normalizeTimeInput, finalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from '../order-time-utils';
 
 describe('Order Time Utils', () => {
   describe('getCivilTime', () => {
@@ -15,19 +15,25 @@ describe('Order Time Utils', () => {
   });
 
   describe('normalizeTimeInput', () => {
-    it('should normalize partial digits', () => {
+    it('should provide partial mask for digits', () => {
+      expect(normalizeTimeInput('1')).toBe('1');
+      expect(normalizeTimeInput('16')).toBe('16');
+      expect(normalizeTimeInput('163')).toBe('16:3');
       expect(normalizeTimeInput('1630')).toBe('16:30');
-      expect(normalizeTimeInput('830')).toBe('08:30');
       expect(normalizeTimeInput('0830')).toBe('08:30');
-      expect(normalizeTimeInput('1')).toBe('01:00');
-    });
-
-    it('should handle digits with colon already present', () => {
-      expect(normalizeTimeInput('16:30')).toBe('16:30');
     });
 
     it('should limit to 4 digits', () => {
       expect(normalizeTimeInput('12345')).toBe('12:34');
+    });
+  });
+
+  describe('finalizeTimeInput', () => {
+    it('should normalize shorthand to full HH:MM', () => {
+      expect(finalizeTimeInput('8')).toBe('08:00');
+      expect(finalizeTimeInput('16')).toBe('16:00');
+      expect(finalizeTimeInput('830')).toBe('08:30');
+      expect(finalizeTimeInput('1630')).toBe('16:30');
     });
   });
 

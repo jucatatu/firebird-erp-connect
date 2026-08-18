@@ -30,7 +30,7 @@ import { companyLabel } from "@/components/order-identifier";
 import { formatDateOnly, addDaysToDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
 import { cn } from "@/lib/utils";
-import { getCivilTime, normalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from "@/utils/order-time-utils";
+import { getCivilTime, normalizeTimeInput, finalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from "@/utils/order-time-utils";
 
 
 
@@ -629,6 +629,13 @@ function NewOrderPage() {
   }, []);
 
   const [clientSearch, setClientSearch] = useState("");
+  const [deliveryTimeDraft, setDeliveryTimeDraft] = useState("");
+
+  // Sincronizar draft com deliveryAt quando mudar externamente
+  useEffect(() => {
+    setDeliveryTimeDraft(getCivilTime(deliveryAt));
+  }, [deliveryAt]);
+
   const recentOrders = useRecentOrderDrafts(user?.id, companyId);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -1038,6 +1045,7 @@ function NewOrderPage() {
 
   const stepsOrder = ["client", "items", "delivery", "payment", "review"] as const;
   const currentStepIndex = stepsOrder.indexOf(step);
+
 
   const canNavigateTo = (targetStep: (typeof stepsOrder)[number]) => {
     if (targetStep === "client") return true;
@@ -2083,7 +2091,7 @@ function NewOrderPage() {
                         type="text" 
                         inputMode="numeric"
                         placeholder="HH:MM"
-                        value={getCivilTime(deliveryAt)}
+                        value={deliveryTimeDraft}
                         disabled={!deliveryAt}
                         className="h-12 text-base font-medium shadow-sm border-muted-foreground/20 focus:border-primary transition-all"
                         onChange={(e) => {
@@ -2092,17 +2100,20 @@ function NewOrderPage() {
                           // Permite digitar livremente até 5 caracteres (HH:MM)
                           if (val.length > 5) return;
 
+                          // Atualiza o estado local IMEDIATAMENTE para não perder caracteres
+                          const masked = normalizeTimeInput(val);
+                          setDeliveryTimeDraft(masked);
+
                           // Se apagou tudo
                           if (!val) {
                             setDelivery(deliver, deliveryAt?.split('T')[0] || "");
                             return;
                           }
 
-                          // Se tem 4 ou 5 caracteres, tentamos normalizar e validar
-                          // Só atualizamos o deliveryAt se for um formato válido de tempo
+                          // Commit automático apenas se tiver 4 dígitos e for válido
                           const digits = val.replace(/\D/g, "");
-                          if (digits.length >= 3) {
-                            const normalized = normalizeTimeInput(val);
+                          if (digits.length === 4) {
+                            const normalized = finalizeTimeInput(val);
                             if (isValidCivilTime(normalized) && deliveryAt) {
                               setDelivery(deliver, mergeCivilDateTime(deliveryAt, normalized));
                             }
@@ -2110,15 +2121,21 @@ function NewOrderPage() {
                         }}
                         onBlur={(e) => {
                           const val = e.target.value;
-                          if (!val) return;
+                          if (!val) {
+                            setDeliveryTimeDraft("");
+                            return;
+                          }
                           
-                          const normalized = normalizeTimeInput(val);
+                          const normalized = finalizeTimeInput(val);
                           if (isValidCivilTime(normalized)) {
+                            setDeliveryTimeDraft(normalized);
                             if (deliveryAt) {
                               setDelivery(deliver, mergeCivilDateTime(deliveryAt, normalized));
                             }
                           } else {
                             toast.error("Informe um horário válido no formato HH:MM.");
+                            // Restaura o valor real
+                            setDeliveryTimeDraft(getCivilTime(deliveryAt));
                           }
                         }}
                       />

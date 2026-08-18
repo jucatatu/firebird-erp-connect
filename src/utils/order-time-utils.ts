@@ -14,13 +14,27 @@ export function getCivilTime(deliveryAt: string | null | undefined): string {
 }
 
 /**
- * Normalizes user input into HH:MM format.
- * Supports: "1630" -> "16:30", "830" -> "08:30", "1:30" -> "01:30"
+ * Normalizes user input into HH:MM format (partial mask).
+ * Examples: "1" -> "1", "16" -> "16", "163" -> "16:3", "1630" -> "16:30"
  */
 export function normalizeTimeInput(value: string): string {
-  const digits = value.replace(/\D/g, "");
+  const digits = value.replace(/\D/g, "").slice(0, 4);
   if (digits.length === 0) return "";
   
+  if (digits.length <= 2) {
+    return digits;
+  }
+  
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+/**
+ * Final normalization for onBlur (e.g., "8" -> "08:00").
+ */
+export function finalizeTimeInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length === 0) return "";
+
   let hour = "";
   let minute = "";
 
@@ -31,10 +45,8 @@ export function normalizeTimeInput(value: string): string {
     hour = digits.slice(0, 1).padStart(2, "0");
     minute = digits.slice(1);
   } else {
-    // Take only first 4 digits
-    const fourDigits = digits.slice(0, 4);
-    hour = fourDigits.slice(0, 2);
-    minute = fourDigits.slice(2);
+    hour = digits.slice(0, 2);
+    minute = digits.slice(2);
   }
 
   return `${hour}:${minute}`;
