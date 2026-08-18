@@ -4,7 +4,7 @@ import { vi } from "vitest";
 // Mock TanStack Router
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
-  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+  Link: ({ children, ...props }: any) => React.createElement("a", props, children),
 }));
 
 // Global window mock for back navigation if needed
