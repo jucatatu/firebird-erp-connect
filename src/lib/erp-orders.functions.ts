@@ -2,9 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-
 type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
-
 
 // Reutilizamos tipos básicos para consistência
 export interface ErpResponse<T = JsonValue> {
@@ -49,8 +47,49 @@ export interface ErpClient {
       lng: number;
     } | null;
   } | null;
-
 }
+
+// --- SELLERS (Sprint 8.9.43.2) ---
+export interface ErpSeller {
+  id: number;
+  name: string;
+  nickname: string | null;
+  companyId: 1 | 3;
+}
+
+export const searchErpSellers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => 
+    z.object({
+      q: z.string().optional().default(""),
+      companyId: z.union([z.literal(1), z.literal(3)]).optional(),
+      limit: z.number().optional().default(50)
+    }).parse(d)
+  )
+  .handler(async ({ data }) => {
+    const { callErp } = await import("./erp.server");
+    const query: Record<string, string> = {};
+    if (data.q) query.q = data.q;
+    if (data.companyId) query.companyId = String(data.companyId);
+    if (data.limit) query.limit = String(data.limit);
+
+    return callErp({
+      method: "GET",
+      path: "/api/v1/sellers",
+      query
+    }) as Promise<ErpResponse<{ sellers: ErpSeller[] }>>;
+  });
+
+export const getErpSellerDetail = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((id: number) => z.number().parse(id))
+  .handler(async ({ data: sellerId }) => {
+    const { callErp } = await import("./erp.server");
+    return callErp({
+      method: "GET",
+      path: `/api/v1/sellers/${sellerId}`
+    }) as Promise<ErpResponse<{ seller: ErpSeller }>>;
+  });
 
 export interface ErpProduct {
   id: number;
@@ -76,7 +115,7 @@ export interface ErpEquipmentType {
 export const searchErpClients = createServerFn({ method: "GET" })
   .inputValidator((d) => 
     z.object({
-      q: z.string().optional().default(""), // Sprint 8.5.8: Permitir string vazia para listagem inicial se necessário
+      q: z.string().optional().default(""),
       document: z.string().optional(),
       phone: z.string().optional(),
       companyId: z.union([z.literal(1), z.literal(3)]).optional(),
@@ -162,10 +201,6 @@ export interface CreateOrderInput {
   }>;
 }
 
-/**
- * Sprint 8.9.21: Construtor de Payload Estrito (ERP API Contract)
- * Fonte da Verdade: erp-api/src/modules/orders/orders.validator.js
- */
 function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
   return {
     companyId: input.companyId,
@@ -181,12 +216,6 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
 
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
-    // deliveryAddress: NÃO vazar para o payload estrito se o ERP não aceita.
-    // Sprint 8.9.38: O contrato do ERP Node é estrito. 
-    // Se o backend Node não foi alterado para aceitar esses campos, não enviamos.
-    // Auditar se o Node aceita 'deliveryAddress' (provavelmente não, ou apenas campos específicos).
-    // Vou remover o envio desses campos operacionais de UI para o ERP.
-    // Manter apenas o essencial que o ERP espera (baseado no validator do Node).
 
     items: input.items.map(item => ({
       productId: item.productId,
@@ -209,9 +238,6 @@ export const createErpOrder = createServerFn({ method: "POST" })
     return handleCreateErpOrder(data.data, data.idempotencyKey, context.userId, supabaseAdmin);
   });
 
-/**
- * Lógica interna testável sem dependência de AsyncLocalStorage do createServerFn.
- */
 export async function handleCreateErpOrder(
   input: CreateOrderInput,
   idempotencyKey: string | undefined,
@@ -222,7 +248,6 @@ export async function handleCreateErpOrder(
 
   console.log("[ORDER SERVER] authenticated user resolved:", userId);
 
-  // 1. Resolver o sellerId e validar empresa (mantido conforme auditoria)
   const { data: userCompanies, error: ucaErr } = await supabaseAdmin
     .from("user_company_access")
     .select("company_id")
@@ -260,10 +285,6 @@ export async function handleCreateErpOrder(
 
   const erpPayload = buildErpCreateOrderPayload(input, profile.erp_seller_id);
 
-  console.log("[ORDER SAVE] start");
-  console.log("[ORDER SAVE] ERP payload built", JSON.stringify(erpPayload));
-  
-  console.log("[ORDER SAVE] POST started");
   const result = await callErp({
     method: "POST",
     path: "/api/v1/orders",
@@ -271,23 +292,8 @@ export async function handleCreateErpOrder(
     headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined
   }) as ErpResponse<{ orderId: number; orderNumber: number; status: string }>;
 
-  console.log("[ORDER SAVE] POST response", { 
-    ok: result.ok, 
-    status: result.status,
-    orderNumber: result.data?.orderNumber
-  });
-
   if (!result.ok || !result.data) return result;
 
-  console.log("[ORDER SAVE] snapshot started", { 
-    orderNumber: result.data.orderNumber,
-    orderId: result.data.orderId
-  });
-
-  // Sprint 8.9.5: Espelho Operacional (Mirror)
-  // Como a constraint erp_order_id_uniq é parcial (WHERE IS NOT NULL), o PostgREST/Supabase
-  // pode ter dificuldade com UPSERT sem especificar a constraint exata ou se houver conflito de RLS.
-  // Usamos uma estratégia de "Select then Insert/Update" para maior robustez server-side.
   try {
     const { data: existingMirror } = await supabaseAdmin
       .from("order_drafts")
@@ -312,10 +318,9 @@ export async function handleCreateErpOrder(
         erp_response: result.data,
         mirrored_at: new Date().toISOString()
       },
-      // Sprint 8.9.39.1: Persistir snapshot operacional detalhado no payload_v2 para auditoria
       payload_v2: {
         items: input.items,
-        equipments: input.equipments, // Aqui já contém role, capacityLiters, assignedProductId se vindo da store
+        equipments: input.equipments,
         deliveryAddress: input.deliveryAddress,
         deliveryAddressSource: input.deliveryAddressSource
       },
@@ -344,8 +349,6 @@ export async function handleCreateErpOrder(
       mirrorId = inserted.id;
     }
 
-    console.log("[ORDER SAVE] snapshot response success:", mirrorId);
-    console.log("[ORDER SAVE] finished");
     return {
       ...result,
       data: { ...result.data, mirrorId }
@@ -390,36 +393,18 @@ export interface PaymentOptionsPayload {
 
 export const getErpPaymentOptions = createServerFn({ method: "GET" })
   .handler(async () => {
-    console.log("[SERVER-FN] Entering getErpPaymentOptions (v2 - diagnostic)");
     try {
       const { callErp } = await import("./erp.server");
-      console.log("[SERVER-FN] Immediatly before callErp for payment-options");
-      
-      const result = await callErp({
+      return await callErp({
         method: "GET",
         path: "/api/v1/payment-options"
       }) as ErpResponse<PaymentOptionsPayload>;
-      
-      console.log("[SERVER-FN] callErp result received:", {
-        ok: result.ok,
-        status: result.status,
-        hasData: !!result.data,
-        hasTerms: Array.isArray(result.data?.paymentTerms),
-        termsCount: result.data?.paymentTerms?.length
-      });
-      
-      return result;
     } catch (err: any) {
-      console.error("[SERVER-FN] CRITICAL ERROR in getErpPaymentOptions:", err.message, err.stack);
       return {
         ok: false,
         status: 500,
         data: null,
-        error: {
-          code: "SERVER_FN_ERROR",
-          message: err.message || "Erro interno na Server Function",
-          retryable: true
-        }
+        error: { code: "SERVER_FN_ERROR", message: err.message, retryable: true }
       };
     }
   });
@@ -433,6 +418,7 @@ export const getErpClientDetail = createServerFn({ method: "GET" })
       path: `/api/v1/clients/${clientId}`
     }) as Promise<ErpResponse<ErpClient & { defaultPaymentMethodId?: number; defaultPaymentTermId?: number; defaultSaleTypeId?: number }>>;
   });
+
 export const updateErpOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { orderNumber: number; data: CreateOrderInput }) => d)
@@ -488,7 +474,6 @@ export const updateErpOrder = createServerFn({ method: "POST" })
     return result;
   });
 
-
 export interface ErpOrderStatus {
   orderId: number | null;
   orderNumber: number;
@@ -498,8 +483,6 @@ export interface ErpOrderStatus {
   statusDescription: string | null;
   canEdit: boolean;
 }
-
-
 
 export const getErpCustomerGroups = createServerFn({ method: "GET" })
   .handler(async () => {
@@ -537,7 +520,6 @@ export interface CreateClientInput {
   };
 }
 
-
 export const createErpClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: CreateClientInput) => d)
@@ -546,7 +528,6 @@ export const createErpClient = createServerFn({ method: "POST" })
     const { callErp } = await import("./erp.server");
     const { userId } = context;
 
-    // 0. Validar área de atendimento (Regra Rígida 50km - Sprint 8.9.42.2)
     if (data.address.validation) {
       const { isWithinCustomerServiceArea } = await import("@/utils/geo-utils");
       if (!isWithinCustomerServiceArea(data.address.validation.lat, data.address.validation.lng)) {
@@ -554,11 +535,7 @@ export const createErpClient = createServerFn({ method: "POST" })
           ok: false,
           status: 422,
           data: null,
-          error: {
-            code: "ADDRESS_OUTSIDE_SERVICE_AREA",
-            message: "Endereço fora da área de atendimento (50 km de Jaraguá do Sul).",
-            retryable: false
-          }
+          error: { code: "ADDRESS_OUTSIDE_SERVICE_AREA", message: "Endereço fora da área de atendimento (50 km de Jaraguá do Sul).", retryable: false }
         };
       }
     } else {
@@ -566,16 +543,10 @@ export const createErpClient = createServerFn({ method: "POST" })
         ok: false,
         status: 422,
         data: null,
-        error: {
-          code: "LOCATION_VALIDATION_REQUIRED",
-          message: "A validação geográfica do endereço é obrigatória.",
-          retryable: false
-        }
+        error: { code: "LOCATION_VALIDATION_REQUIRED", message: "A validação geográfica do endereço é obrigatória.", retryable: false }
       };
     }
 
-
-    // 1. Validar acesso à empresa
     const { data: userCompanies, error: ucaErr } = await supabaseAdmin
       .from("user_company_access")
       .select("company_id")
@@ -590,7 +561,6 @@ export const createErpClient = createServerFn({ method: "POST" })
       };
     }
 
-    // 2. Carregar erp_seller_id
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("erp_seller_id")
@@ -601,7 +571,6 @@ export const createErpClient = createServerFn({ method: "POST" })
       return { ok: false, status: 422, data: null, error: { code: "SELLER_NOT_MAPPED", message: "Vendedor não mapeado no ERP.", retryable: false } };
     }
 
-    // 3. Chamar Node
     return callErp({
       method: "POST",
       path: "/api/v1/clients",
@@ -613,7 +582,6 @@ export const getErpOrdersStatus = createServerFn({ method: "GET" })
   .inputValidator((numbers: number[]) => z.array(z.number()).parse(numbers))
   .handler(async ({ data: orderNumbers }) => {
     if (orderNumbers.length === 0) return { ok: true, status: 200, data: [], error: null };
-    
     const { callErp } = await import("./erp.server");
     return callErp({
       method: "GET",
@@ -654,8 +622,6 @@ export const getErpOrderDetail = createServerFn({ method: "GET" })
     if (!result.ok || !result.data) return result;
 
     const raw = result.data;
-    // Mapeamento exato do contrato Node (orders.repository.js / orders.mapper.js) para CreateOrderInput
-    // O backend retorna campos em camelCase pois é orquestrado pelo service/mapper
     const mapped: ErpOrderDetail = {
       orderId: Number(raw.ID_ORDENS_VENDA ?? raw.orderId),
       orderNumber: Number(raw.N_PEDIDO ?? raw.orderNumber),
@@ -690,6 +656,3 @@ export const getErpOrderDetail = createServerFn({ method: "GET" })
 
     return { ...result, data: mapped };
   });
-
-
-
