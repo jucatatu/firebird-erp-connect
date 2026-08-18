@@ -35,7 +35,7 @@ import {
 const profileFormSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   description: z.string().optional(),
-  active: z.boolean().default(true),
+  active: z.boolean(),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
