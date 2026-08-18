@@ -21,86 +21,39 @@ export const updateUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId: execUserId } = context;
 
+    // A RPC admin_update_user já valida:
+    // 1. Sincronização Perfil Administrador <=> role admin
+    // 2. Proteção do Último Admin (LAST_ADMIN_PROTECTION)
+    // 3. Persistência Atômica de todas as tabelas públicas
+
+    // Verificação de permissão server-side básica antes de chamar a RPC
+    const isDeactivating = !data.active;
+    const action = isDeactivating ? "delete" : "edit";
+
     await requirePermission({
       userId: execUserId,
       resource: "admin.users",
-      action: "edit",
+      action,
       supabase
     });
 
-    // Se estiver desativando ou removendo role admin ou perfil admin, precisa de admin.users/delete
-    // e validação de último admin
-    const { data: targetProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("active, permission_profile_id, permission_profiles(name)")
-      .eq("id", data.id)
-      .single();
-    
-    const { data: targetRoles } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", data.id);
+    const { error } = await supabaseAdmin.rpc("admin_update_user", {
+      _target_user_id: data.id,
+      _full_name: data.fullName,
+      _active: data.active,
+      _permission_profile_id: data.permissionProfileId,
+      _erp_seller_id: data.erpSellerId as any,
+      _company_ids: data.companies,
+      _roles: data.roles
+    });
 
-    const isTargetAdmin = targetRoles?.some(r => r.role === 'admin') && 
-                        (targetProfile?.permission_profiles as any)?.name === 'Administrador';
-
-    const willBeAdmin = data.roles.includes('admin') && 
-                       // Precisamos checar o nome do novo perfil selecionado
-                       (await supabaseAdmin.from("permission_profiles").select("name").eq("id", data.permissionProfileId).single()).data?.name === 'Administrador';
-
-    const isDeactivating = (targetProfile?.active && !data.active);
-    const isLosingAdmin = isTargetAdmin && !willBeAdmin;
-
-    if (isDeactivating || isLosingAdmin) {
-      await requirePermission({
-        userId: execUserId,
-        resource: "admin.users",
-        action: "delete",
-        supabase
-      });
-
-      const { data: adminsCount } = await supabase.rpc("count_active_admins");
-      if (isTargetAdmin && (adminsCount || 0) <= 1) {
-         const error = new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
-         (error as any).code = "LAST_ADMIN_PROTECTION";
-         throw error;
+    if (error) {
+      if (error.hint === "LAST_ADMIN_PROTECTION") {
+        const err = new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
+        (err as any).code = "LAST_ADMIN_PROTECTION";
+        throw err;
       }
-    }
-
-    // Sincronização automática Perfil Administrador <=> role admin
-    const newProfileName = (await supabaseAdmin.from("permission_profiles").select("name").eq("id", data.permissionProfileId).single()).data?.name;
-    const finalRoles = [...data.roles];
-    if (newProfileName === 'Administrador' && !finalRoles.includes('admin')) {
-      finalRoles.push('admin');
-    } else if (newProfileName !== 'Administrador' && finalRoles.includes('admin')) {
-      // Se tirou perfil admin mas manteve role admin, ou vice-versa, forçamos consistência
-      // Se não for admin no perfil, não pode ser admin no role (conforme plano item 5)
-      const idx = finalRoles.indexOf('admin');
-      finalRoles.splice(idx, 1);
-    }
-
-    // Persistência
-    await supabaseAdmin.from("profiles").update({
-      full_name: data.fullName,
-      active: data.active,
-      permission_profile_id: data.permissionProfileId,
-      erp_seller_id: data.erpSellerId
-    }).eq("id", data.id);
-
-    // Atualiza empresas (Delete & Insert)
-    await supabaseAdmin.from("user_company_access").delete().eq("user_id", data.id);
-    if (data.companies.length > 0) {
-      await supabaseAdmin.from("user_company_access").insert(
-        data.companies.map(c => ({ user_id: data.id, company_id: c }))
-      );
-    }
-
-    // Atualiza roles (Delete & Insert)
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.id);
-    if (finalRoles.length > 0) {
-      await supabaseAdmin.from("user_roles").insert(
-        finalRoles.map(r => ({ user_id: data.id, role: r }))
-      );
+      throw error;
     }
 
     return { success: true };
