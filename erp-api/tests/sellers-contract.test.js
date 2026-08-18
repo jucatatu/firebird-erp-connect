@@ -5,17 +5,23 @@ const expect = require("node:assert");
 const request = require("supertest");
 const { mock } = require("node:test");
 
+// Forçar variáveis de ambiente mínimas para o Zod não travar o boot do app nos testes
+process.env.FIREBIRD_HOST = "localhost";
+process.env.FIREBIRD_DATABASE = "test.fdb";
+process.env.FIREBIRD_USER = "SYSDBA";
+process.env.FIREBIRD_PASSWORD = "masterkey";
+process.env.SKIP_AUTH_FOR_TEST = "true";
+process.env.NODE_ENV = "test";
+
 // Mocking the repository to test the contract deterministically
 const sellersRepository = require("../src/modules/sellers/sellers.repository");
 
-// Force bypass of auth for tests
-process.env.SKIP_AUTH_FOR_TEST = "true";
 const app = require("../src/app").createApp();
 
 test("Sellers Module Contract (Isolated)", async (t) => {
   // Mock searchSellers
   mock.method(sellersRepository, "searchSellers", async ({ query, limit, companyId }) => {
-    if (companyId === 99) return []; // In reality, the controller validates this
+    if (companyId === 99) return [];
     return [
       { id: 1, name: "VENDEDOR TESTE", nickname: "TESTE", companyId: 1 }
     ];
