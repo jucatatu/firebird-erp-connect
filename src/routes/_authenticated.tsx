@@ -91,7 +91,7 @@ function AuthenticatedLayout() {
   const roles = rolesQ.data ?? [];
   const role = primaryRole(roles);
   const isAdmin = roles.includes("admin");
-  const fullName = profileQ.data?.full_name || user.email || "Usuário";
+  const fullName = (profileQ.data as any)?.full_name || user.email || "Usuário";
 
   return (
     <AppShell fullName={fullName} email={user.email ?? undefined} role={role} isAdmin={isAdmin}>
