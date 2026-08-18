@@ -12,7 +12,7 @@ export const inviteUser = createServerFn({ method: "POST" })
     permissionProfileId: z.string(),
     companies: z.array(z.number()),
     roles: z.array(z.enum(['admin', 'vendedor', 'aprovador'])),
-    erpSellerId: z.number().optional()
+    erpSellerId: z.number().nullable()
   }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -31,31 +31,22 @@ export const inviteUser = createServerFn({ method: "POST" })
     const newUserId = invite.user.id;
 
     try {
-      // 2. Configurar perfil e tabelas relacionadas
-      // Nota: Esta etapa não é atômica com o convite Auth
-      await supabaseAdmin.from("profiles").upsert({
-        id: newUserId,
-        full_name: data.fullName,
-        active: true,
-        permission_profile_id: data.permissionProfileId,
-        erp_seller_id: data.erpSellerId ?? null
+      // 2. Configurar perfil e tabelas relacionadas ATOMICAMENTE via RPC
+      const { error: setupError } = await supabaseAdmin.rpc("admin_setup_invited_user", {
+        _user_id: newUserId,
+        _full_name: data.fullName,
+        _permission_profile_id: data.permissionProfileId,
+        _erp_seller_id: data.erpSellerId,
+        _company_ids: data.companies,
+        _roles: data.roles
       });
 
-      if (data.companies.length > 0) {
-        await supabaseAdmin.from("user_company_access").insert(
-          data.companies.map(c => ({ user_id: newUserId, company_id: c }))
-        );
-      }
-
-      if (data.roles.length > 0) {
-        await supabaseAdmin.from("user_roles").insert(
-          data.roles.map(r => ({ user_id: newUserId, role: r }))
-        );
-      }
-    } catch (e) {
-      // Compensação: tenta desativar o profile ou remover dados parciais
-      console.error("[COMPENSATION] Falha na configuração pós-convite:", e);
-      throw new Error("Usuário convidado no Auth, mas falha na configuração de perfis.");
+      if (setupError) throw setupError;
+    } catch (e: any) {
+      console.error("[INVITE] Falha na configuração pós-convite. Tentando compensação...", e);
+      // Compensação: Remove o usuário convidado se a configuração falhar para não deixar lixo
+      await supabaseAdmin.auth.admin.deleteUser(newUserId);
+      throw new Error(`Usuário convidado, mas falha na configuração: ${e.message || 'Erro desconhecido'}`);
     }
 
     return { success: true };
