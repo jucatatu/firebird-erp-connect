@@ -275,5 +275,95 @@ describe('Admin Hardening & Sync Tests', () => {
         expect(e.code).toBe('INVALID_COMPANY_ACCESS');
       }
     });
+
+    it('should prioritize hint over P0001 code for LAST_ADMIN_PROTECTION', async () => {
+      const data = {
+        id: 'user-1',
+        fullName: 'Test',
+        permissionProfileId: 'vendedor-profile',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: null,
+        active: false
+      };
+
+      (supabaseAdmin.from as any).mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
+          })
+        })
+      });
+
+      // Simula o cenário onde o PostgreSQL retorna code genérico E hint específico
+      (supabaseAdmin.rpc as any).mockResolvedValue({ 
+        error: { code: 'P0001', hint: 'LAST_ADMIN_PROTECTION', message: 'Raise exception error' } 
+      });
+
+      const promise = (updateUser as any)({ data, context: mockContext });
+      await expect(promise).rejects.toThrow('Não é possível deixar o sistema sem administradores ativos');
+      try {
+        await promise;
+      } catch (e: any) {
+        expect(e.code).toBe('LAST_ADMIN_PROTECTION');
+      }
+    });
+
+    it('should prioritize hint over P0001 code for INVALID_COMPANY_ACCESS in inviteUser', async () => {
+      const data = {
+        email: 'test@example.com',
+        fullName: 'Test User',
+        permissionProfileId: 'profile-1',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: null
+      };
+
+      (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
+      (supabaseAdmin.auth.admin.deleteUser as any).mockResolvedValue({ error: null });
+      
+      // Simula falha na RPC com code + hint
+      (supabaseAdmin.rpc as any).mockResolvedValue({ 
+        error: { code: 'P0001', hint: 'INVALID_COMPANY_ACCESS', message: 'Invalid companies' } 
+      });
+
+      const promise = (inviteUser as any)({ data, context: mockContext });
+      await expect(promise).rejects.toThrow('Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas');
+      
+      // Verifica compensação do Auth
+      expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith('new-user');
+    });
+
+    it('should prioritize hint over P0001 code for INVALID_PERMISSION_PROFILE', async () => {
+      const data = {
+        id: 'user-1',
+        fullName: 'Test',
+        permissionProfileId: 'invalid-id',
+        companies: [1],
+        roles: ['vendedor'] as any,
+        erpSellerId: null,
+        active: true
+      };
+
+      (supabaseAdmin.from as any).mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
+          })
+        })
+      });
+
+      (supabaseAdmin.rpc as any).mockResolvedValue({ 
+        error: { code: 'P0001', hint: 'INVALID_PERMISSION_PROFILE', message: 'Profile not found' } 
+      });
+
+      const promise = (updateUser as any)({ data, context: mockContext });
+      await expect(promise).rejects.toThrow('Perfil de permissão inexistente ou inativo');
+      try {
+        await promise;
+      } catch (e: any) {
+        expect(e.code).toBe('INVALID_PERMISSION_PROFILE');
+      }
+    });
   });
 });

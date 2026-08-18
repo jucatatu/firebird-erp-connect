@@ -43,11 +43,18 @@ export const inviteUser = createServerFn({ method: "POST" })
       });
 
       if (setupError) {
-        const errorCode = (setupError as any).code || setupError.hint;
+        // Prioridade: hint (aplicação) -> code (PostgreSQL genérico)
+        const errorCode = setupError.hint || (setupError as any).code;
         
         if (errorCode === "INVALID_COMPANY_ACCESS") {
           const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas.");
           (err as any).code = "INVALID_COMPANY_ACCESS";
+          throw err;
+        }
+
+        if (errorCode === "INVALID_PERMISSION_PROFILE") {
+          const err = new Error("Perfil de permissão inexistente ou inativo.");
+          (err as any).code = "INVALID_PERMISSION_PROFILE";
           throw err;
         }
         

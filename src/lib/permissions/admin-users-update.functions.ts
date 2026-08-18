@@ -55,8 +55,8 @@ export const updateUser = createServerFn({ method: "POST" })
     });
 
     if (error) {
-      // Prioriza identificação pelo code/hint programático
-      const errorCode = (error as any).code || error.hint;
+      // Prioridade: hint (aplicação) -> code (PostgreSQL genérico)
+      const errorCode = error.hint || (error as any).code;
       
       if (errorCode === "LAST_ADMIN_PROTECTION") {
         const err = new Error("Operação bloqueada: Não é possível deixar o sistema sem administradores ativos.");
@@ -67,6 +67,12 @@ export const updateUser = createServerFn({ method: "POST" })
       if (errorCode === "INVALID_COMPANY_ACCESS") {
         const err = new Error("Acesso inválido: Apenas empresas 1 (GRAAL) e 3 (GROTT) são permitidas e pelo menos uma deve ser selecionada.");
         (err as any).code = "INVALID_COMPANY_ACCESS";
+        throw err;
+      }
+
+      if (errorCode === "INVALID_PERMISSION_PROFILE") {
+        const err = new Error("Perfil de permissão inexistente ou inativo.");
+        (err as any).code = "INVALID_PERMISSION_PROFILE";
         throw err;
       }
       
