@@ -51,6 +51,11 @@ import { updateUser } from '../admin-users-update.functions';
 import { updatePermissionProfile } from '../admin-profiles-crud.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 
+const mockContext = { 
+  userId: 'admin-1', 
+  supabase: {} as any 
+};
+
 describe('Admin Hardening & Sync Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,7 +72,7 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: null
       };
 
-      await expect(inviteUser({ data } as any)).rejects.toThrow();
+      await expect(inviteUser({ data, context: mockContext } as any)).rejects.toThrow();
     });
 
     it('should accept valid company IDs [1, 3] in inviteUser', async () => {
@@ -83,7 +88,7 @@ describe('Admin Hardening & Sync Tests', () => {
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      const result = await inviteUser({ data } as any);
+      const result = await inviteUser({ data, context: mockContext } as any);
       expect(result.success).toBe(true);
     });
   });
@@ -106,7 +111,7 @@ describe('Admin Hardening & Sync Tests', () => {
         })
       });
 
-      await expect(updatePermissionProfile({ data } as any)).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
+      await expect(updatePermissionProfile({ data, context: mockContext } as any)).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
     });
 
     it('should reject deactivating a system profile', async () => {
@@ -126,7 +131,7 @@ describe('Admin Hardening & Sync Tests', () => {
         })
       });
 
-      await expect(updatePermissionProfile({ data } as any)).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
+      await expect(updatePermissionProfile({ data, context: mockContext } as any)).rejects.toThrow('SYSTEM_PROFILE_PROTECTED');
     });
   });
 
@@ -144,7 +149,7 @@ describe('Admin Hardening & Sync Tests', () => {
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      await inviteUser({ data } as any);
+      await inviteUser({ data, context: mockContext } as any);
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_setup_invited_user', expect.objectContaining({
         _erp_seller_id: null
@@ -174,7 +179,7 @@ describe('Admin Hardening & Sync Tests', () => {
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
 
-      await updateUser({ data } as any);
+      await updateUser({ data, context: mockContext } as any);
       
       expect(supabaseAdmin.rpc).toHaveBeenCalledWith('admin_update_user', expect.objectContaining({
         _erp_seller_id: 123 // Preserved from DB, not from payload
@@ -206,7 +211,7 @@ describe('Admin Hardening & Sync Tests', () => {
         error: { message: 'INVALID_PERMISSION_PROFILE: Perfil de permissão inexistente.' } 
       });
 
-      await expect(updateUser({ data } as any)).rejects.toThrow('Perfil de permissão inexistente');
+      await expect(updateUser({ data, context: mockContext } as any)).rejects.toThrow('Perfil de permissão inexistente');
     });
 
     it('should handle LAST_ADMIN_PROTECTION from RPC', async () => {
@@ -232,7 +237,7 @@ describe('Admin Hardening & Sync Tests', () => {
         error: { message: 'LAST_ADMIN_PROTECTION: Não é permitido desativar ou remover privilégios do último administrador ativo.' } 
       });
 
-      await expect(updateUser({ data } as any)).rejects.toThrow('Não é permitido desativar ou remover privilégios do último administrador ativo');
+      await expect(updateUser({ data, context: mockContext } as any)).rejects.toThrow('Não é permitido desativar ou remover privilégios do último administrador ativo');
     });
   });
 });
