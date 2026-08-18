@@ -811,6 +811,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      count_active_admins: { Args: never; Returns: number }
       has_company_access: {
         Args: { _company_id: number; _uid: string }
         Returns: boolean

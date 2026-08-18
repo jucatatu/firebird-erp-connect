@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { listPermissionProfiles } from "@/lib/permissions/admin-profiles.functions";
 import { PermissionGate } from "@/components/permissions/permission-gate";
+import { PermissionAction } from "@/components/permissions/permission-action";
 import { Shield, Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -33,10 +35,13 @@ function AdminProfilesPage() {
             Defina papéis e regras de acesso para os usuários do sistema.
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo perfil
-        </Button>
+        <PermissionAction resource="admin.permission_profiles" action="create">
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo perfil
+          </Button>
+        </PermissionAction>
+
       </div>
 
       <PermissionGate resource="admin.permission_profiles" action="view">
@@ -82,10 +87,13 @@ function AdminProfilesPage() {
                     <span className="text-sm font-medium">{profile.userCount}</span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      Gerenciar Regras
-                    </Button>
+                    <PermissionAction resource="admin.permission_profiles" action="edit">
+                      <Button variant="ghost" size="sm">
+                        Gerenciar Regras
+                      </Button>
+                    </PermissionAction>
                   </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>

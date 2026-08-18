@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { listAdminUsers } from "@/lib/permissions/admin-users.functions";
 import { PermissionGate } from "@/components/permissions/permission-gate";
+import { PermissionAction } from "@/components/permissions/permission-action";
 import { ShieldAlert, UserPlus, Search, Filter } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,10 +44,13 @@ function AdminUsersPage() {
             Gerencie o acesso e as permissões dos colaboradores.
           </p>
         </div>
-        <Button className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Novo usuário
-        </Button>
+        <PermissionAction resource="admin.users" action="create">
+          <Button className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Novo usuário
+          </Button>
+        </PermissionAction>
+
       </div>
 
       <PermissionGate resource="admin.users" action="view">
@@ -118,10 +123,13 @@ function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      Editar
-                    </Button>
+                    <PermissionAction resource="admin.users" action="edit">
+                      <Button variant="ghost" size="sm">
+                        Editar
+                      </Button>
+                    </PermissionAction>
                   </TableCell>
+
                 </TableRow>
               ))}
               {filteredUsers.length === 0 && (

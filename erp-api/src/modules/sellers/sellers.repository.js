@@ -1,24 +1,19 @@
 "use strict";
 
-const firebird = require("../../shared/database/firebird-client");
-const { toErpSeller } = require("./sellers.mapper");
+/**
+ * Módulo de Vendedores ERP.
+ * STATUS: SELLERS PENDENTE DE HOMOLOGAÇÃO FIREBIRD.
+ * 
+ * Este módulo não deve executar SQL baseado em nomes presumidos (VENDEDORES, FUNCIONARIOS)
+ * até que o schema seja comprovado via introspecção de metadados.
+ */
 
 async function searchSellers(query = "", limit = 50) {
-  const sql = "SELECT FIRST ? ID_VENDEDOR, NOME FROM VENDEDORES WHERE NOME LIKE ? ORDER BY NOME";
-  const params = [limit, "%" + query + "%"];
-  
-  try {
-    const rows = await firebird.executeQuery(sql, params);
-    return rows.map(toErpSeller);
-  } catch (err) {
-    const sqlFallback = "SELECT FIRST ? ID as ID_VENDEDOR, NOME FROM FUNCIONARIOS WHERE NOME LIKE ? ORDER BY NOME";
-    try {
-      const fallbackRows = await firebird.executeQuery(sqlFallback, params);
-      return fallbackRows.map(toErpSeller);
-    } catch (err2) {
-      return [];
-    }
-  }
+  // Retorna erro controlado conforme o plano para evitar SQL inventado.
+  const err = new Error("SELLER_SCHEMA_NOT_DISCOVERED");
+  err.code = "SELLER_SCHEMA_NOT_DISCOVERED";
+  throw err;
 }
 
 module.exports = { searchSellers };
+
