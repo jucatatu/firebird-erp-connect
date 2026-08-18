@@ -63,7 +63,6 @@ vi.mock('@/lib/erp-sellers.functions', () => ({
 }));
 
 // 2. Now import the actual functions (which will use the mocks)
-import { inviteUser } from '../admin-users-invite.functions';
 import { updateUser } from '../admin-users-update.functions';
 import { updatePermissionProfile } from '../admin-profiles-crud.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
