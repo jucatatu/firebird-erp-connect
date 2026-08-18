@@ -600,6 +600,7 @@ export type Database = {
           id: string
           permission_profile_id: string | null
           updated_at: string
+          must_change_password: boolean
         }
         Insert: {
           active?: boolean
@@ -609,6 +610,7 @@ export type Database = {
           id: string
           permission_profile_id?: string | null
           updated_at?: string
+          must_change_password?: boolean
         }
         Update: {
           active?: boolean
@@ -618,6 +620,7 @@ export type Database = {
           id?: string
           permission_profile_id?: string | null
           updated_at?: string
+          must_change_password?: boolean
         }
         Relationships: [
           {
