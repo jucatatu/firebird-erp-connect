@@ -15,9 +15,9 @@ const idSchema = z.object({
 
 async function handleSearch(req, res, next) {
   try {
+    const { AppError } = require("../../shared/errors/app-error");
     const parsed = searchSchema.safeParse(req.query);
     if (!parsed.success) {
-      const { AppError } = require("../../shared/errors/app-error");
       throw new AppError({
         message: "Parâmetros de busca inválidos.",
         statusCode: 400,
@@ -36,9 +36,9 @@ async function handleSearch(req, res, next) {
 
 async function handleGetById(req, res, next) {
   try {
+    const { AppError } = require("../../shared/errors/app-error");
     const parsed = idSchema.safeParse(req.params);
     if (!parsed.success) {
-      const { AppError } = require("../../shared/errors/app-error");
       throw new AppError({
         message: "ID de vendedor inválido.",
         statusCode: 400,
@@ -51,12 +51,10 @@ async function handleGetById(req, res, next) {
     const seller = await sellersRepository.getSellerById(id);
 
     if (!seller) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          code: "SELLER_NOT_FOUND",
-          message: "Vendedor não encontrado no ERP ou não autorizado."
-        }
+      throw new AppError({
+        message: "Vendedor não encontrado no ERP ou não autorizado.",
+        statusCode: 404,
+        code: "SELLER_NOT_FOUND"
       });
     }
 
