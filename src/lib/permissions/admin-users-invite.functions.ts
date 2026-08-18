@@ -31,16 +31,35 @@ export const inviteUser = createServerFn({ method: "POST" })
     const newUserId = invite.user.id;
 
     try {
+      // Sprint 8.9.43.2: Validar erpSellerId server-side antes de persistir
+      if (data.erpSellerId) {
+        const { getErpSellerDetail } = await import("@/lib/erp-orders.functions");
+        const sellerResult = await getErpSellerDetail({ data: data.erpSellerId });
+        
+        if (!sellerResult.ok || !sellerResult.data?.seller) {
+          const err = new Error("O vendedor selecionado não existe mais no ERP.");
+          (err as any).code = "SELLER_NOT_FOUND";
+          throw err;
+        }
+
+        const seller = sellerResult.data.seller;
+        if (!data.companies.includes(seller.companyId as any)) {
+          const err = new Error("O vendedor ERP selecionado pertence a uma empresa que não está habilitada para este usuário.");
+          (err as any).code = "SELLER_COMPANY_MISMATCH";
+          throw err;
+        }
+      }
+
       // 2. Configurar perfil e tabelas relacionadas ATOMICAMENTE via RPC
-      // Enquanto Sellers estiver pendente, forçamos null no convite
       const { error: setupError } = await supabaseAdmin.rpc("admin_setup_invited_user", {
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
-        _erp_seller_id: null as any, // Forçado null enquanto Sellers pendente
+        _erp_seller_id: data.erpSellerId as any,
         _company_ids: data.companies as any,
         _roles: data.roles as any
       });
+
 
       if (setupError) {
         // Prioridade: hint (aplicação) -> code (PostgreSQL genérico)
