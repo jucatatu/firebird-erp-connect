@@ -15,10 +15,10 @@ const {
 
 const mapper = require("./orders.mapper");
 const repository = require("./orders.repository");
-const clientsService = { getClientById: async () => ({ address: { city: "Jaraguá", state: "SC" } }) };
-const productsService = { getProductById: async () => ({ active: true }) };
-const pricingService = { resolvePrice: async () => ({ priceFound: true, unitPrice: 10, strategy: "test" }) };
-const equipmentService = { listEquipmentTypes: async () => ({ equipmentTypes: [{ id: 5 }] }) };
+const clientsService = require("../clients/clients.service");
+const productsService = require("../products/products.service");
+const pricingService = require("../pricing/pricing.service");
+const equipmentService = require("../equipment-types/equipment-types.service");
 const companyRule = require("../../shared/company/company-rule");
 
 /**

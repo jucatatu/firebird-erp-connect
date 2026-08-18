@@ -116,24 +116,41 @@ const HMAC_SECRET = process.env.HMAC_SECRET;
 
 function payload(overrides = {}) {
   return {
-    clientId: 100, // ID real no schema ERP
+    customerId: 100,
     companyId: 1,
     sellerId: 10,
     saleTypeId: 1,
     paymentTermId: 1,
     paymentMethodId: 1,
-    deliver: true, // boolean real
-    deliveryAt: "2026-07-25T14:00:00.000Z",
-    returnEquipment: false, // boolean real
+    delivery: true,
+    expectedDeliveryAt: "2026-07-25T14:00:00.000Z",
+    deliveryAt: null,
+    retrieveEquipment: false,
     returnAt: null,
-    freightValue: 0, // finite number
+    expectedReturnAt: null,
+    total: 31,
+    freight: 0,
+    address: {
+      state: "SC",
+      city: "Jaragua do Sul",
+      district: "Centro",
+      street: "Rua A",
+      number: "100",
+      complement: null,
+      postalCode: "89250000",
+    },
     notes: null,
-    items: [{ productId: 10, manualUnitPrice: 15.5, quantity: 2 }],
-    equipments: [{ equipmentTypeId: 5, quantity: 1 }],
+    stockOutput: false,
+    userId: 5,
+    carrierId: null,
+    carrierVehicleId: null,
+    commercialDiscountPercent: 0,
+    posSessionId: null,
+    items: [{ productId: 10, unitPrice: 15.5, quantity: 2, discount: 0 }],
+    equipment: [{ equipmentTypeId: 5, productId: null, quantity: 1 }],
     ...overrides,
   };
 }
-
 
 function signedPost(app, urlPath, body, headers = {}) {
   const { headers: sig } = sign({
@@ -184,7 +201,6 @@ test("POST orders sem Idempotency-Key 400", async () => {
   const app = createApp();
   const res = await signedPost(app, "/api/v1/orders", payload());
   assert.equal(res.status, 400);
-  // O contrato do orders.service.js retorna IDEMPOTENCY_KEY_REQUIRED
   assert.equal(res.body.error.code, "IDEMPOTENCY_KEY_REQUIRED");
 });
 
@@ -209,11 +225,11 @@ test("sucesso 201 com id orderNumber companyId status; GERA_COBRANCA=1 nas procs
   });
   assert.equal(res.status, 201);
   assert.equal(res.body.success, true);
-  assert.equal(res.body.data.id, 999);
+  assert.equal(res.body.order.id, 999);
   // N_PEDIDO = ID no ERP.
-  assert.equal(res.body.data.orderNumber, 999);
-  assert.equal(res.body.data.companyId, 1);
-  assert.equal(res.body.data.status, "LIBERADO");
+  assert.equal(res.body.order.orderNumber, 999);
+  assert.equal(res.body.order.companyId, 1);
+  assert.equal(res.body.order.status, "LIBERADO");
   const completeCall = state.calls.find((c) =>
     /FROM SP_CAD_ORDEM_VENDA_COMPLETO/i.test(c.sql),
   );
@@ -319,7 +335,7 @@ test("payload sem companyId + cliente GROTT companyId=3", async () => {
     { "idempotency-key": "resolve-1" },
   );
   assert.equal(res.status, 201);
-  assert.equal(res.body.data.companyId, 3);
+  assert.equal(res.body.order.companyId, 3);
   const completeCall = state.calls.find((c) =>
     /FROM SP_CAD_ORDEM_VENDA_COMPLETO/i.test(c.sql),
   );
@@ -352,9 +368,9 @@ test("mutex global serializa criações concorrentes (chaves distintas)", async 
   // Serialização: nunca mais de 1 transação ativa ao mesmo tempo.
   assert.equal(state.maxActiveTx, 1);
   // IDs distintos, cada resposta corresponde ao próprio payload.
-  assert.notEqual(r1.body.data.id, r2.body.data.id);
-  assert.ok([1001, 1002].includes(r1.body.data.id));
-  assert.ok([1001, 1002].includes(r2.body.data.id));
+  assert.notEqual(r1.body.order.id, r2.body.order.id);
+  assert.ok([1001, 1002].includes(r1.body.order.id));
+  assert.ok([1001, 1002].includes(r2.body.order.id));
   assert.equal(state.commits, 2);
   assert.equal(state.rollbacks, 0);
 });
