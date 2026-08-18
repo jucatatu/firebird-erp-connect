@@ -30,7 +30,7 @@ import { companyLabel } from "@/components/order-identifier";
 import { formatDateOnly, addDaysToDateOnly } from "@/utils/date-utils";
 import { useSwipeable } from "react-swipeable";
 import { cn } from "@/lib/utils";
-import { getCivilTime, normalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from "@/utils/order-time-utils";
+import { getCivilTime, normalizeTimeInput, finalizeTimeInput, isValidCivilTime, mergeCivilDateTime } from "@/utils/order-time-utils";
 
 
 
