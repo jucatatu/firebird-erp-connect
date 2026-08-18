@@ -8,6 +8,10 @@ vi.mock('@tanstack/react-start', () => {
         options.middleware = m;
         return builder;
       }),
+      inputValidator: vi.fn().mockImplementation((v) => {
+        options.inputValidator = v;
+        return builder;
+      }),
       handler: vi.fn().mockImplementation((h) => {
         options.handler = h;
         const execFn: any = async (input: any) => options.handler(input);
@@ -21,7 +25,21 @@ vi.mock('@tanstack/react-start', () => {
 
 vi.mock('@/integrations/supabase/client.server', () => ({
   supabaseAdmin: {
-    rpc: vi.fn(),
+    auth: {
+      admin: {
+        updateUserById: vi.fn(),
+      }
+    },
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(),
+        }))
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn(),
+      }))
+    }))
   }
 }));
 
@@ -29,7 +47,7 @@ vi.mock('@/integrations/supabase/auth-middleware', () => ({
   requireSupabaseAuth: vi.fn()
 }));
 
-import { completeInitialPasswordChange } from '../password-change.functions';
+import { changeInitialPassword } from '../password-change.functions';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 
 describe('Initial Password Change Flow', () => {
@@ -37,19 +55,81 @@ describe('Initial Password Change Flow', () => {
     vi.clearAllMocks();
   });
 
-  it('should call complete_initial_password_change RPC', async () => {
-    (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
+  const validData = {
+    newPassword: 'newpassword123',
+    confirmPassword: 'newpassword123'
+  };
 
-    const result = await (completeInitialPasswordChange as any)({ context: { userId: 'user-1' } });
+  it('should change password successfully', async () => {
+    // Mock profile check
+    const mockSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ 
+          data: { id: 'user-1', must_change_password: true }, 
+          error: null 
+        })
+      })
+    });
+    (supabaseAdmin.from as any).mockReturnValue({ select: mockSelect, update: vi.fn() });
+
+    // Mock Auth update
+    (supabaseAdmin.auth.admin.updateUserById as any).mockResolvedValue({ error: null });
+
+    // Mock Profile update
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null })
+    });
+    (supabaseAdmin.from as any).mockReturnValue({ select: mockSelect, update: mockUpdate });
+
+    const result = await (changeInitialPassword as any)({ 
+      data: validData, 
+      context: { userId: 'user-1' } 
+    });
     
     expect(result.success).toBe(true);
-    expect(supabaseAdmin.rpc).toHaveBeenCalledWith('complete_initial_password_change');
+    expect(supabaseAdmin.auth.admin.updateUserById).toHaveBeenCalledWith('user-1', { 
+      password: validData.newPassword 
+    });
+    expect(mockUpdate).toHaveBeenCalledWith({ must_change_password: false });
   });
 
-  it('should throw error if RPC fails', async () => {
-    (supabaseAdmin.rpc as any).mockResolvedValue({ error: { message: 'Database error' } });
+  it('should throw error if profile does not need change', async () => {
+    const mockSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ 
+          data: { id: 'user-1', must_change_password: false }, 
+          error: null 
+        })
+      })
+    });
+    (supabaseAdmin.from as any).mockReturnValue({ select: mockSelect });
 
-    await expect((completeInitialPasswordChange as any)({ context: { userId: 'user-1' } }))
-      .rejects.toThrow('Falha ao atualizar status do perfil: Database error');
+    await expect((changeInitialPassword as any)({ 
+      data: validData, 
+      context: { userId: 'user-1' } 
+    })).rejects.toThrow('Troca de senha não é necessária ou já foi realizada.');
+    
+    expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('should throw error if auth update fails', async () => {
+    const mockSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ 
+          data: { id: 'user-1', must_change_password: true }, 
+          error: null 
+        })
+      })
+    });
+    (supabaseAdmin.from as any).mockReturnValue({ select: mockSelect });
+
+    (supabaseAdmin.auth.admin.updateUserById as any).mockResolvedValue({ 
+      error: { message: 'Auth error' } 
+    });
+
+    await expect((changeInitialPassword as any)({ 
+      data: validData, 
+      context: { userId: 'user-1' } 
+    })).rejects.toThrow('Falha ao atualizar senha no sistema de autenticação: Auth error');
   });
 });
