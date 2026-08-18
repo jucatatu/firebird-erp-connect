@@ -170,10 +170,10 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123
       };
 
-      // Mock detail call
-      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+      const sellersFuncs = await import('@/lib/erp-sellers.functions');
+      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
         ok: true,
-        data: { seller: { id: 123, companyId: 1, name: 'Seller' } }
+        seller: { id: 123, companyId: 1, name: 'Seller', nickname: null } as any
       });
 
       (supabaseAdmin.auth.admin.inviteUserByEmail as any).mockResolvedValue({ data: { user: { id: 'new-user' } }, error: null });
@@ -196,9 +196,10 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123 // Graal seller
       };
 
-      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
-        ok: true,
-        data: { seller: { id: 123, companyId: 1, name: 'Seller' } }
+      const sellersFuncs = await import('@/lib/erp-sellers.functions');
+      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
+        ok: false,
+        error: { code: 'SELLER_COMPANY_MISMATCH', message: 'empresa que não está habilitada' }
       });
 
       await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('empresa que não está habilitada');
@@ -215,10 +216,10 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: 123
       };
 
-      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+      const sellersFuncs = await import('@/lib/erp-sellers.functions');
+      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
         ok: false,
-        status: 503,
-        error: { code: 'ERP_UNAVAILABLE', message: 'Indisponível', retryable: true }
+        error: { code: 'ERP_UNAVAILABLE', message: 'Não foi possível consultar os vendedores' }
       });
 
       await expect((inviteUser as any)({ data, context: mockContext })).rejects.toThrow('Não foi possível consultar os vendedores');
@@ -236,9 +237,10 @@ describe('Admin Hardening & Sync Tests', () => {
         active: true
       };
 
-      vi.mocked(require('@/lib/erp-sellers.functions').getErpSellerDetail).mockResolvedValue({
+      const sellersFuncs = await import('@/lib/erp-sellers.functions');
+      vi.mocked(sellersFuncs.validateErpSellerForCompanies).mockResolvedValue({
         ok: true,
-        data: { seller: { id: 456, companyId: 1, name: 'Seller' } }
+        seller: { id: 456, companyId: 1, name: 'Seller', nickname: null } as any
       });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ error: null });
@@ -263,14 +265,6 @@ describe('Admin Hardening & Sync Tests', () => {
         active: true
       };
 
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
-          })
-        })
-      });
-
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
         error: { hint: 'INVALID_PERMISSION_PROFILE', message: 'Perfil de permissão inexistente.' } 
       });
@@ -288,14 +282,6 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: null,
         active: true
       };
-
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
-          })
-        })
-      });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
         error: { hint: 'LAST_ADMIN_PROTECTION', message: 'Não é permitido desativar...' } 
@@ -321,14 +307,6 @@ describe('Admin Hardening & Sync Tests', () => {
         active: true
       };
 
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
-          })
-        })
-      });
-
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
         error: { hint: 'INVALID_COMPANY_ACCESS', message: 'Acesso inválido...' } 
       });
@@ -352,14 +330,6 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: null,
         active: false
       };
-
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
-          })
-        })
-      });
 
       // Simula o cenário onde o PostgreSQL retorna code genérico E hint específico
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
@@ -410,14 +380,6 @@ describe('Admin Hardening & Sync Tests', () => {
         erpSellerId: null,
         active: true
       };
-
-      (supabaseAdmin.from as any).mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { erp_seller_id: null } })
-          })
-        })
-      });
 
       (supabaseAdmin.rpc as any).mockResolvedValue({ 
         error: { code: 'P0001', hint: 'INVALID_PERMISSION_PROFILE', message: 'Profile not found' } 
