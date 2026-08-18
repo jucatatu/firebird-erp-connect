@@ -1,5 +1,11 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-export const Route = createFileRoute("/")({
-  component: () => <Navigate to="/login" replace />,
-});
+export const Route = createFileRoute('/_authenticated/')({
+  loader: () => {
+    throw redirect({
+      to: '/pedidos-venda',
+      search: { status: 'all', page: undefined },
+      replace: true,
+    })
+  },
+})
