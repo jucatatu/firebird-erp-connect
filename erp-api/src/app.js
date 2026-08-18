@@ -21,6 +21,7 @@ const pricingRoutes = require("./modules/pricing/pricing.routes");
 const mapRoutes = require("./modules/map/map.routes");
 const paymentOptionsRoutes = require("./modules/payment-options/payment-options.routes");
 const customerGroupsRoutes = require("./modules/customer-groups/customer-groups.routes");
+const sellersRoutes = require("./modules/sellers/sellers.routes");
 
 function createApp() {
   const app = express();
@@ -65,7 +66,9 @@ function createApp() {
   v1.use("/map", mapRoutes);
   v1.use("/payment-options", paymentOptionsRoutes);
   v1.use("/customer-groups", customerGroupsRoutes);
+  v1.use("/sellers", sellersRoutes);
   app.use("/api/v1", v1);
+
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);

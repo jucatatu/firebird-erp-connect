@@ -26,6 +26,8 @@ import { Route as AuthenticatedPedidosVendaNovoRouteImport } from './routes/_aut
 import { Route as AuthenticatedPedidosVendaAprovacoesRouteImport } from './routes/_authenticated.pedidos-venda.aprovacoes'
 import { Route as AuthenticatedPedidosVendaDraftIdRouteImport } from './routes/_authenticated.pedidos-venda.$draftId'
 import { Route as AuthenticatedOrdersSplatRouteImport } from './routes/_authenticated.orders.$'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminPermissionProfilesRouteImport } from './routes/_authenticated.admin.permission-profiles'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -119,6 +121,17 @@ const AuthenticatedOrdersSplatRoute =
     path: '/orders/$',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminPermissionProfilesRoute =
+  AuthenticatedAdminPermissionProfilesRouteImport.update({
+    id: '/admin/permission-profiles',
+    path: '/admin/permission-profiles',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -128,6 +141,8 @@ export interface FileRoutesByFullPath {
   '/entregas': typeof AuthenticatedEntregasRoute
   '/operations': typeof AuthenticatedOperationsRoute
   '/recolhas': typeof AuthenticatedRecolhasRoute
+  '/admin/permission-profiles': typeof AuthenticatedAdminPermissionProfilesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -146,6 +161,8 @@ export interface FileRoutesByTo {
   '/operations': typeof AuthenticatedOperationsRoute
   '/recolhas': typeof AuthenticatedRecolhasRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/permission-profiles': typeof AuthenticatedAdminPermissionProfilesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -166,6 +183,8 @@ export interface FileRoutesById {
   '/_authenticated/operations': typeof AuthenticatedOperationsRoute
   '/_authenticated/recolhas': typeof AuthenticatedRecolhasRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/permission-profiles': typeof AuthenticatedAdminPermissionProfilesRoute
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/orders/$': typeof AuthenticatedOrdersSplatRoute
   '/_authenticated/pedidos-venda/$draftId': typeof AuthenticatedPedidosVendaDraftIdRoute
   '/_authenticated/pedidos-venda/aprovacoes': typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -186,6 +205,8 @@ export interface FileRouteTypes {
     | '/entregas'
     | '/operations'
     | '/recolhas'
+    | '/admin/permission-profiles'
+    | '/admin/users'
     | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
@@ -204,6 +225,8 @@ export interface FileRouteTypes {
     | '/operations'
     | '/recolhas'
     | '/'
+    | '/admin/permission-profiles'
+    | '/admin/users'
     | '/orders/$'
     | '/pedidos-venda/$draftId'
     | '/pedidos-venda/aprovacoes'
@@ -223,6 +246,8 @@ export interface FileRouteTypes {
     | '/_authenticated/operations'
     | '/_authenticated/recolhas'
     | '/_authenticated/'
+    | '/_authenticated/admin/permission-profiles'
+    | '/_authenticated/admin/users'
     | '/_authenticated/orders/$'
     | '/_authenticated/pedidos-venda/$draftId'
     | '/_authenticated/pedidos-venda/aprovacoes'
@@ -362,6 +387,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersSplatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/permission-profiles': {
+      id: '/_authenticated/admin/permission-profiles'
+      path: '/admin/permission-profiles'
+      fullPath: '/admin/permission-profiles'
+      preLoaderRoute: typeof AuthenticatedAdminPermissionProfilesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -371,6 +410,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOperationsRoute: typeof AuthenticatedOperationsRoute
   AuthenticatedRecolhasRoute: typeof AuthenticatedRecolhasRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminPermissionProfilesRoute: typeof AuthenticatedAdminPermissionProfilesRoute
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedOrdersSplatRoute: typeof AuthenticatedOrdersSplatRoute
   AuthenticatedPedidosVendaDraftIdRoute: typeof AuthenticatedPedidosVendaDraftIdRoute
   AuthenticatedPedidosVendaAprovacoesRoute: typeof AuthenticatedPedidosVendaAprovacoesRoute
@@ -387,6 +428,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOperationsRoute: AuthenticatedOperationsRoute,
   AuthenticatedRecolhasRoute: AuthenticatedRecolhasRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminPermissionProfilesRoute:
+    AuthenticatedAdminPermissionProfilesRoute,
+  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedOrdersSplatRoute: AuthenticatedOrdersSplatRoute,
   AuthenticatedPedidosVendaDraftIdRoute: AuthenticatedPedidosVendaDraftIdRoute,
   AuthenticatedPedidosVendaAprovacoesRoute:

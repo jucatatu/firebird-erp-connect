@@ -47,9 +47,11 @@ const GROUPS: Group[] = [
   {
     label: "Administração",
     items: [
-      { label: "Usuários", to: "/admin/users", icon: Users, adminOnly: true, disabled: true },
+      { label: "Usuários", to: "/admin/users", icon: Users, adminOnly: true },
+      { label: "Perfis de Permissão", to: "/admin/permission-profiles", icon: ShieldCheck, adminOnly: true },
       { label: "Configurações", to: "/settings/mapa", icon: Settings },
     ],
+
   },
 ];
 
