@@ -1,14 +1,14 @@
-import { defineConfig } from "vitest/config";
-import path from "node:path";
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config.ts";
 
-export default defineConfig({
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: "jsdom",
+      globals: true,
+      setupFiles: ["./src/test/setup.ts"],
+      include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
     },
-  },
-  test: {
-    environment: "node",
-    include: ["src/**/__tests__/**/*.test.ts"],
-  },
-});
+  })
+);
