@@ -37,9 +37,9 @@ export const inviteUser = createServerFn({ method: "POST" })
         _user_id: newUserId,
         _full_name: data.fullName,
         _permission_profile_id: data.permissionProfileId,
-        _erp_seller_id: null, // Forçado null enquanto Sellers pendente
-        _company_ids: data.companies,
-        _roles: data.roles
+        _erp_seller_id: null as any, // Forçado null enquanto Sellers pendente
+        _company_ids: data.companies as any,
+        _roles: data.roles as any
       });
 
       if (setupError) throw setupError;
