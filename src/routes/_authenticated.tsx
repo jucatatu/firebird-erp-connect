@@ -56,7 +56,7 @@ function AuthenticatedLayout() {
   }
 
   // Verifica se o usuário deve trocar a senha
-  if ((profileQ.data as any)?.must_change_password === true) {
+  if (profileQ.data?.must_change_password === true) {
     return (
       <ForcePasswordChange 
         onLogout={handleLogout}
@@ -66,7 +66,7 @@ function AuthenticatedLayout() {
   }
 
   // Verifica se o usuário está desativado
-  if ((profileQ.data as any)?.active === false) {
+  if (profileQ.data?.active === false) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4 text-center">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
@@ -91,7 +91,7 @@ function AuthenticatedLayout() {
   const roles = rolesQ.data ?? [];
   const role = primaryRole(roles);
   const isAdmin = roles.includes("admin");
-  const fullName = (profileQ.data as any)?.full_name || user.email || "Usuário";
+  const fullName = profileQ.data?.full_name || user.email || "Usuário";
 
   return (
     <AppShell fullName={fullName} email={user.email ?? undefined} role={role} isAdmin={isAdmin}>

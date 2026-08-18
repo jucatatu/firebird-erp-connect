@@ -77,6 +77,33 @@ const mockContext = {
 describe('Admin Hardening & Sync Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default profile mock (active)
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'permission_profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({ 
+                data: { id: 'profile-1', active: true, is_system: false, name: 'Standard' }, 
+                error: null 
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null })
+          })
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ error: null })
+        })
+      };
+    });
+    (supabaseAdmin.from as any).mockImplementation(mockFrom);
   });
 
   describe('Company Allowlist', () => {

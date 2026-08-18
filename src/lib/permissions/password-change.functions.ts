@@ -25,7 +25,7 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
     // 1. Verificar se o profile realmente precisa trocar a senha
     const { data: profile, error: profileGetError } = await supabaseAdmin
       .from("profiles")
-      .select("id, must_change_password" as any)
+      .select("id, must_change_password")
       .eq("id", userId)
       .single();
 
@@ -33,7 +33,7 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
       throw new Error("Falha ao validar status do perfil.");
     }
 
-    if (!(profile as any)?.must_change_password) {
+    if (!profile?.must_change_password) {
       throw new Error("Troca de senha não é necessária ou já foi realizada.");
     }
 
@@ -50,7 +50,7 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
     // 3. Somente após sucesso no Auth, limpar a flag no profile
     const { error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
-      .update({ must_change_password: false } as any)
+      .update({ must_change_password: false })
       .eq("id", userId);
 
     if (profileUpdateError) {
@@ -60,13 +60,4 @@ export const changeInitialPassword = createServerFn({ method: "POST" })
     }
 
     return { success: true };
-  });
-
-/**
- * @deprecated Use changeInitialPassword em vez disso.
- */
-export const completeInitialPasswordChange = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    throw new Error("Esta função foi descontinuada. Use changeInitialPassword.");
   });

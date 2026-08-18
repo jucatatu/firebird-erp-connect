@@ -518,6 +518,7 @@ export type Database = {
           is_system: boolean
           name: string
           updated_at: string
+          must_change_password: boolean
           updated_by: string | null
         }
         Insert: {
@@ -529,6 +530,7 @@ export type Database = {
           is_system?: boolean
           name: string
           updated_at?: string
+          must_change_password?: boolean
           updated_by?: string | null
         }
         Update: {
@@ -600,6 +602,7 @@ export type Database = {
           id: string
           permission_profile_id: string | null
           updated_at: string
+          must_change_password: boolean
         }
         Insert: {
           active?: boolean
@@ -609,6 +612,7 @@ export type Database = {
           id: string
           permission_profile_id?: string | null
           updated_at?: string
+          must_change_password?: boolean
         }
         Update: {
           active?: boolean
@@ -618,6 +622,7 @@ export type Database = {
           id?: string
           permission_profile_id?: string | null
           updated_at?: string
+          must_change_password?: boolean
         }
         Relationships: [
           {
@@ -676,6 +681,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_setup_created_user: {
+        Args: {
+          _company_ids: number[]
+          _erp_seller_id: number
+          _full_name: string
+          _permission_profile_id: string
+          _roles: string[]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       admin_setup_invited_user: {
         Args: {
           _company_ids: number[]
