@@ -42,10 +42,13 @@ function AdminUsersPage() {
             Gerencie o acesso e as permissões dos colaboradores.
           </p>
         </div>
-        <Button className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Novo usuário
-        </Button>
+        <PermissionAction resource="admin.users" action="create">
+          <Button className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            Novo usuário
+          </Button>
+        </PermissionAction>
+
       </div>
 
       <PermissionGate resource="admin.users" action="view">
