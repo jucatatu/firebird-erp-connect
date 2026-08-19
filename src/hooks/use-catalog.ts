@@ -57,6 +57,38 @@ export function useUpsertCatalogSetting() {
   });
 }
 
+export function useReorderCatalogItems() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      itemType,
+      orderedIds,
+      expectedVersions,
+    }: {
+      itemType: CatalogItemType;
+      orderedIds: string[];
+      expectedVersions: number[];
+    }) => {
+      const { error } = await supabase.rpc("admin_reorder_catalog_items", {
+        _item_type: itemType,
+        _ordered_ids: orderedIds,
+        _expected_versions: expectedVersions,
+      });
+
+      if (error) {
+        if (error.message.includes("catalog_reorder_conflict")) {
+          throw new Error("catalog_reorder_conflict");
+        }
+        throw new Error(translateCatalogError(error.message));
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["catalog", "settings"] });
+    },
+  });
+}
+
 export interface CatalogEvent {
   id: string;
   event_type: string;

@@ -204,7 +204,7 @@ export function CatalogItemDialog({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="default-qty">Qtd. inicial</Label>
               <Input
@@ -225,17 +225,6 @@ export function CatalogItemDialog({
                 step="any"
                 value={quantityStep}
                 onChange={(e) => setQuantityStep(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sort-order">Ordem</Label>
-              <Input
-                id="sort-order"
-                type="number"
-                min={0}
-                step={1}
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
               />
             </div>
           </div>
