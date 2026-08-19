@@ -1881,7 +1881,7 @@ function NewOrderPage() {
             <Card className="shadow-none border-none sm:border">
               <CardHeader className="pb-3"><CardTitle className="text-xl">1. Produtos</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex flex-col divide-y">
+                <div className="flex flex-col space-y-3">
                   {(() => {
                     const products = (productsQ.data as any)?.data?.products || [];
                     const grouped = products.reduce((acc: any, p: any) => {
@@ -1894,7 +1894,7 @@ function NewOrderPage() {
                     const order: OrderProductGroup[] = ["CHOPP", "GROWLER", "GARRAFA", "OUTROS"];
 
                     return (
-                      <Accordion type="multiple" defaultValue={["CHOPP"]} className="w-full">
+                      <Accordion type="multiple" defaultValue={["CHOPP"]} className="w-full space-y-3">
                         {order.map((group) => {
                           const groupItems = grouped[group] || [];
                           if (groupItems.length === 0) return null;
@@ -1902,8 +1902,12 @@ function NewOrderPage() {
                           const selectedCount = groupItems.filter((p: any) => items.some(ci => ci.productId === p.id)).length;
 
                           return (
-                            <AccordionItem key={group} value={group} className="border-b last:border-b-0">
-                              <AccordionTrigger className="px-4 py-4 hover:no-underline hover:bg-muted/30 transition-colors [&[data-state=open]]:bg-muted/50">
+                            <AccordionItem 
+                              key={group} 
+                              value={group} 
+                              className="rounded-xl border bg-card shadow-sm overflow-hidden border-b-0"
+                            >
+                              <AccordionTrigger className="px-4 py-4 hover:no-underline hover:bg-muted/30 transition-colors [&[data-state=open]]:bg-muted/50 border-b-0">
                                 <div className="flex flex-col text-left">
                                   <span className="text-sm font-bold tracking-tight text-foreground uppercase">{group === "GARRAFA" ? "GARRAFAS" : group}</span>
                                   <div className="flex items-center gap-2 mt-0.5">
@@ -1917,7 +1921,7 @@ function NewOrderPage() {
                                   </div>
                                 </div>
                               </AccordionTrigger>
-                              <AccordionContent className="p-4 bg-muted/5">
+                              <AccordionContent className="p-4 bg-muted/5 border-t">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                   {groupItems.map((product: any) => (
                                     <ProductCard
@@ -1940,6 +1944,7 @@ function NewOrderPage() {
                   })()}
                 </div>
               </CardContent>
+
             </Card>
 
             <Card className="shadow-none border-none sm:border">
