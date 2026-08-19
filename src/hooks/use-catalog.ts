@@ -33,6 +33,7 @@ export function useUpsertCatalogSetting() {
     mutationFn: async (draft: CatalogSettingDraft): Promise<CatalogSetting> => {
       const localError = validateDraft(draft);
       if (localError) throw new Error(localError);
+
       const { data, error } = await supabase.rpc("upsert_order_catalog_setting", {
         _item_type: draft.itemType,
         _erp_item_id: draft.erpItemId,
@@ -42,13 +43,27 @@ export function useUpsertCatalogSetting() {
         _sort_order: draft.sortOrder,
         _default_quantity: draft.defaultQuantity,
         _quantity_step: draft.quantityStep,
-        _display_name: draft.displayName?.trim() ? draft.displayName.trim() : undefined,
-        _requires_pickup: draft.requiresPickup ?? undefined,
-        _expected_version: draft.expectedVersion ?? undefined,
-        _logistics_type: draft.logisticsType ?? undefined,
+        _display_name: draft.displayName?.trim() ? draft.displayName.trim() : null,
+        _requires_pickup: draft.requiresPickup ?? null,
+        _expected_version: draft.expectedVersion ?? null,
+        _logistics_type: draft.logisticsType ?? null,
       });
+
       if (error) throw new Error(translateCatalogError(error.message));
-      return data as unknown as CatalogSetting;
+      if (!data) throw new Error("Falha ao persistir alterações.");
+
+      // Confirmação via SELECT para garantir roundtrip
+      const { data: verified, error: verifyError } = await supabase
+        .from("order_catalog_settings")
+        .select("*")
+        .eq("id", (data as any).id)
+        .single();
+
+      if (verifyError || !verified) {
+        throw new Error("Erro de verificação: item não encontrado após salvar.");
+      }
+
+      return verified as CatalogSetting;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["catalog", "settings"] });
@@ -69,8 +84,8 @@ export function useReorderCatalogItems() {
       itemType: CatalogItemType;
       orderedIds: string[];
       expectedVersions: number[];
-    }) => {
-      const { error } = await supabase.rpc("admin_reorder_catalog_items", {
+    }): Promise<CatalogSetting[]> => {
+      const { data, error } = await supabase.rpc("admin_reorder_catalog_items", {
         _item_type: itemType,
         _ordered_ids: orderedIds,
         _expected_versions: expectedVersions,
@@ -82,8 +97,13 @@ export function useReorderCatalogItems() {
         }
         throw new Error(translateCatalogError(error.message));
       }
+
+      if (!data) throw new Error("Falha ao reordenar catálogo.");
+      return data as unknown as CatalogSetting[];
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Atualiza o cache imediatamente com o retorno da RPC
+      queryClient.setQueryData(["catalog", "settings", data[0]?.item_type || "all"], data);
       queryClient.invalidateQueries({ queryKey: ["catalog", "settings"] });
     },
   });
