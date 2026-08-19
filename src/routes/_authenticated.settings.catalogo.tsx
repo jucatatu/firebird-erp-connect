@@ -601,7 +601,15 @@ function EquipmentTab({
               </Button>
             </div>
           </div>
+          {isOrdering && saveError && (
+            <Alert variant="destructive" className="mt-2 mb-4">
+              <AlertDescription className="whitespace-pre-wrap">
+                {saveError}
+              </AlertDescription>
+            </Alert>
+          )}
           <CatalogReorderList 
+
             items={localOrder} 
             onReorder={setLocalOrder} 
           />
