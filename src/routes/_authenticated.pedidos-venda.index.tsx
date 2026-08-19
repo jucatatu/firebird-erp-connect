@@ -1,6 +1,7 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { searchErpSellers, type ErpSeller } from "@/lib/erp-sellers.functions";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useMyRoles, primaryRole } from "@/hooks/use-auth";
@@ -81,6 +82,31 @@ function OrdersListPage() {
     page,
     pageSize: PAGE_SIZE,
   });
+
+  const sellersQ = useQuery({
+    queryKey: ["erp-sellers-list", "all"],
+    queryFn: async () => {
+      const resp = await searchErpSellers({ data: { q: "", limit: 100 } });
+      if (!resp.ok) return [];
+      return resp.data?.sellers || [];
+    },
+    staleTime: 300000,
+  });
+
+  const sellerMap = useMemo(() => {
+    const map = new Map<number, ErpSeller>();
+    (sellersQ.data || []).forEach(s => map.set(s.id, s));
+    return map;
+  }, [sellersQ.data]);
+
+  const getSellerName = (payload: any) => {
+    const sellerId = Number(payload?.sellerId);
+    if (!sellerId) return "—";
+    const seller = sellerMap.get(sellerId);
+    if (seller) return seller.name;
+    if (sellersQ.isLoading) return "...";
+    return `Vendedor #${sellerId}`;
+  };
 
   const { rows, total, totalPages } = paginatedQ.data || { rows: [], total: 0, totalPages: 0 };
   const isLoading = paginatedQ.isLoading;
@@ -286,7 +312,8 @@ function OrdersListPage() {
                       <td className="px-4 py-3 align-top">
                         <div className="flex flex-col text-[10px] text-foreground/80">
                           <span className="font-bold text-muted-foreground/60 uppercase tracking-tight">Empresa</span>
-                          <span>{companyLabel(d.company_id)} • {new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span>{companyLabel(d.company_id)} • {getSellerName(d.payload)}</span>
+                          <span className="text-muted-foreground/60">{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 align-top">
@@ -359,6 +386,8 @@ function OrdersListPage() {
                     {/* 4. Empresa + Data */}
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase mb-2">
                       <span>{companyLabel(d.company_id)}</span>
+                      <span>•</span>
+                      <span>{getSellerName(d.payload)}</span>
                       <span>•</span>
                       <span>{new Date(d.created_at).toLocaleDateString('pt-BR')}</span>
                     </div>

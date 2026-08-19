@@ -7,6 +7,8 @@ import type { User } from "@supabase/supabase-js";
 import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { classifyOrderProduct, type OrderProductGroup } from "@/utils/order-product-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
