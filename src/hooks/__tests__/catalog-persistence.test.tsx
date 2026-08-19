@@ -5,27 +5,6 @@ import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-// Mock Supabase complex chain
-const createMockSupabase = () => {
-  const mockSingle = vi.fn();
-  const mockOrder = vi.fn();
-  const mockEq = vi.fn();
-  const mockSelect = vi.fn();
-
-  const chain = {
-    select: mockSelect,
-    eq: mockEq,
-    order: mockOrder,
-    single: mockSingle,
-  };
-
-  mockSelect.mockReturnValue(chain);
-  mockEq.mockReturnValue(chain);
-  mockOrder.mockReturnValue(chain);
-  
-  return { chain, mockSelect, mockEq, mockOrder, mockSingle };
-};
-
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: vi.fn(),
@@ -69,22 +48,20 @@ describe('Catalog Persistence Roundtrip', () => {
     });
 
     it('should throw error if SELECT REAL returns different order', async () => {
-      const { chain, mockOrder } = createMockSupabase();
-      
       vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: [{ id: 'A' }, { id: 'C' }, { id: 'B' }],
         error: null,
       } as any);
 
-      vi.mocked(supabase.from).mockReturnValue(chain as any);
+      const mockOrder2 = vi.fn().mockResolvedValue({
+        data: [{ id: 'A' }, { id: 'B' }, { id: 'C' }], // Wrong order
+        error: null,
+      });
+      const mockOrder1 = vi.fn().mockReturnValue({ order: mockOrder2 });
+      const mockEq = vi.fn().mockReturnValue({ order: mockOrder1 });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
       
-      // Final call in chain
-      mockOrder.mockReturnValue({
-        order: vi.fn().mockResolvedValue({
-          data: [{ id: 'A' }, { id: 'B' }, { id: 'C' }], // Wrong order
-          error: null,
-        })
-      } as any);
+      vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
 
       const { result } = renderHook(() => useReorderCatalogItems(), { wrapper });
 
@@ -100,12 +77,9 @@ describe('Catalog Persistence Roundtrip', () => {
 
   describe('useUpsertCatalogSetting', () => {
     it('should throw error if SELECT values mismatch requested enabled=true', async () => {
-      const { chain, mockSingle } = createMockSupabase();
-      
       vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: { id: '1' }, error: null } as any);
-      vi.mocked(supabase.from).mockReturnValue(chain as any);
       
-      mockSingle.mockResolvedValueOnce({
+      const mockSingle = vi.fn().mockResolvedValue({
         data: { 
           enabled: false, // Mismatch!
           company_ids: [1, 3],
@@ -118,6 +92,11 @@ describe('Catalog Persistence Roundtrip', () => {
         },
         error: null
       });
+      const mockEq2 = vi.fn().mockReturnValue({ single: mockSingle });
+      const mockEq1 = vi.fn().mockReturnValue({ eq: mockEq2 });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq1 });
+      
+      vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
 
       const { result } = renderHook(() => useUpsertCatalogSetting(), { wrapper });
 
