@@ -61,6 +61,13 @@ export interface ErpProduct {
     code: string | null;
     description: string | null;
   } | null;
+  group?: {
+    id: number | null;
+    description: string | null;
+  } | null;
+  quantity_step?: number | string;
+  default_quantity?: number | string;
+  logistics_type?: string;
 }
 
 export interface ErpEquipmentType {
