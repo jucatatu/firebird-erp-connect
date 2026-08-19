@@ -50,10 +50,10 @@ export function CatalogItemDialog({
   const [enabled, setEnabled] = useState(false);
   const [companies, setCompanies] = useState<number[]>([]);
   const [displayName, setDisplayName] = useState("");
-  const [sortOrder, setSortOrder] = useState("0");
   const [defaultQuantity, setDefaultQuantity] = useState("1");
   const [quantityStep, setQuantityStep] = useState("1");
   const [requiresPickup, setRequiresPickup] = useState(false);
+  const [logisticsType, setLogisticsType] = useState<"packaged" | "draft">("packaged");
 
   useEffect(() => {
     if (!target) return;
@@ -61,10 +61,10 @@ export function CatalogItemDialog({
     setEnabled(s?.enabled ?? false);
     setCompanies(s?.company_ids ?? []);
     setDisplayName(s?.display_name ?? "");
-    setSortOrder(String(s?.sort_order ?? 0));
     setDefaultQuantity(String(s?.default_quantity ?? 1));
     setQuantityStep(String(s?.quantity_step ?? 1));
     setRequiresPickup(s?.requires_pickup ?? false);
+    setLogisticsType((s?.logistics_type as any) ?? "packaged");
   }, [target]);
 
   if (!target) return null;
