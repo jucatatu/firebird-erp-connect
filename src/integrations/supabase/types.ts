@@ -679,22 +679,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_reorder_catalog_items:
-        | {
-            Args: {
-              _item_type: Database["public"]["Enums"]["catalog_item_type"]
-              _ordered_ids: string[]
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _expected_versions: number[]
-              _item_type: Database["public"]["Enums"]["catalog_item_type"]
-              _ordered_ids: string[]
-            }
-            Returns: undefined
-          }
+      admin_reorder_catalog_items: {
+        Args: {
+          _expected_versions: number[]
+          _item_type: Database["public"]["Enums"]["catalog_item_type"]
+          _ordered_ids: string[]
+        }
+        Returns: {
+          company_ids: number[]
+          created_at: string
+          created_by: string | null
+          default_quantity: number
+          display_name: string | null
+          enabled: boolean
+          equipment_role: Database["public"]["Enums"]["equipment_role"] | null
+          erp_description_snapshot: string
+          erp_item_id: number
+          id: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type: Database["public"]["Enums"]["logistics_type"] | null
+          quantity_step: number
+          requires_pickup: boolean | null
+          sort_order: number
+          tap_count: number | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "order_catalog_settings"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_setup_created_user: {
         Args: {
           _company_ids: number[]
@@ -963,100 +981,49 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      upsert_order_catalog_setting:
-        | {
-            Args: {
-              _company_ids: number[]
-              _default_quantity: number
-              _display_name?: string
-              _enabled: boolean
-              _erp_description_snapshot: string
-              _erp_item_id: number
-              _expected_version?: number
-              _item_type: Database["public"]["Enums"]["catalog_item_type"]
-              _quantity_step: number
-              _requires_pickup?: boolean
-              _sort_order: number
-            }
-            Returns: {
-              company_ids: number[]
-              created_at: string
-              created_by: string | null
-              default_quantity: number
-              display_name: string | null
-              enabled: boolean
-              equipment_role:
-                | Database["public"]["Enums"]["equipment_role"]
-                | null
-              erp_description_snapshot: string
-              erp_item_id: number
-              id: string
-              item_type: Database["public"]["Enums"]["catalog_item_type"]
-              logistics_type:
-                | Database["public"]["Enums"]["logistics_type"]
-                | null
-              quantity_step: number
-              requires_pickup: boolean | null
-              sort_order: number
-              tap_count: number | null
-              updated_at: string
-              updated_by: string | null
-              version: number
-            }
-            SetofOptions: {
-              from: "*"
-              to: "order_catalog_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              _company_ids: number[]
-              _default_quantity: number
-              _display_name?: string
-              _enabled: boolean
-              _erp_description_snapshot: string
-              _erp_item_id: number
-              _expected_version?: number
-              _item_type: Database["public"]["Enums"]["catalog_item_type"]
-              _logistics_type?: Database["public"]["Enums"]["logistics_type"]
-              _quantity_step: number
-              _requires_pickup?: boolean
-              _sort_order: number
-            }
-            Returns: {
-              company_ids: number[]
-              created_at: string
-              created_by: string | null
-              default_quantity: number
-              display_name: string | null
-              enabled: boolean
-              equipment_role:
-                | Database["public"]["Enums"]["equipment_role"]
-                | null
-              erp_description_snapshot: string
-              erp_item_id: number
-              id: string
-              item_type: Database["public"]["Enums"]["catalog_item_type"]
-              logistics_type:
-                | Database["public"]["Enums"]["logistics_type"]
-                | null
-              quantity_step: number
-              requires_pickup: boolean | null
-              sort_order: number
-              tap_count: number | null
-              updated_at: string
-              updated_by: string | null
-              version: number
-            }
-            SetofOptions: {
-              from: "*"
-              to: "order_catalog_settings"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      upsert_order_catalog_setting: {
+        Args: {
+          _company_ids: number[]
+          _default_quantity: number
+          _display_name?: string
+          _enabled: boolean
+          _erp_description_snapshot: string
+          _erp_item_id: number
+          _expected_version?: number
+          _item_type: Database["public"]["Enums"]["catalog_item_type"]
+          _logistics_type?: Database["public"]["Enums"]["logistics_type"]
+          _quantity_step: number
+          _requires_pickup?: boolean
+          _sort_order: number
+        }
+        Returns: {
+          company_ids: number[]
+          created_at: string
+          created_by: string | null
+          default_quantity: number
+          display_name: string | null
+          enabled: boolean
+          equipment_role: Database["public"]["Enums"]["equipment_role"] | null
+          erp_description_snapshot: string
+          erp_item_id: number
+          id: string
+          item_type: Database["public"]["Enums"]["catalog_item_type"]
+          logistics_type: Database["public"]["Enums"]["logistics_type"] | null
+          quantity_step: number
+          requires_pickup: boolean | null
+          sort_order: number
+          tap_count: number | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "order_catalog_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role: "admin" | "vendedor" | "aprovador"

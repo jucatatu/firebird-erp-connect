@@ -144,7 +144,7 @@ function ProductsTab({
 
   const configuredProducts = useMemo(() => {
     return Array.from(settingsByKey.values())
-      .filter(s => s.item_type === 'product')
+      .filter((s) => s.item_type === "product")
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [settingsByKey]);
 
@@ -158,7 +158,7 @@ function ProductsTab({
 
   const groupedProducts = useMemo(() => {
     const list = isOrdering ? localOrder : configuredProducts;
-    
+
     const groups = {
       CHOPP: [] as CatalogSetting[],
       GROWLER: [] as CatalogSetting[],
@@ -166,7 +166,7 @@ function ProductsTab({
       OUTROS: [] as CatalogSetting[],
     };
 
-    list.forEach(s => {
+    list.forEach((s) => {
       const category = classifyOrderProduct({
         description: s.erp_description_snapshot,
       });
@@ -177,38 +177,48 @@ function ProductsTab({
   }, [isOrdering, localOrder, configuredProducts]);
 
   const hasChanged = useMemo(() => {
-    const originalIds = configuredProducts.map(s => s.id);
-    const currentIds = localOrder.map(s => s.id);
+    const originalIds = configuredProducts.map((s) => s.id);
+    const currentIds = localOrder.map((s) => s.id);
     return hasOrderChanged(originalIds, currentIds);
   }, [configuredProducts, localOrder]);
 
   const handleSave = async () => {
     try {
-      await reorderMutation.mutateAsync({
-        itemType: 'product',
-        orderedIds: localOrder.map(s => s.id),
-        expectedVersions: localOrder.map(s => s.version),
+      const results = await reorderMutation.mutateAsync({
+        itemType: "product",
+        orderedIds: localOrder.map((s) => s.id),
+        expectedVersions: localOrder.map((s) => s.version),
       });
+
+      // Atualiza o estado local com os itens retornados (que têm versões novas)
+      setLocalOrder(results);
       toast.success("Ordem dos produtos atualizada com sucesso.");
       setIsOrdering(false);
     } catch (err: any) {
       if (err.message === "catalog_reorder_conflict") {
-        toast.error("O catálogo foi alterado por outro administrador. Recarregue antes de salvar.");
+        toast.error(
+          "O catálogo foi alterado por outro administrador. Recarregue antes de salvar.",
+        );
       } else {
         toast.error("Erro ao salvar ordem", { description: err.message });
       }
     }
   };
 
-  const updateGroupOrder = (category: keyof typeof groupedProducts, newGroupItems: CatalogSetting[]) => {
-    setLocalOrder(prev => {
-      const next = [...prev];
-      // Substitui os itens daquela categoria no array flat preservando a posição relativa dos grupos
-      // Regra de flatten: CHOPP > GROWLER > GARRAFA > OUTROS
+  const updateGroupOrder = (
+    category: keyof typeof groupedProducts,
+    newGroupItems: CatalogSetting[],
+  ) => {
+    setLocalOrder((prev) => {
       const result: CatalogSetting[] = [];
-      const categories: (keyof typeof groupedProducts)[] = ['CHOPP', 'GROWLER', 'GARRAFA', 'OUTROS'];
-      
-      categories.forEach(cat => {
+      const categories: (keyof typeof groupedProducts)[] = [
+        "CHOPP",
+        "GROWLER",
+        "GARRAFA",
+        "OUTROS",
+      ];
+
+      categories.forEach((cat) => {
         if (cat === category) {
           result.push(...newGroupItems);
         } else {
@@ -441,16 +451,19 @@ function EquipmentTab({
 
   const handleSave = async () => {
     try {
-      await reorderMutation.mutateAsync({
-        itemType: 'equipment',
-        orderedIds: localOrder.map(s => s.id),
-        expectedVersions: localOrder.map(s => s.version),
+      const results = await reorderMutation.mutateAsync({
+        itemType: "equipment",
+        orderedIds: localOrder.map((s) => s.id),
+        expectedVersions: localOrder.map((s) => s.version),
       });
+      setLocalOrder(results);
       toast.success("Ordem dos equipamentos atualizada com sucesso.");
       setIsOrdering(false);
     } catch (err: any) {
       if (err.message === "catalog_reorder_conflict") {
-        toast.error("O catálogo foi alterado por outro administrador. Recarregue antes de salvar.");
+        toast.error(
+          "O catálogo foi alterado por outro administrador. Recarregue antes de salvar.",
+        );
       } else {
         toast.error("Erro ao salvar ordem", { description: err.message });
       }
