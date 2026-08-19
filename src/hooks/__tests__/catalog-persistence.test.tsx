@@ -1,27 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useReorderCatalogItems, useUpsertCatalogSetting } from '../use-catalog';
 import { supabase } from '@/integrations/supabase/client';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-// Mock Supabase
+// Mock Supabase complex chain
+const createMockSupabase = () => {
+  const mockSingle = vi.fn();
+  const mockOrder = vi.fn();
+  const mockEq = vi.fn();
+  const mockSelect = vi.fn();
+
+  const chain = {
+    select: mockSelect,
+    eq: mockEq,
+    order: mockOrder,
+    single: mockSingle,
+  };
+
+  mockSelect.mockReturnValue(chain);
+  mockEq.mockReturnValue(chain);
+  mockOrder.mockReturnValue(chain);
+  
+  return { chain, mockSelect, mockEq, mockOrder, mockSingle };
+};
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: vi.fn(),
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(),
-          order: vi.fn(() => ({
-            order: vi.fn(),
-          })),
-        })),
-        order: vi.fn(() => ({
-          order: vi.fn(),
-        })),
-      })),
-    })),
+    from: vi.fn(),
   },
 }));
 
@@ -44,9 +52,8 @@ describe('Catalog Persistence Roundtrip', () => {
 
   describe('useReorderCatalogItems', () => {
     it('should throw error if RPC returned order is different from requested', async () => {
-      const mockRpc = vi.mocked(supabase.rpc);
-      mockRpc.mockResolvedValueOnce({
-        data: [{ id: 'A' }, { id: 'B' }], // Different from A, C, B
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
+        data: [{ id: 'A' }, { id: 'B' }],
         error: null,
       } as any);
 
@@ -62,29 +69,21 @@ describe('Catalog Persistence Roundtrip', () => {
     });
 
     it('should throw error if SELECT REAL returns different order', async () => {
-      const mockRpc = vi.mocked(supabase.rpc);
-      mockRpc.mockResolvedValueOnce({
+      const { chain, mockOrder } = createMockSupabase();
+      
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: [{ id: 'A' }, { id: 'C' }, { id: 'B' }],
         error: null,
       } as any);
 
-      const mockFrom = vi.mocked(supabase.from);
-      mockFrom.mockReturnValueOnce({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-      } as any);
-
-      // Final chain call returning wrong order
-      const mockSelect = vi.mocked(supabase.from('order_catalog_settings').select);
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockImplementation(() => ({
-          order: vi.fn().mockResolvedValue({
-            data: [{ id: 'A' }, { id: 'B' }, { id: 'C' }], // Wrong order
-            error: null,
-          }),
-        })),
+      vi.mocked(supabase.from).mockReturnValue(chain as any);
+      
+      // Final call in chain
+      mockOrder.mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: [{ id: 'A' }, { id: 'B' }, { id: 'C' }], // Wrong order
+          error: null,
+        })
       } as any);
 
       const { result } = renderHook(() => useReorderCatalogItems(), { wrapper });
@@ -101,25 +100,24 @@ describe('Catalog Persistence Roundtrip', () => {
 
   describe('useUpsertCatalogSetting', () => {
     it('should throw error if SELECT values mismatch requested enabled=true', async () => {
-      vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: { id: '1' }, error: null } as any);
+      const { chain, mockSingle } = createMockSupabase();
       
-      const mockSelect = vi.mocked(supabase.from('order_catalog_settings').select);
-      mockSelect.mockReturnValueOnce({
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: { 
-            enabled: false, // Mismatch!
-            company_ids: [1, 3],
-            display_name: 'Test',
-            default_quantity: 1,
-            quantity_step: 1,
-            logistics_type: 'packaged',
-            requires_pickup: null,
-            item_type: 'product'
-          },
-          error: null
-        }),
-      } as any);
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({ data: { id: '1' }, error: null } as any);
+      vi.mocked(supabase.from).mockReturnValue(chain as any);
+      
+      mockSingle.mockResolvedValueOnce({
+        data: { 
+          enabled: false, // Mismatch!
+          company_ids: [1, 3],
+          display_name: 'Test',
+          default_quantity: 1,
+          quantity_step: 1,
+          logistics_type: 'packaged',
+          requires_pickup: null,
+          item_type: 'product'
+        },
+        error: null
+      });
 
       const { result } = renderHook(() => useUpsertCatalogSetting(), { wrapper });
 
