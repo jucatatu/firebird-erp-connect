@@ -1,5 +1,5 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
+import { useEffect, useState, useMemo } from "react";
 import { Loader2, UserX, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -46,6 +47,10 @@ function AuthenticatedLayout() {
     await supabase.auth.signOut();
     navigate({ to: "/login", replace: true });
   };
+
+  const isFullBleed = useMemo(() => {
+    return location.pathname === "/";
+  }, [location.pathname]);
 
   if (!checked || !user || rolesQ.isLoading || profileQ.isLoading) {
     return (
@@ -94,7 +99,13 @@ function AuthenticatedLayout() {
   const fullName = profileQ.data?.full_name || user.email || "Usuário";
 
   return (
-    <AppShell fullName={fullName} email={user.email ?? undefined} role={role} isAdmin={isAdmin}>
+    <AppShell 
+      fullName={fullName} 
+      email={user.email ?? undefined} 
+      role={role} 
+      isAdmin={isAdmin}
+      variant={isFullBleed ? "fullBleed" : "default"}
+    >
       <Outlet />
     </AppShell>
   );
