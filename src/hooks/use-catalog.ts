@@ -6,6 +6,8 @@ import type {
   CatalogSettingDraft,
 } from "@/lib/catalog/types";
 import { translateCatalogError, validateDraft } from "@/lib/catalog/types";
+import { formatSupabaseError } from "@/utils/error-formatter";
+
 
 /** Configurações locais do catálogo (Supabase). O ERP segue como fonte dos cadastros. */
 export function useCatalogSettings(itemType?: CatalogItemType) {
@@ -49,7 +51,7 @@ export function useUpsertCatalogSetting() {
         _logistics_type: draft.logisticsType ?? undefined,
       });
 
-      if (error) throw new Error(translateCatalogError(error.message));
+      if (error) throw new Error(formatSupabaseError(error));
       if (!data) throw new Error("Falha ao persistir alterações.");
 
       // ROUNDTRIP REAL — Verificação de valores persistidos
@@ -111,11 +113,9 @@ export function useReorderCatalogItems() {
       });
 
       if (error) {
-        if (error.message.includes("catalog_reorder_conflict")) {
-          throw new Error("catalog_reorder_conflict");
-        }
-        throw new Error(translateCatalogError(error.message));
+        throw new Error(formatSupabaseError(error));
       }
+
 
       if (!data) throw new Error("Falha ao reordenar catálogo.");
       

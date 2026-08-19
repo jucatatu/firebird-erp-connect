@@ -19,6 +19,8 @@ import { companyLabels, type CatalogSetting } from "@/lib/catalog/types";
 import { CatalogReorderList } from "@/components/settings/catalog-reorder-list";
 import { classifyOrderProduct } from "@/utils/order-product-group";
 import { hasOrderChanged } from "@/utils/catalog-reorder-utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 
 export const Route = createFileRoute("/_authenticated/settings/catalogo")({
   head: () => ({
@@ -140,7 +142,9 @@ function ProductsTab({
   const apiError = productsQ.data && !(productsQ.data as any).ok ? (productsQ.data as any).error : null;
 
   const [isOrdering, setIsOrdering] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const reorderMutation = useReorderCatalogItems();
+
 
   const configuredProducts = useMemo(() => {
     return Array.from(settingsByKey.values())
@@ -153,7 +157,9 @@ function ProductsTab({
   useEffect(() => {
     if (isOrdering) {
       setLocalOrder(configuredProducts);
+      setSaveError(null);
     }
+
   }, [isOrdering, configuredProducts]);
 
   const groupedProducts = useMemo(() => {
@@ -183,6 +189,7 @@ function ProductsTab({
   }, [configuredProducts, localOrder]);
 
   const handleSave = async () => {
+    setSaveError(null);
     try {
       const results = await reorderMutation.mutateAsync({
         itemType: "product",
@@ -195,15 +202,11 @@ function ProductsTab({
       toast.success("Ordem dos produtos atualizada com sucesso.");
       setIsOrdering(false);
     } catch (err: any) {
-      if (err.message === "catalog_reorder_conflict") {
-        toast.error(
-          "O catálogo foi alterado por outro administrador. Recarregue antes de salvar.",
-        );
-      } else {
-        toast.error("Erro ao salvar ordem", { description: err.message });
-      }
+      setSaveError(err.message);
+      toast.error("Erro ao salvar ordem", { description: err.message });
     }
   };
+
 
   const updateGroupOrder = (
     category: keyof typeof groupedProducts,
@@ -276,7 +279,16 @@ function ProductsTab({
             )}
           </div>
 
+          {isOrdering && saveError && (
+            <Alert variant="destructive" className="mt-2 mb-4">
+              <AlertDescription className="whitespace-pre-wrap">
+                {saveError}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-4">
+
             {configuredProducts.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground border rounded-md border-dashed">
                 Nenhum produto configurado para esta empresa.
@@ -427,7 +439,9 @@ function EquipmentTab({
   const apiError = equipQ.data && !(equipQ.data as any).ok ? (equipQ.data as any).error : null;
 
   const [isOrdering, setIsOrdering] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const reorderMutation = useReorderCatalogItems();
+
 
   const configuredEquipments = useMemo(() => {
     return Array.from(settingsByKey.values())
@@ -440,7 +454,9 @@ function EquipmentTab({
   useEffect(() => {
     if (isOrdering) {
       setLocalOrder(configuredEquipments);
+      setSaveError(null);
     }
+
   }, [isOrdering, configuredEquipments]);
 
   const hasChanged = useMemo(() => {
@@ -450,6 +466,7 @@ function EquipmentTab({
   }, [configuredEquipments, localOrder]);
 
   const handleSave = async () => {
+    setSaveError(null);
     try {
       const results = await reorderMutation.mutateAsync({
         itemType: "equipment",
@@ -460,15 +477,11 @@ function EquipmentTab({
       toast.success("Ordem dos equipamentos atualizada com sucesso.");
       setIsOrdering(false);
     } catch (err: any) {
-      if (err.message === "catalog_reorder_conflict") {
-        toast.error(
-          "O catálogo foi alterado por outro administrador. Recarregue antes de salvar.",
-        );
-      } else {
-        toast.error("Erro ao salvar ordem", { description: err.message });
-      }
+      setSaveError(err.message);
+      toast.error("Erro ao salvar ordem", { description: err.message });
     }
   };
+
 
   const list = useMemo(() => {
     const rawList = payload && typeof payload === 'object' && 'equipmentTypes' in payload 
