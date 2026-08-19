@@ -87,7 +87,7 @@ export function CatalogItemDialog({
         displayName: displayName.trim() === "" ? null : displayName.trim(),
         enabled,
         companyIds: companies,
-        sortOrder: target.setting?.sort_order ?? 0, // Mantém a ordem atual no update individual
+        sortOrder: target.setting?.id ? (target.setting.sort_order ?? null) : null,
         defaultQuantity: Number(defaultQuantity),
         quantityStep: Number(quantityStep),
         requiresPickup: isEquipment ? requiresPickup : null,
