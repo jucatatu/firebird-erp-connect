@@ -679,6 +679,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_reorder_catalog_items: {
+        Args: {
+          _item_type: Database["public"]["Enums"]["catalog_item_type"]
+          _ordered_ids: string[]
+        }
+        Returns: undefined
+      }
       admin_setup_created_user: {
         Args: {
           _company_ids: number[]
