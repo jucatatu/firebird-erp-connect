@@ -26,7 +26,7 @@ export interface CatalogSettingDraft {
   displayName: string | null;
   enabled: boolean;
   companyIds: number[];
-  sortOrder: number;
+  sortOrder: number | null;
   defaultQuantity: number;
   quantityStep: number;
   requiresPickup: boolean | null;
@@ -60,7 +60,7 @@ export function validateDraft(d: CatalogSettingDraft): string | null {
     return "Para habilitar o item, selecione ao menos uma empresa.";
   if (!(d.defaultQuantity > 0)) return "Quantidade inicial deve ser maior que zero.";
   if (!(d.quantityStep > 0)) return "Incremento deve ser maior que zero.";
-  if (!Number.isInteger(d.sortOrder) || d.sortOrder < 0) return "Ordem de exibição inválida.";
+  if (d.sortOrder !== null && (!Number.isInteger(d.sortOrder) || d.sortOrder < 0)) return "Ordem de exibição inválida.";
   if (d.itemType === "product" && d.requiresPickup !== null)
     return "Produto nunca exige recolha.";
   if (d.itemType === "equipment" && d.enabled && d.requiresPickup === null)
