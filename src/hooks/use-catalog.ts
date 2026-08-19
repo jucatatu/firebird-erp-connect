@@ -43,10 +43,10 @@ export function useUpsertCatalogSetting() {
         _sort_order: draft.sortOrder,
         _default_quantity: draft.defaultQuantity,
         _quantity_step: draft.quantityStep,
-        _display_name: draft.displayName?.trim() ? draft.displayName.trim() : null,
-        _requires_pickup: draft.requiresPickup ?? null,
-        _expected_version: draft.expectedVersion ?? null,
-        _logistics_type: draft.logisticsType ?? null,
+        _display_name: draft.displayName?.trim() ? draft.displayName.trim() : undefined,
+        _requires_pickup: draft.requiresPickup ?? undefined,
+        _expected_version: draft.expectedVersion ?? undefined,
+        _logistics_type: draft.logisticsType ?? undefined,
       });
 
       if (error) throw new Error(translateCatalogError(error.message));
