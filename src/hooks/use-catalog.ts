@@ -40,7 +40,7 @@ export function useUpsertCatalogSetting() {
         _erp_description_snapshot: draft.erpDescriptionSnapshot.trim(),
         _enabled: draft.enabled,
         _company_ids: draft.companyIds,
-        _sort_order: draft.sortOrder,
+        _sort_order: draft.sortOrder as any,
         _default_quantity: draft.defaultQuantity,
         _quantity_step: draft.quantityStep,
         _display_name: draft.displayName?.trim() ? draft.displayName.trim() : undefined,
@@ -52,15 +52,34 @@ export function useUpsertCatalogSetting() {
       if (error) throw new Error(translateCatalogError(error.message));
       if (!data) throw new Error("Falha ao persistir alterações.");
 
-      // Confirmação via SELECT para garantir roundtrip
+      // ROUNDTRIP REAL — Verificação de valores persistidos
       const { data: verified, error: verifyError } = await supabase
         .from("order_catalog_settings")
         .select("*")
-        .eq("id", (data as any).id)
+        .eq("item_type", draft.itemType)
+        .eq("erp_item_id", draft.erpItemId)
         .single();
 
       if (verifyError || !verified) {
         throw new Error("Erro de verificação: item não encontrado após salvar.");
+      }
+
+      // Comparação rigorosa campo a campo
+      const normalizeIds = (ids: number[]) => [...ids].sort().join(",");
+      const mismatch =
+        verified.enabled !== draft.enabled ||
+        normalizeIds(verified.company_ids) !== normalizeIds(draft.companyIds) ||
+        (verified.display_name || null) !== (draft.displayName?.trim() || null) ||
+        Number(verified.default_quantity) !== Number(draft.defaultQuantity) ||
+        Number(verified.quantity_step) !== Number(draft.quantityStep) ||
+        (draft.itemType === "product"
+          ? verified.logistics_type !== (draft.logisticsType || "packaged") ||
+            verified.requires_pickup !== null
+          : verified.requires_pickup !== draft.requiresPickup);
+
+      if (mismatch) {
+        console.error("Persistence Mismatch:", { draft, verified });
+        throw new Error("catalog_setting_persistence_mismatch");
       }
 
       return verified as CatalogSetting;
@@ -99,10 +118,31 @@ export function useReorderCatalogItems() {
       }
 
       if (!data) throw new Error("Falha ao reordenar catálogo.");
-      return data as unknown as CatalogSetting[];
+      
+      const returnedIds = (data as any[]).map(d => d.id);
+      if (JSON.stringify(returnedIds) !== JSON.stringify(orderedIds)) {
+        throw new Error("catalog_reorder_persistence_mismatch");
+      }
+
+      // SELECT REAL para confirmar persistência
+      const { data: databaseData, error: dbError } = await supabase
+        .from("order_catalog_settings")
+        .select("*")
+        .eq("item_type", itemType)
+        .order("sort_order", { ascending: true })
+        .order("erp_item_id", { ascending: true });
+
+      if (dbError || !databaseData) throw new Error("Erro ao verificar reordenação no banco.");
+
+      const databaseIds = databaseData.map(d => d.id);
+      if (JSON.stringify(databaseIds) !== JSON.stringify(orderedIds)) {
+        throw new Error("catalog_reorder_roundtrip_mismatch");
+      }
+
+      return databaseData as unknown as CatalogSetting[];
     },
     onSuccess: (data) => {
-      // Atualiza o cache imediatamente com o retorno da RPC
+      // Atualiza o cache imediatamente com o retorno confirmado
       queryClient.setQueryData(["catalog", "settings", data[0]?.item_type || "all"], data);
       queryClient.invalidateQueries({ queryKey: ["catalog", "settings"] });
     },
