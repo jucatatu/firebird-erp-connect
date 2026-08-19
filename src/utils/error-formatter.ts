@@ -16,7 +16,13 @@ export function formatSupabaseError(error: any): string {
 
   // Códigos de roundtrip internos
   if (message === "catalog_reorder_conflict") {
-    return "Conflito ao salvar a ordem: o catálogo foi alterado por outro administrador.\nCódigo: catalog_reorder_conflict";
+    let msg = "Conflito ao salvar a ordem. O catálogo mudou desde a última leitura.\nCódigo: catalog_reorder_conflict";
+    if (details) msg += `\nDetalhe: ${details}`;
+    if (hint) msg += `\nHint: ${hint}`;
+    return msg;
+  }
+  if (message === "catalog_reorder_snapshot_conflict") {
+    return "O catálogo mudou enquanto você estava ordenando. Atualize a lista e tente novamente.\nCódigo: catalog_reorder_snapshot_conflict";
   }
   if (message === "catalog_reorder_persistence_mismatch") {
     return "Falha na persistência: a ordem salva diverge da solicitada.\nCódigo: catalog_reorder_persistence_mismatch";
