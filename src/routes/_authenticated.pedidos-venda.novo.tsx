@@ -7,6 +7,8 @@ import type { User } from "@supabase/supabase-js";
 import { useMyRoles, useMyProfile, useMyCompanies } from "@/hooks/use-auth";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { classifyOrderProduct, type OrderProductGroup } from "@/utils/order-product-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1879,24 +1881,63 @@ function NewOrderPage() {
             <Card className="shadow-none border-none sm:border">
               <CardHeader className="pb-3"><CardTitle className="text-xl">1. Produtos</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Filtrar produtos..." className="pl-9" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {((productsQ.data as any)?.data?.products || []).filter((p: any) => 
-                    !productSearch || p.description?.toLowerCase().includes(productSearch.toLowerCase())
-                  ).map((p: any) => (
-                    <ProductCard 
-                      key={p.id}
-                      product={p}
-                      clientId={clientId!}
-                      addItem={addItem}
-                      removeItem={removeItem}
-                      updateItemPrice={updateItemPrice}
-                      cartItem={items.find(it => it.productId === p.id)}
-                    />
-                  ))}
+                <div className="flex flex-col divide-y">
+                  {(() => {
+                    const products = (productsQ.data as any)?.data?.products || [];
+                    const grouped = products.reduce((acc: any, p: any) => {
+                      const group = classifyOrderProduct(p);
+                      if (!acc[group]) acc[group] = [];
+                      acc[group].push(p);
+                      return acc;
+                    }, {} as Record<OrderProductGroup, any[]>);
+
+                    const order: OrderProductGroup[] = ["CHOPP", "GROWLER", "GARRAFA", "OUTROS"];
+
+                    return (
+                      <Accordion type="multiple" defaultValue={["CHOPP"]} className="w-full">
+                        {order.map((group) => {
+                          const groupItems = grouped[group] || [];
+                          if (groupItems.length === 0) return null;
+
+                          const selectedCount = groupItems.filter((p: any) => items.some(ci => ci.productId === p.id)).length;
+
+                          return (
+                            <AccordionItem key={group} value={group} className="border-b last:border-b-0">
+                              <AccordionTrigger className="px-4 py-4 hover:no-underline hover:bg-muted/30 transition-colors [&[data-state=open]]:bg-muted/50">
+                                <div className="flex flex-col text-left">
+                                  <span className="text-sm font-bold tracking-tight text-foreground uppercase">{group === "GARRAFA" ? "GARRAFAS" : group}</span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">{groupItems.length} produtos</span>
+                                    {selectedCount > 0 && (
+                                      <>
+                                        <span className="text-[10px] text-muted-foreground">•</span>
+                                        <span className="text-[10px] font-bold text-primary uppercase">{selectedCount} selecionado{selectedCount > 1 ? 's' : ''}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="p-4 bg-muted/5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {groupItems.map((product: any) => (
+                                    <ProductCard
+                                      key={product.id}
+                                      product={product}
+                                      clientId={clientId!}
+                                      addItem={addItem}
+                                      removeItem={removeItem}
+                                      updateItemPrice={updateItemPrice}
+                                      cartItem={items.find(it => it.productId === product.id)}
+                                    />
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
