@@ -67,14 +67,14 @@ const bodySchema = z
     deliveryAddress: z
       .object({
         formattedAddress: z.string().optional(),
-        street: z.string().optional(),
-        number: z.string().optional(),
-        neighborhood: z.string().optional(),
-        city: z.string().optional(),
-        state: z.string().optional(),
-        postalCode: z.string().optional(),
-        complement: z.string().optional(),
-        reference: z.string().optional(),
+        street: z.string().max(LIMITS.RUA, `Máximo ${LIMITS.RUA} caracteres.`).optional(),
+        number: z.string().max(LIMITS.NUMERO, `Máximo ${LIMITS.NUMERO} caracteres.`).optional(),
+        neighborhood: z.string().max(LIMITS.BAIRRO, `Máximo ${LIMITS.BAIRRO} caracteres.`).optional(),
+        city: z.string().max(LIMITS.CIDADE, `Máximo ${LIMITS.CIDADE} caracteres.`).optional(),
+        state: z.string().max(LIMITS.UF, `Máximo ${LIMITS.UF} caracteres.`).optional(),
+        postalCode: z.string().regex(/^\d{5}-?\d{3}$/, "CEP deve ter 8 dígitos (ex: 89250000 ou 89250-000).").optional(),
+        complement: z.string().max(LIMITS.COMP, `Máximo ${LIMITS.COMP} caracteres.`).optional(),
+        reference: z.string().max(LIMITS.OBS, `Máximo ${LIMITS.OBS} caracteres.`).optional(),
         latitude: z.number().nullable().optional(),
         longitude: z.number().nullable().optional(),
       })

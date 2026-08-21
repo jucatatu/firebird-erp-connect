@@ -115,13 +115,23 @@ function resolveDeliveryAddress(payload, client) {
       });
     }
 
+    const zip = String(addr.postalCode).replace(/\D/g, "");
+    if (zip.length !== 8) {
+      throw new AppError({
+        message: "CEP do endereço de entrega deve possuir 8 dígitos.",
+        statusCode: 422,
+        code: "DELIVERY_ADDRESS_INCOMPLETE",
+        retryable: false
+      });
+    }
+
     return {
       street: String(addr.street).trim(),
       number: String(addr.number).trim(),
       district: String(addr.neighborhood).trim(),
       city: String(addr.city).trim(),
-      state: String(addr.state).trim(),
-      zip: String(addr.postalCode).replace(/\D/g, "").slice(0, 8),
+      state: String(addr.state).trim().toUpperCase(),
+      zip: zip,
       complement: addr.complement ? String(addr.complement).trim() : null
     };
   }
@@ -131,16 +141,20 @@ function resolveDeliveryAddress(payload, client) {
   const cRequired = ["street", "number", "district", "city", "state", "zip"];
   
   // Normalizamos zip do cadastro também para garantir 8 dígitos
-  const normalizedZip = cAddr.zip || cAddr.postalCode;
+  const rawZip = cAddr.zip || cAddr.postalCode;
+  const normalizedZip = String(rawZip || "").replace(/\D/g, "");
   
   const cMissing = cRequired.filter(f => {
-    if (f === "zip") return !normalizedZip || String(normalizedZip).replace(/\D/g, "").length < 8;
+    if (f === "zip") return normalizedZip.length !== 8;
     return !cAddr[f] || String(cAddr[f]).trim() === "";
   });
 
   if (cMissing.length > 0) {
+    const isZipError = normalizedZip.length !== 8 && !cMissing.includes("zip") === false;
     throw new AppError({
-      message: "Endereço cadastral do cliente está incompleto para entrega.",
+      message: isZipError && cMissing.length === 1 
+        ? "CEP cadastral do cliente deve possuir 8 dígitos."
+        : "Endereço cadastral do cliente está incompleto para entrega.",
       statusCode: 422,
       code: "CLIENT_ADDRESS_INCOMPLETE",
       retryable: false,
@@ -153,8 +167,8 @@ function resolveDeliveryAddress(payload, client) {
     number: String(cAddr.number).trim(),
     district: String(cAddr.district).trim(),
     city: String(cAddr.city).trim(),
-    state: String(cAddr.state).trim(),
-    zip: String(normalizedZip).replace(/\D/g, "").slice(0, 8),
+    state: String(cAddr.state).trim().toUpperCase(),
+    zip: normalizedZip,
     complement: cAddr.complement ? String(cAddr.complement).trim() : null
   };
 }
