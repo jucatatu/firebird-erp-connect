@@ -114,6 +114,8 @@ test("resolveDeliveryAddress: erro se CEP client inválido (source=client)", () 
     () => ordersService.testable_resolveDeliveryAddress(payload, client),
     (e) => e.code === "CLIENT_ADDRESS_INCOMPLETE" && e.statusCode === 422
   );
+});
+
 
 test("resolveDeliveryAddress: erro 422 se custom incompleto (falta cidade)", () => {
   const payload = basePayload({
