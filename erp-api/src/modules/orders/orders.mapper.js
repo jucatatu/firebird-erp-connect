@@ -96,25 +96,12 @@ function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
  * Monta o array posicional para SP_CAD_ORDEM_VENDA_COMPLETO.
  * Exatamente 30 parâmetros conforme contrato Firebird.
  */
-function buildCompleteProcParams({ payload, companyId, clientContext, totals }) {
+function buildCompleteProcParams({ payload, companyId, clientContext, deliveryAddress, totals }) {
   // Regra de Endereço Sprint 8.9.43.2:
-  // 1. Se deliveryAddressSource for 'custom', usamos rigorosamente o payload.deliveryAddress
-  // 2. Caso contrário ('client' ou undefined), usamos o clientContext (cadastro oficial)
-  
-  let addr;
-  if (payload.deliveryAddressSource === "custom" && payload.deliveryAddress) {
-    addr = {
-      state: payload.deliveryAddress.state,
-      city: payload.deliveryAddress.city,
-      district: payload.deliveryAddress.neighborhood,
-      street: payload.deliveryAddress.street,
-      number: payload.deliveryAddress.number,
-      complement: payload.deliveryAddress.complement,
-      zip: payload.deliveryAddress.postalCode
-    };
-  } else {
-    addr = clientContext?.address || {};
-  }
+  // Agora o endereço vem resolvido pelo Service.
+  // Fallback interno para compatibilidade controlada caso o parâmetro não venha.
+  const addr = deliveryAddress || clientContext?.address || {};
+
 
   return [
     /*  0 ID_EMPRESA               */ companyId,

@@ -6,6 +6,10 @@ const assert = require("node:assert/strict");
 const { validateCreateOrder } = require("../src/modules/orders/orders.validator");
 const mapper = require("../src/modules/orders/orders.mapper");
 
+// Mock de AppError para testes unitários isolados se necessário, 
+// mas aqui usaremos a implementação real do service.js
+const ordersService = require("../src/modules/orders/orders.service");
+
 function basePayload(overrides = {}) {
   return {
     companyId: 1,
@@ -15,7 +19,7 @@ function basePayload(overrides = {}) {
     paymentTermId: 1,
     paymentMethodId: 1,
     deliver: true,
-    deliveryAt: "2026-07-25T14:30:00.000Z",
+    deliveryAt: "2026-08-21T09:37:00",
     returnEquipment: false,
     returnAt: null,
     freightValue: 0,
@@ -26,116 +30,144 @@ function basePayload(overrides = {}) {
   };
 }
 
-test("validator: aceita deliveryAddress customizado", () => {
-  const customAddr = {
-    street: "Rua Teste",
-    number: "123",
-    neighborhood: "Bairro Novo",
-    city: "Jaraguá do Sul",
-    state: "SC",
-    postalCode: "89250000"
-  };
-  
-  const p = validateCreateOrder(basePayload({
-    deliveryAddressSource: "custom",
-    deliveryAddress: customAddr
-  }));
-  
-  assert.equal(p.deliveryAddressSource, "custom");
-  assert.equal(p.deliveryAddress.street, "Rua Teste");
-});
-
-test("mapper: usa deliveryAddress customizado quando source=custom", () => {
-  const customAddr = {
-    street: "Rua Custom",
-    number: "99",
-    neighborhood: "Bairro Custom",
-    city: "Cidade Custom",
-    state: "PR",
-    postalCode: "12345678"
-  };
-  
+test("resolveDeliveryAddress: usa custom completo com sucesso", () => {
   const payload = basePayload({
     deliveryAddressSource: "custom",
-    deliveryAddress: customAddr
-  });
-  
-  const clientContext = {
-    address: {
-      street: "Rua Original",
-      number: "1",
-      district: "Centro",
-      city: "Origem",
+    deliveryAddress: {
+      street: "Rua B",
+      number: "500",
+      neighborhood: "Bairro Novo",
+      city: "Jaraguá do Sul",
       state: "SC",
-      zip: "88888888"
+      postalCode: "89250-000"
     }
-  };
-  
-  const params = mapper.buildCompleteProcParams({
-    payload,
-    companyId: 1,
-    clientContext,
-    totals: { total: 100 }
   });
   
-  // Mapeamento buildCompleteProcParams:
-  // 14 UF, 15 CIDADE, 16 BAIRRO, 17 RUA, 18 NUMERO, 20 CEP
-  assert.equal(params[14], "PR");
-  assert.equal(params[15], "Cidade Custom");
-  assert.equal(params[16], "Bairro Custom");
-  assert.equal(params[17], "Rua Custom");
-  assert.equal(params[18], "99");
-  assert.equal(params[20], "12345678");
+  const addr = ordersService.testable_resolveDeliveryAddress(payload, {});
+  assert.equal(addr.street, "Rua B");
+  assert.equal(addr.zip, "89250000"); // Normalizado
+  assert.equal(addr.district, "Bairro Novo");
 });
 
-test("mapper: usa endereço do cliente quando source=client", () => {
+test("resolveDeliveryAddress: erro 422 se custom incompleto (falta cidade)", () => {
   const payload = basePayload({
-    deliveryAddressSource: "client",
-    deliveryAddress: { street: "Ignorar" }
-  });
-  
-  const clientContext = {
-    address: {
-      street: "Rua Cliente",
-      number: "10",
-      district: "Bairro Cliente",
-      city: "Cidade Cliente",
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B",
+      number: "500",
+      neighborhood: "Bairro",
       state: "SC",
-      zip: "89000000"
+      postalCode: "89250000"
+      // city faltando
     }
-  };
-  
-  const params = mapper.buildCompleteProcParams({
-    payload,
-    companyId: 1,
-    clientContext,
-    totals: { total: 100 }
   });
   
-  assert.equal(params[17], "Rua Cliente");
-  assert.equal(params[18], "10");
+  assert.throws(
+    () => ordersService.testable_resolveDeliveryAddress(payload, {}),
+    (e) => e.code === "DELIVERY_ADDRESS_INCOMPLETE" && e.statusCode === 422
+  );
 });
 
-test("mapper: preserva horário na DATA_PREV_ENTREGA", () => {
-  const isoDate = "2026-07-25T14:30:00.000Z";
-  const payload = basePayload({ deliveryAt: isoDate });
+test("resolveDeliveryAddress: permite cadastro incompleto se custom estiver ok", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B",
+      number: "500",
+      neighborhood: "Bairro",
+      city: "Jaraguá",
+      state: "SC",
+      postalCode: "89250000"
+    }
+  });
+  
+  const client = {
+    address: { street: "Rua Incompleta" } // Cadastro falharia se fosse source=client
+  };
+  
+  const addr = ordersService.testable_resolveDeliveryAddress(payload, client);
+  assert.equal(addr.street, "Rua B");
+});
+
+test("resolveDeliveryAddress: erro se source=client e cadastro estiver incompleto", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "client"
+  });
+  
+  const client = {
+    address: { street: "Rua A", city: "C" } // Faltam campos
+  };
+  
+  assert.throws(
+    () => ordersService.testable_resolveDeliveryAddress(payload, client),
+    (e) => e.code === "CLIENT_ADDRESS_INCOMPLETE"
+  );
+});
+
+test("resolveDeliveryAddress: retirada (deliver=false) não exige endereço", () => {
+  const payload = basePayload({
+    deliver: false,
+    deliveryAddressSource: "custom",
+    deliveryAddress: null // Seria erro se deliver=true
+  });
+  
+  const addr = ordersService.testable_resolveDeliveryAddress(payload, {});
+  assert.strictEqual(addr, null);
+});
+
+test("mapper: toDateCivil preserva horário civil local 09:37", () => {
+  const input = "2026-08-21T09:37";
+  const date = mapper.toDateCivil(input);
+  
+  assert.equal(date.getFullYear(), 2026);
+  assert.equal(date.getMonth(), 7); // Agosto
+  assert.equal(date.getDate(), 21);
+  assert.equal(date.getHours(), 9);
+  assert.equal(date.getMinutes(), 37);
+});
+
+test("mapper: toDateCivil preserva horário civil local 16:45", () => {
+  const input = "2026-08-21T16:45";
+  const date = mapper.toDateCivil(input);
+  
+  assert.equal(date.getHours(), 16);
+  assert.equal(date.getMinutes(), 45);
+});
+
+test("mapper: returnAt preserva horário 11:20", () => {
+  const payload = basePayload({
+    returnAt: "2026-08-23T11:20"
+  });
   
   const params = mapper.buildCompleteProcParams({
     payload,
     companyId: 1,
     clientContext: {},
+    deliveryAddress: { street: "X" },
     totals: { total: 100 }
   });
   
-  const dateVal = params[7];
-  assert.ok(dateVal instanceof Date, "Deve ser uma instância de Date");
+  const returnDate = params[11]; // DATA_PREV_RETORNO
+  assert.equal(returnDate.getHours(), 11);
+  assert.equal(returnDate.getMinutes(), 20);
+});
+
+test("mapper: ENTREGAR é 1 para entrega e NULL para retirada", () => {
+  const pEntrega = mapper.buildCompleteProcParams({
+    payload: basePayload({ deliver: true }),
+    companyId: 1,
+    clientContext: {},
+    deliveryAddress: { street: "X" },
+    totals: { total: 100 }
+  });
+  assert.strictEqual(pEntrega[6], 1);
   
-  // A toDateCivil no mapper.js usa parsing que deve manter o horário
-  // Dependendo do fuso do servidor de testes, validamos apenas se não resetou para 00:00 ou 12:00
-  // a menos que a toDateCivil explicitamente faça o parse manual preservando civil time.
-  const hours = dateVal.getUTCHours();
-  const minutes = dateVal.getUTCMinutes();
-  
-  assert.equal(hours, 14, "Deve manter a hora 14");
-  assert.equal(minutes, 30, "Deve manter os minutos 30");
+  const pRetirada = mapper.buildCompleteProcParams({
+    payload: basePayload({ deliver: false }),
+    companyId: 1,
+    clientContext: {},
+    deliveryAddress: null,
+    totals: { total: 100 }
+  });
+  assert.strictEqual(pRetirada[6], null);
 });

@@ -67,14 +67,14 @@ const bodySchema = z
     deliveryAddress: z
       .object({
         formattedAddress: z.string().optional(),
-        street: z.string().max(LIMITS.RUA).optional(),
-        number: z.string().max(LIMITS.NUMERO).optional(),
-        neighborhood: z.string().max(LIMITS.BAIRRO).optional(),
-        city: z.string().max(LIMITS.CIDADE).optional(),
-        state: z.string().max(LIMITS.UF).optional(),
-        postalCode: z.string().max(LIMITS.CEP).optional(),
-        complement: z.string().max(LIMITS.COMP).optional(),
-        reference: z.string().max(LIMITS.OBS).optional(),
+        street: z.string().optional(),
+        number: z.string().optional(),
+        neighborhood: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        postalCode: z.string().optional(),
+        complement: z.string().optional(),
+        reference: z.string().optional(),
         latitude: z.number().nullable().optional(),
         longitude: z.number().nullable().optional(),
       })

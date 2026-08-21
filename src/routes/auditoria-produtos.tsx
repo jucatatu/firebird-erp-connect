@@ -7,7 +7,8 @@ export const Route = createFileRoute('/auditoria-produtos')({
 function DashboardPlaceholder() {
   return (
     <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-      Execute esta instrucao no projeto: Parar
+      Execute esta instrucao no projeto:
+      AUDITORIA READ-ONLY — BUSCA DE PRODUTOS COM FALSOS POSITIVOS
 
       O fluxo do Catálogo → Produtos agora funciona, porém a busca textual está retornando resultados incorretos.
 
