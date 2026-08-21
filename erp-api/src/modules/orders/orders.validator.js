@@ -64,10 +64,27 @@ const bodySchema = z
     notes: z.string().max(LIMITS.OBS).nullable().optional().default(null),
     items: z.array(itemSchema).min(1, "O pedido deve ter pelo menos 1 item."),
     equipments: z.array(equipmentSchema).default([]),
-    // operationId/clientRequestId para idempotência (opcional no payload, 
-    // preferimos o header Idempotency-Key já implementado).
+    deliveryAddress: z
+      .object({
+        formattedAddress: z.string().optional(),
+        street: z.string().max(LIMITS.RUA).optional(),
+        number: z.string().max(LIMITS.NUMERO).optional(),
+        neighborhood: z.string().max(LIMITS.BAIRRO).optional(),
+        city: z.string().max(LIMITS.CIDADE).optional(),
+        state: z.string().max(LIMITS.UF).optional(),
+        postalCode: z.string().max(LIMITS.CEP).optional(),
+        complement: z.string().max(LIMITS.COMP).optional(),
+        reference: z.string().max(LIMITS.OBS).optional(),
+        latitude: z.number().nullable().optional(),
+        longitude: z.number().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
+    deliveryAddressConfirmed: z.boolean().optional(),
+    deliveryAddressSource: z.enum(["client", "custom"]).optional(),
   })
   .strict({ message: "Campos desconhecidos não são permitidos no payload." });
+
 
 function zodIssuesToDetails(issues) {
   return issues.map((i) => ({

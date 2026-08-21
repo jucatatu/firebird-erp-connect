@@ -154,6 +154,7 @@ export interface CreateOrderInput {
   deliveryAddressConfirmed?: boolean;
   deliveryAddressSource?: "client" | "custom";
 
+
   items: Array<{ 
     productId: number; 
     description?: string;
@@ -181,18 +182,17 @@ function buildErpCreateOrderPayload(input: CreateOrderInput, sellerId: number) {
     paymentTermId: input.paymentTermId as number,
     paymentMethodId: input.paymentMethodId as number,
     deliver: input.deliver,
-    deliveryAt: input.deliveryAt.includes('T') ? input.deliveryAt.split('T')[0] : input.deliveryAt,
+    deliveryAt: input.deliveryAt,
     returnEquipment: input.returnEquipment,
-    returnAt: (input.returnAt && input.returnAt.includes('T')) ? input.returnAt.split('T')[0] : (input.returnAt || null),
+    returnAt: input.returnAt || null,
+
 
     freightValue: input.freightValue ?? 0,
     notes: input.notes ?? null,
-    // deliveryAddress: NÃO vazar para o payload estrito se o ERP não aceita.
-    // Sprint 8.9.38: O contrato do ERP Node é estrito. 
-    // Se o backend Node não foi alterado para aceitar esses campos, não enviamos.
-    // Auditar se o Node aceita 'deliveryAddress' (provavelmente não, ou apenas campos específicos).
-    // Vou remover o envio desses campos operacionais de UI para o ERP.
-    // Manter apenas o essencial que o ERP espera (baseado no validator do Node).
+    deliveryAddress: input.deliveryAddress,
+    deliveryAddressConfirmed: input.deliveryAddressConfirmed,
+    deliveryAddressSource: input.deliveryAddressSource,
+
 
     items: input.items.map(item => ({
       productId: item.productId,
