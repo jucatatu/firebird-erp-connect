@@ -45,9 +45,75 @@ test("resolveDeliveryAddress: usa custom completo com sucesso", () => {
   
   const addr = ordersService.testable_resolveDeliveryAddress(payload, {});
   assert.equal(addr.street, "Rua B");
-  assert.equal(addr.zip, "89250000"); // Normalizado
+  assert.equal(addr.zip, "89250000"); // Normalizado de 89250-000
+  assert.equal(addr.state, "SC");
   assert.equal(addr.district, "Bairro Novo");
 });
+
+test("resolveDeliveryAddress: normaliza CEP sem máscara 89250000", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B",
+      number: "500",
+      neighborhood: "B",
+      city: "J",
+      state: "sc",
+      postalCode: "89250000"
+    }
+  });
+  
+  const addr = ordersService.testable_resolveDeliveryAddress(payload, {});
+  assert.equal(addr.zip, "89250000");
+  assert.equal(addr.state, "SC"); // Uppercase
+});
+
+test("resolveDeliveryAddress: erro se CEP custom curto (123)", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B", number: "500", neighborhood: "B", city: "J", state: "SC",
+      postalCode: "123"
+    }
+  });
+  
+  assert.throws(
+    () => ordersService.testable_resolveDeliveryAddress(payload, {}),
+    (e) => e.code === "DELIVERY_ADDRESS_INCOMPLETE" && e.statusCode === 422
+  );
+});
+
+test("resolveDeliveryAddress: erro se CEP custom longo (123456789)", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B", number: "500", neighborhood: "B", city: "J", state: "SC",
+      postalCode: "123456789"
+    }
+  });
+  
+  assert.throws(
+    () => ordersService.testable_resolveDeliveryAddress(payload, {}),
+    (e) => e.code === "DELIVERY_ADDRESS_INCOMPLETE" && e.statusCode === 422
+  );
+});
+
+test("resolveDeliveryAddress: erro se CEP client inválido (source=client)", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "client"
+  });
+  
+  const client = {
+    address: { 
+      street: "Rua A", number: "1", district: "B", city: "C", state: "S",
+      zip: "123" // Inválido
+    }
+  };
+  
+  assert.throws(
+    () => ordersService.testable_resolveDeliveryAddress(payload, client),
+    (e) => e.code === "CLIENT_ADDRESS_INCOMPLETE" && e.statusCode === 422
+  );
 
 test("resolveDeliveryAddress: erro 422 se custom incompleto (falta cidade)", () => {
   const payload = basePayload({
