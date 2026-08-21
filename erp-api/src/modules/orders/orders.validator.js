@@ -72,7 +72,7 @@ const bodySchema = z
         neighborhood: z.string().max(LIMITS.BAIRRO, `Máximo ${LIMITS.BAIRRO} caracteres.`).optional(),
         city: z.string().max(LIMITS.CIDADE, `Máximo ${LIMITS.CIDADE} caracteres.`).optional(),
         state: z.string().max(LIMITS.UF, `Máximo ${LIMITS.UF} caracteres.`).optional(),
-        postalCode: z.string().regex(/^\d{5}-?\d{3}$/, "CEP deve ter 8 dígitos (ex: 89250000 ou 89250-000).").optional(),
+        postalCode: z.string().max(12, "CEP inválido.").optional(),
         complement: z.string().max(LIMITS.COMP, `Máximo ${LIMITS.COMP} caracteres.`).optional(),
         reference: z.string().max(LIMITS.OBS, `Máximo ${LIMITS.OBS} caracteres.`).optional(),
         latitude: z.number().nullable().optional(),
