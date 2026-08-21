@@ -116,6 +116,21 @@ test("resolveDeliveryAddress: erro se CEP client inválido (source=client)", () 
   );
 });
 
+test("validator: permite CEP semanticamente incorreto estruturalmente", () => {
+  const payload = basePayload({
+    deliveryAddressSource: "custom",
+    deliveryAddress: {
+      street: "Rua B", number: "500", neighborhood: "B", city: "J", state: "SC",
+      postalCode: "123" // Semanticamente incorreto, mas estruturalmente string ok para Zod
+    }
+  });
+  
+  // Não deve lançar VALIDATION_ERROR (400)
+  const validated = validateCreateOrder(payload);
+  assert.equal(validated.deliveryAddress.postalCode, "123");
+});
+
+
 
 test("resolveDeliveryAddress: erro 422 se custom incompleto (falta cidade)", () => {
   const payload = basePayload({
