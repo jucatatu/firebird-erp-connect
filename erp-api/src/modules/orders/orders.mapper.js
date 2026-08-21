@@ -97,12 +97,24 @@ function resolveCompanyId(payloadCompanyId, clientCompanyId, groupName) {
  * Exatamente 30 parâmetros conforme contrato Firebird.
  */
 function buildCompleteProcParams({ payload, companyId, clientContext, totals }) {
-  // Se o cliente tiver endereço cadastrado, usamos. Se não, tentamos inferir 
-  // do payload ou deixamos nulo se o ERP aceitar.
-  // Conforme o briefing, a Sprint 7 foca na criação segura.
-  // O payload da Sprint 7 NÃO envia endereço (diferente da Fase 2 anterior).
-  // Portanto, buscamos os dados de endereço do clientContext (se disponível).
-  const addr = clientContext?.address || {};
+  // Regra de Endereço Sprint 8.9.43.2:
+  // 1. Se deliveryAddressSource for 'custom', usamos rigorosamente o payload.deliveryAddress
+  // 2. Caso contrário ('client' ou undefined), usamos o clientContext (cadastro oficial)
+  
+  let addr;
+  if (payload.deliveryAddressSource === "custom" && payload.deliveryAddress) {
+    addr = {
+      state: payload.deliveryAddress.state,
+      city: payload.deliveryAddress.city,
+      district: payload.deliveryAddress.neighborhood,
+      street: payload.deliveryAddress.street,
+      number: payload.deliveryAddress.number,
+      complement: payload.deliveryAddress.complement,
+      zip: payload.deliveryAddress.postalCode
+    };
+  } else {
+    addr = clientContext?.address || {};
+  }
 
   return [
     /*  0 ID_EMPRESA               */ companyId,
@@ -113,7 +125,7 @@ function buildCompleteProcParams({ payload, companyId, clientContext, totals }) 
     /*  5 ID_FORMA_PAGAMENTO       */ payload.paymentMethodId,
     /*  6 ENTREGAR                 */ payload.deliver ? 1 : null,
     /*  7 DATA_PREV_ENTREGA        */ toDateCivil(payload.deliveryAt),
-    /*  8 DATA_ENTREGA             */ null, // Criando: data de entrega real é futura
+    /*  8 DATA_ENTREGA             */ null,
     /*  9 BUSCAR_EQUIP             */ payload.returnEquipment ? 1 : 0,
     /* 10 DATA_RETORNO             */ null,
     /* 11 DATA_PREV_RETORNO        */ toDateCivil(payload.returnAt),
@@ -126,8 +138,9 @@ function buildCompleteProcParams({ payload, companyId, clientContext, totals }) 
     /* 17 RUA                      */ truncate(addr.street, LIMITS.RUA),
     /* 18 NUMERO                   */ truncate(addr.number, LIMITS.NUMERO),
     /* 19 COMP                     */ truncate(orNull(addr.complement), LIMITS.COMP),
-    /* 20 CEP                      */ truncate(addr.postalCode || addr.zip, LIMITS.CEP),
+    /* 20 CEP                      */ truncate(addr.zip || addr.postalCode, LIMITS.CEP),
     /* 21 OBS                      */ truncate(orNull(payload.notes), LIMITS.OBS),
+
     /* 22 GERA_COBRANCA (FIXO=1)   */ 1,
     /* 23 SAIDA_ESTOQUE (FIXO=0)   */ 0,
     /* 24 ID_USER (constante)      */ CAD_USER,
