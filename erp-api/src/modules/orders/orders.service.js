@@ -620,4 +620,5 @@ module.exports = {
   getOrderDetail,
   updateOrder,
   newCorrelationId,
+  testable_resolveDeliveryAddress: resolveDeliveryAddress
 };
