@@ -75,18 +75,90 @@ async function validateClient(clientId) {
   // getClientById já lança CLIENT_NOT_FOUND (404) se não existir
   const client = await clientsService.getClientById(clientId);
   
-  // Auditoria: Sprint 7 exige endereço disponível
-  if (!client.address || !client.address.city || !client.address.state) {
-    throw new AppError({
-      message: "Cliente sem endereço completo para entrega.",
-      statusCode: 422,
-      code: "CLIENT_ADDRESS_INCOMPLETE",
-      retryable: false
-    });
-  }
+  // Auditoria Sprint 8.9.43.2: O endereço de entrega agora é resolvido via resolveDeliveryAddress
+  // Não bloqueamos mais o cliente aqui se o endereço cadastral estiver incompleto,
+  // pois ele pode fornecer um endereço 'custom' completo.
 
   return client;
 }
+
+/**
+ * Resolve e valida o endereço de entrega final.
+ */
+function resolveDeliveryAddress(payload, client) {
+  // Se for Retirada (deliver=false), não validamos endereço de entrega
+  if (payload.deliver === false) return null;
+
+  const source = payload.deliveryAddressSource || "client";
+
+  if (source === "custom") {
+    const addr = payload.deliveryAddress;
+    if (!addr) {
+      throw new AppError({
+        message: "Endereço customizado não informado.",
+        statusCode: 422,
+        code: "DELIVERY_ADDRESS_INCOMPLETE",
+        retryable: false
+      });
+    }
+
+    const required = ["street", "number", "neighborhood", "city", "state", "postalCode"];
+    const missing = required.filter(f => !addr[f] || String(addr[f]).trim() === "");
+
+    if (missing.length > 0) {
+      throw new AppError({
+        message: `Endereço customizado incompleto: faltando ${missing.join(", ")}.`,
+        statusCode: 422,
+        code: "DELIVERY_ADDRESS_INCOMPLETE",
+        retryable: false,
+        details: { missing }
+      });
+    }
+
+    return {
+      street: String(addr.street).trim(),
+      number: String(addr.number).trim(),
+      district: String(addr.neighborhood).trim(),
+      city: String(addr.city).trim(),
+      state: String(addr.state).trim(),
+      zip: String(addr.postalCode).replace(/\D/g, "").slice(0, 8),
+      complement: addr.complement ? String(addr.complement).trim() : null
+    };
+  }
+
+  // Fallback para cadastro do cliente (source="client" ou padrão)
+  const cAddr = client.address || {};
+  const cRequired = ["street", "number", "district", "city", "state", "zip"];
+  
+  // Normalizamos zip do cadastro também para garantir 8 dígitos
+  const normalizedZip = cAddr.zip || cAddr.postalCode;
+  
+  const cMissing = cRequired.filter(f => {
+    if (f === "zip") return !normalizedZip || String(normalizedZip).replace(/\D/g, "").length < 8;
+    return !cAddr[f] || String(cAddr[f]).trim() === "";
+  });
+
+  if (cMissing.length > 0) {
+    throw new AppError({
+      message: "Endereço cadastral do cliente está incompleto para entrega.",
+      statusCode: 422,
+      code: "CLIENT_ADDRESS_INCOMPLETE",
+      retryable: false,
+      details: { missing: cMissing }
+    });
+  }
+
+  return {
+    street: String(cAddr.street).trim(),
+    number: String(cAddr.number).trim(),
+    district: String(cAddr.district).trim(),
+    city: String(cAddr.city).trim(),
+    state: String(cAddr.state).trim(),
+    zip: String(normalizedZip).replace(/\D/g, "").slice(0, 8),
+    complement: cAddr.complement ? String(cAddr.complement).trim() : null
+  };
+}
+
 
 /**
  * Valida produtos e resolve preços.
@@ -200,13 +272,18 @@ async function createOrderTransactional({ payload, correlationId }) {
     const total = subtotal + payload.freightValue;
     const totals = { subtotal, total };
 
-    // 6. Criar Cabeçalho via SP_CAD_ORDEM_VENDA_COMPLETO
+    // 6. Resolver Endereço (Sprint 8.9.43.2)
+    const deliveryAddress = resolveDeliveryAddress(payload, client);
+
+    // 7. Criar Cabeçalho via SP_CAD_ORDEM_VENDA_COMPLETO
     const completeParams = mapper.buildCompleteProcParams({
       payload,
       companyId,
       clientContext: client,
+      deliveryAddress,
       totals
     });
+
 
     logger.info({ correlationId, step: "SP_CAD_ORDEM_VENDA_COMPLETO" }, "orders.create: procedure principal");
     const orderId = await repository.callCreateOrderComplete(tx, completeParams);
@@ -490,13 +567,18 @@ async function updateOrder({ orderNumber, payload, correlationId }) {
 
     const orderId = Number(current.ID_ORDENS_VENDA);
 
-    // 7. Atualizar Cabeçalho
+    // 7. Resolver Endereço (Sprint 8.9.43.2)
+    const deliveryAddress = resolveDeliveryAddress(payload, client);
+
+    // 8. Atualizar Cabeçalho
     const updateParams = mapper.buildCompleteProcParams({
       payload,
       companyId,
       clientContext: client,
+      deliveryAddress,
       totals
     });
+
     // Adicionamos a CHAVE = ID_ORDENS_VENDA para a procedure entender que é alteração
     updateParams[25] = orderId; 
 
@@ -538,4 +620,5 @@ module.exports = {
   getOrderDetail,
   updateOrder,
   newCorrelationId,
+  testable_resolveDeliveryAddress: resolveDeliveryAddress
 };
